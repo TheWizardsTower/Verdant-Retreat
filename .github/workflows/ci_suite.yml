@@ -58,7 +58,6 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v2
 
-    steps:
       - name: DreamAnnotate
         uses: alexkar598/DreamAnnotate@v3
         
