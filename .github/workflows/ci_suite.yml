@@ -9,8 +9,8 @@ on:
       - main
 
 env:
-  BYOND_MAJOR: 515
-  BYOND_MINOR: 1636
+  BYOND_MAJOR: 516
+  BYOND_MINOR: 1681
   SPACEMAN_DMM_VERSION: suite-1.9
 
 jobs:
@@ -61,7 +61,13 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v2
-      
+
+      - name: Install curl
+        run: |
+          sudo dpkg --add-architecture i386
+          sudo apt update || true
+          sudo apt install -o APT::Immediate-Configure=false curl:i386
+
       - name: Restore BYOND cache
         uses: actions/cache@v4
         with:
