@@ -10,7 +10,7 @@ on:
 
 env:
   BYOND_MAJOR: 516
-  BYOND_MINOR: 1682
+  BYOND_MINOR: 1681
   SPACEMAN_DMM_VERSION: suite-1.9
 
 jobs:
@@ -43,7 +43,7 @@ jobs:
           tools/bootstrap/python -c ''
       - name: Run Linters
         run: |
-          bash tools/ci/check_filedirs.sh roguetown.dme
+          bash tool/sci/check_filedirs.sh roguetown.dme
           bash tools/ci/check_changelogs.sh
           find . -name "*.php" -print0 | xargs -0 -n1 php -l
           # bash tools/ci/check_grep.sh # TODO: fix indentation etc
@@ -61,7 +61,13 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v2
-      
+
+      - name: Install curl
+        run: |
+          sudo dpkg --add-architecture i386
+          sudo apt update || true
+          sudo apt install -o APT::Immediate-Configure=false curl:i386
+
       - name: Restore BYOND cache
         uses: actions/cache@v4
         with:
