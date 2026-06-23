@@ -43,7 +43,7 @@ jobs:
           tools/bootstrap/python -c ''
       - name: Run Linters
         run: |
-          bash tool/sci/check_filedirs.sh roguetown.dme
+          bash tools/ci/check_filedirs.sh roguetown.dme
           bash tools/ci/check_changelogs.sh
           find . -name "*.php" -print0 | xargs -0 -n1 php -l
           # bash tools/ci/check_grep.sh # TODO: fix indentation etc
