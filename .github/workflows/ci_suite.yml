@@ -43,27 +43,20 @@ jobs:
           tools/bootstrap/python -c ''
       - name: Run Linters
         run: |
-          bash tools/ci/check_filedirs.sh roguetown.dme
+          bash tool/sci/check_filedirs.sh roguetown.dme
           bash tools/ci/check_changelogs.sh
           find . -name "*.php" -print0 | xargs -0 -n1 php -l
           # bash tools/ci/check_grep.sh # TODO: fix indentation etc
           # tools/bootstrap/python tools/ci/validate_dme.py < roguetown.dme # TODO: fix unincluded files
           tools/bootstrap/python -m dmi.test
           tools/bootstrap/python -m mapmerge2.dmm_test
-          ~/dreamchecker > ${GITHUB_WORKSPACE}/output-annotations.txt 2>&1
-      - name: DreamAnnotate 
-        uses: alexkar598/DreamAnnotate@v3
-        if: always()
-        with:
-          outputFile: output-annotations.txt
+          ~/dreamchecker 2>&1 | bash tools/ci/annotate_dm.sh
+
   build:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
         uses: actions/checkout@v2
-
-
-        
 
       - name: Install curl
         run: |
