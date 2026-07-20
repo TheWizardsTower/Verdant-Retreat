@@ -303,36 +303,74 @@
 	else if (needs_update == LIGHTING_CHECK_UPDATE)
 		return //nothing's changed
 
+	var/native_ok = VN_OK && GLOB.vn_lighting_native
+	if (native_ok && source_turf)
+		if (source_turf.z > GLOB.vn_light_inited_maxz)
+			native_ok = FALSE
+		else if (light_height >= 1 && source_turf.z + 1 > GLOB.vn_light_inited_maxz)
+			native_ok = FALSE
+
 	var/list/datum/lighting_corner/corners = list()
 	var/list/turf/turfs                    = list()
+	var/list/turf_ids                      = list()
 	var/thing
 	var/turf/T
 	var/datum/lighting_corner/C
 	if (source_turf)
 		var/oldlum = source_turf.luminosity
 		source_turf.luminosity = CEILING(light_outer_range, 1)
-		for(T in view(CEILING(light_outer_range, 1), source_turf))
-			for (thing in T.get_corners(source_turf))
-				C = thing
-				corners[C] = 0
-			turfs += T
-			var/turf/open/transparent/O = T
-			if(istype(O) && light_depth >= 1)
-				var/turf/open/B = get_step_multiz(T, DOWN)
-				if(isopenturf(B))
-					for(thing in B.get_corners(source_turf))
-						C = thing
-						corners[C] = 0
-					turfs += B
-					if(light_depth > 1)
-						if(istype(B, /turf/open/transparent))
-							B = get_step_multiz(B, DOWN)
-							if(isopenturf(B))
-								for(thing in B.get_corners(source_turf))
-									C = thing
-									corners[C] = 0
-								turfs += B
-						if(light_depth > 2)
+		if (native_ok)
+			var/mz = length(SSmapping.multiz_levels)
+			var/has_down1 = light_depth >= 1 && mz && SSmapping.multiz_levels[source_turf.z][Z_LEVEL_DOWN]
+			var/has_down2 = has_down1 && light_depth > 1 && SSmapping.multiz_levels[source_turf.z - 1][Z_LEVEL_DOWN]
+			var/has_down3 = has_down2 && light_depth > 2 && SSmapping.multiz_levels[source_turf.z - 2][Z_LEVEL_DOWN]
+			var/has_up1 = light_height >= 1 && mz && SSmapping.multiz_levels[source_turf.z][Z_LEVEL_UP]
+			for(T in view(CEILING(light_outer_range, 1), source_turf))
+				if((T.dynamic_lighting || T.light_sources) && !T.has_opaque_atom)
+					turf_ids += VN_LIGHT_TURF_ID(T)
+				turfs += T
+				var/turf/open/transparent/O = T
+				if(istype(O) && has_down1)
+					var/turf/open/B = get_step(T, DOWN)
+					if(isopenturf(B))
+						if((B.dynamic_lighting || B.light_sources) && !B.has_opaque_atom)
+							turf_ids += VN_LIGHT_TURF_ID(B)
+						turfs += B
+						if(has_down2)
+							if(istype(B, /turf/open/transparent))
+								B = get_step(B, DOWN)
+								if(isopenturf(B))
+									if((B.dynamic_lighting || B.light_sources) && !B.has_opaque_atom)
+										turf_ids += VN_LIGHT_TURF_ID(B)
+									turfs += B
+						if(has_down3)
+							if(istype(B, /turf/open/transparent))
+								B = get_step(B, DOWN)
+								if(isopenturf(B))
+									if((B.dynamic_lighting || B.light_sources) && !B.has_opaque_atom)
+										turf_ids += VN_LIGHT_TURF_ID(B)
+									turfs += B
+				if(has_up1)
+					var/turf/open/B = get_step(T, UP)
+					if(istype(B, /turf/open/transparent))
+						if((B.dynamic_lighting || B.light_sources) && !B.has_opaque_atom)
+							turf_ids += VN_LIGHT_TURF_ID(B)
+						turfs += B
+		else
+			for(T in view(CEILING(light_outer_range, 1), source_turf))
+				for (thing in T.get_corners(source_turf))
+					C = thing
+					corners[C] = 0
+				turfs += T
+				var/turf/open/transparent/O = T
+				if(istype(O) && light_depth >= 1)
+					var/turf/open/B = get_step_multiz(T, DOWN)
+					if(isopenturf(B))
+						for(thing in B.get_corners(source_turf))
+							C = thing
+							corners[C] = 0
+						turfs += B
+						if(light_depth > 1)
 							if(istype(B, /turf/open/transparent))
 								B = get_step_multiz(B, DOWN)
 								if(isopenturf(B))
@@ -340,13 +378,21 @@
 										C = thing
 										corners[C] = 0
 									turfs += B
-			if(light_height >= 1)
-				var/turf/open/B = get_step_multiz(T, UP)
-				if(istype(B, /turf/open/transparent))
-					for(thing in B.get_corners(source_turf))
-						C = thing
-						corners[C] = 0
-					turfs += B
+							if(light_depth > 2)
+								if(istype(B, /turf/open/transparent))
+									B = get_step_multiz(B, DOWN)
+									if(isopenturf(B))
+										for(thing in B.get_corners(source_turf))
+											C = thing
+											corners[C] = 0
+										turfs += B
+				if(light_height >= 1)
+					var/turf/open/B = get_step_multiz(T, UP)
+					if(istype(B, /turf/open/transparent))
+						for(thing in B.get_corners(source_turf))
+							C = thing
+							corners[C] = 0
+						turfs += B
 		source_turf.luminosity = oldlum
 
 	LAZYINITLIST(affecting_turfs)
@@ -362,14 +408,6 @@
 		T = thing
 		LAZYREMOVE(T.affecting_lights, src)
 
-	var/native_ok = VN_OK && GLOB.vn_lighting_native
-	if (native_ok)
-		for (thing in corners) // z-growth guard: corners past the last vn_light_init are not native-managed, fall back to DM for this source
-			C = thing
-			if (C.z > GLOB.vn_light_inited_maxz)
-				native_ok = FALSE
-				break
-
 	if (native_ok)
 		if (!vn_native_applied && length(effect_str)) // taking over from DM application: zero our DM contribution first
 			for (thing in effect_str)
@@ -377,15 +415,9 @@
 				REMOVE_CORNER(C)
 				LAZYREMOVE(C.affecting, src)
 		effect_str = null
-		var/list/ids = list()
-		for (thing in corners)
-			C = thing
-			if (!C.active)
-				continue
-			ids += C.vn_corner_id
 
 		var/list/evt = SSlighting.vn_light_events
-		evt += VN_LIGHT_EVT_ADD
+		evt += VN_LIGHT_EVT_ADD_TURFS
 		evt += vn_light_id
 		evt += pixel_turf.x
 		evt += pixel_turf.y
@@ -397,8 +429,8 @@
 		evt += lum_r
 		evt += lum_g
 		evt += lum_b
-		evt += length(ids)
-		evt += ids
+		evt += length(turf_ids)
+		evt += turf_ids
 
 		vn_native_applied = TRUE
 	else

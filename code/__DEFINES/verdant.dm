@@ -10,7 +10,7 @@
 // take over. NEVER assume a native call succeeded.
 
 // ABI compatibility number; must match kAbi in the DLL's Exports.cpp.
-#define VERDANT_ABI 1
+#define VERDANT_ABI 2
 
 #ifndef VERDANT_NATIVE
 /* This comment bypasses grep checks */ /var/__verdant_native
@@ -211,13 +211,20 @@ GLOBAL_LIST_EMPTY(vn_bt_tree_ids)
 
 #define VN_LIGHT_EVT_ADD 1
 #define VN_LIGHT_EVT_REMOVE 2
+#define VN_LIGHT_EVT_ADD_TURFS 3
 
 // corner datum x/y are the +-0.5 positions, so round(x*2) is exact.
-#define VN_LIGHT_CORNER_ID(C) (((C.z - 1) * (2 * world.maxx) * (2 * world.maxy)) + ((round(C.y * 2) - 1) * (2 * world.maxx)) + (round(C.x * 2) - 1))
+// Strides are 2*max+1: corner cx2 spans [1, 2*maxx+1], so an even stride
+// would alias the map-edge corner column onto the next row. Must match
+// light::PackCorner in the DLL exactly.
+#define VN_LIGHT_CORNER_ID(C) (((C.z - 1) * (2 * world.maxx + 1) * (2 * world.maxy + 1)) + ((round(C.y * 2) - 1) * (2 * world.maxx + 1)) + (round(C.x * 2) - 1))
+
+// packed (x,y,z) turf identity for ADD_TURFS events; must match light::PackTurf.
+#define VN_LIGHT_TURF_ID(T) (((T.z - 1) * world.maxx * world.maxy) + ((T.y - 1) * world.maxx) + (T.x - 1))
 
 #define vn_light_init(maxx, maxy, maxz) call_ext(VERDANT_NATIVE, "byond:vn_light_init")(maxx, maxy, maxz)
 #define vn_light_reset call_ext(VERDANT_NATIVE, "byond:vn_light_reset")
-/// events: flat [1, source_id, sx,sy,sz, power, inner_range, outer_range, falloff_curve, lum_r, lum_g, lum_b, n, corner_id x n] for ADD/REPLACE, [2, source_id] for REMOVE, concatenated
+/// events: flat [1, source_id, sx,sy,sz, power, inner_range, outer_range, falloff_curve, lum_r, lum_g, lum_b, n, corner_id x n] for ADD/REPLACE, [2, source_id] for REMOVE, [3, ...same header..., n, turf_id x n] for ADD_TURFS (corners derived native-side), concatenated
 #define vn_light_tick_begin(events) call_ext(VERDANT_NATIVE, "byond:vn_light_tick_begin")(events)
 /// -> [n, (corner_id, delta_r, delta_g, delta_b) x n] or an empty list while the tick is still running
 #define vn_light_tick_collect call_ext(VERDANT_NATIVE, "byond:vn_light_tick_collect")
@@ -227,8 +234,10 @@ GLOBAL_VAR_INIT(vn_lighting_native, FALSE)
 /// world.maxz as of the last successful vn_light_init; corners on z beyond
 /// this are not native-managed (z-levels can be added at runtime).
 GLOBAL_VAR_INIT(vn_light_inited_maxz, 0)
-/// "[VN_LIGHT_CORNER_ID]" -> /datum/lighting_corner, registered in New()
-GLOBAL_LIST_EMPTY(vn_light_corners)
+/// VN_LIGHT_CORNER_ID (numeric key) -> /datum/lighting_corner, registered in New().
+/// An alist: numeric keys are legal and fast, but it cannot be for-looped or
+/// indexed positionally — iterate SSlighting.all_corners instead.
+GLOBAL_VAR_INIT(vn_light_corners, alist())
 /// All live /datum/light_source instances, maintained in New()/Destroy()
 GLOBAL_LIST_EMPTY(all_light_sources)
 

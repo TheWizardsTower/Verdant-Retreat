@@ -109,7 +109,10 @@ SUBSYSTEM_DEF(native)
 
 	mirror_loaded = TRUE
 	log_world("verdant_native: grid mirror loaded ([world.maxx]x[world.maxy]x[world.maxz])")
-	if(vn_check_result(vn_light_init(world.maxx, world.maxy, world.maxz), "light_init"))
+	if(GLOB.vn_lighting_native)
+		GLOB.vn_light_inited_maxz = world.maxz
+		log_world("verdant_native: native corner lighting already active from SSlighting init")
+	else if(vn_check_result(vn_light_init(world.maxx, world.maxy, world.maxz), "light_init"))
 		GLOB.vn_light_inited_maxz = world.maxz
 		if(!world.GetConfig("env", "VN_NO_NATIVE_LIGHT"))
 			GLOB.vn_lighting_native = TRUE
