@@ -183,6 +183,8 @@
 	///the chance to swap to something useful
 	var/mineralChance = 13
 	var/display_icon_state = "rock"
+	///TRUE when the map loader already rolled for this tile (see instance_atom)
+	var/roll_done = FALSE
 
 /turf/closed/mineral/random/Initialize()
 
@@ -191,7 +193,7 @@
 	if (display_icon_state)
 		icon_state = display_icon_state
 	. = ..()
-	if (prob(mineralChance))
+	if (!roll_done && prob(mineralChance))
 		var/path = pickweight(mineralSpawnChanceList)
 		var/turf/T = ChangeTurf(path,null,CHANGETURF_IGNORE_AIR)
 

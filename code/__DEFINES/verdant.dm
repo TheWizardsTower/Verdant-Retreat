@@ -85,6 +85,8 @@ GLOBAL_VAR_INIT(vn_safe_mode, FALSE)
 #define vn_grid_load_rows(z, y0, y1, cells, edges) call_ext(VERDANT_NATIVE, "byond:vn_grid_load_rows")(z, y0, y1, cells, edges)
 /// Returns mismatch count as a number, or an ERR string.
 #define vn_grid_audit_rows(z, y0, y1, cells, edges) call_ext(VERDANT_NATIVE, "byond:vn_grid_audit_rows")(z, y0, y1, cells, edges)
+/// -> flat [x, y, dm_cell, mirror_cell, dm_edge, mirror_edge] per mismatch from the last audit call (max 16)
+#define vn_grid_audit_detail call_ext(VERDANT_NATIVE, "byond:vn_grid_audit_detail")
 /// updates: flat [x,y,z,code, ...]; returns applied count
 #define vn_grid_update(updates) call_ext(VERDANT_NATIVE, "byond:vn_grid_update")(updates)
 /// updates: flat [x,y,z,mask, ...]; returns applied count

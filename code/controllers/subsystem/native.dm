@@ -277,6 +277,15 @@ SUBSYSTEM_DEF(native)
 	else if(res > 0)
 		audit_mismatches_found += res
 		log_world("verdant_native: grid audit found [res] stale cells (z=[audit_z] y=[y0]-[audit_y - 1]), resyncing - a turf-change hook is missing")
+		var/list/detail = vn_grid_audit_detail()
+		if(islist(detail))
+			for(var/i in 1 to length(detail) step 6)
+				var/turf/T = locate(detail[i], detail[i + 1], audit_z)
+				var/list/held = list()
+				for(var/atom/A as anything in T)
+					if(A.density || A.opacity)
+						held += "[A.type][A.density ? "/dense" : ""][A.opacity ? "/opaque" : ""]"
+				log_world("verdant_native: stale cell ([detail[i]],[detail[i + 1]],[audit_z]) [T.type] dm_cell=[detail[i + 2]] mirror_cell=[detail[i + 3]] dm_edge=[detail[i + 4]] mirror_edge=[detail[i + 5]] contents=[length(held) ? jointext(held, " ") : "none"]")
 		vn_check_result(vn_grid_load_rows(audit_z, y0, audit_y - 1, cells, edges), "audit_resync")
 	if(audit_y > world.maxy)
 		audit_y = 1

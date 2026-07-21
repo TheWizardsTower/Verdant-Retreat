@@ -58,8 +58,10 @@ Sunlight System
 
 
 
-/atom/movable/outdoor_effect/Initialize(mapload)
-	. = ..()
+// Intentionally bypasses atom/New and the SSatoms Initialize pipeline;
+// vars added to this type will not get parent-chain initialization.
+/atom/movable/outdoor_effect/New(loc)
+	flags_1 |= INITIALIZED_1
 	source_turf = loc
 	if (source_turf.outdoor_effect)
 		qdel(source_turf.outdoor_effect, force = TRUE)
