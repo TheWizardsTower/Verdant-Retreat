@@ -782,12 +782,9 @@
 	var/mob/living/rulermob = SSticker.rulermob
 	if(isliving(rulermob))
 
-		var/obj/M
-		switch(rulermob.gender)
-			if(MALE)
-				M=/obj/structure/mannequin/male
-			if(FEMALE)
-				M=/obj/structure/mannequin/male/female
+		var/obj/M = /obj/structure/mannequin/male
+		if(rulermob.gender == FEMALE)
+			M=/obj/structure/mannequin/male/female
 		var/obj/structure/mannequin/real_mannequin = new M(target)
 		if(!real_mannequin)
 			return	
