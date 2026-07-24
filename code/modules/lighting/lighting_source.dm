@@ -46,6 +46,7 @@
 
 	var/vn_light_id = 0
 	var/tmp/vn_native_applied = FALSE // TRUE if our last update_corners() packed a native event instead of running the DM loops.
+	var/tmp/vn_box_interior = FALSE // TRUE when the whole range box is provably occluder/descent-free; update_corners() then skips view() and emits ADD_BOX.
 
 /datum/light_source/New(atom/owner, atom/top)
 	vn_light_id = ++SSlighting.vn_next_light_id
@@ -309,6 +310,40 @@
 			native_ok = FALSE
 		else if (light_height >= 1 && source_turf.z + 1 > GLOB.vn_light_inited_maxz)
 			native_ok = FALSE
+
+	if (native_ok && vn_box_interior && SSlighting.vn_box_light)
+		if (!vn_native_applied && length(effect_str))
+			for (var/datum/lighting_corner/OC as anything in effect_str)
+				REMOVE_CORNER(OC)
+				LAZYREMOVE(OC.affecting, src)
+		effect_str = null
+		if (affecting_turfs)
+			for (var/turf/AT as anything in affecting_turfs)
+				LAZYREMOVE(AT.affecting_lights, src)
+			affecting_turfs = null
+		var/r = CEILING(light_outer_range, 1)
+		var/list/evt = SSlighting.vn_light_events
+		evt += VN_LIGHT_EVT_ADD_BOX
+		evt += vn_light_id
+		evt += pixel_turf.x
+		evt += pixel_turf.y
+		evt += pixel_turf.z
+		evt += light_power
+		evt += light_inner_range
+		evt += light_outer_range
+		evt += light_falloff_curve
+		evt += lum_r
+		evt += lum_g
+		evt += lum_b
+		evt += max(source_turf.x - r, 1)
+		evt += max(source_turf.y - r, 1)
+		evt += min(source_turf.x + r, world.maxx)
+		evt += min(source_turf.y + r, world.maxy)
+		vn_native_applied = TRUE
+		applied_lum_r = lum_r
+		applied_lum_g = lum_g
+		applied_lum_b = lum_b
+		return
 
 	var/list/datum/lighting_corner/corners = list()
 	var/list/turf/turfs                    = list()

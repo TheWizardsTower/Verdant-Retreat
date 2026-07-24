@@ -56,6 +56,8 @@ SUBSYSTEM_DEF(native)
 	if(!VN_OK)
 		can_fire = FALSE
 		return
+	if(!Master.init_complete)
+		return
 	if(!mirror_loaded)
 		BulkLoadGrid()
 		return

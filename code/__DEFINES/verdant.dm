@@ -10,7 +10,7 @@
 // take over. NEVER assume a native call succeeded.
 
 // ABI compatibility number; must match kAbi in the DLL's Exports.cpp.
-#define VERDANT_ABI 2
+#define VERDANT_ABI 3
 
 #ifndef VERDANT_NATIVE
 /* This comment bypasses grep checks */ /var/__verdant_native
@@ -214,6 +214,7 @@ GLOBAL_LIST_EMPTY(vn_bt_tree_ids)
 #define VN_LIGHT_EVT_ADD 1
 #define VN_LIGHT_EVT_REMOVE 2
 #define VN_LIGHT_EVT_ADD_TURFS 3
+#define VN_LIGHT_EVT_ADD_BOX 4
 
 // corner datum x/y are the +-0.5 positions, so round(x*2) is exact.
 // Strides are 2*max+1: corner cx2 spans [1, 2*maxx+1], so an even stride
@@ -230,6 +231,22 @@ GLOBAL_LIST_EMPTY(vn_bt_tree_ids)
 #define vn_light_tick_begin(events) call_ext(VERDANT_NATIVE, "byond:vn_light_tick_begin")(events)
 /// -> [n, (corner_id, delta_r, delta_g, delta_b) x n] or an empty list while the tick is still running
 #define vn_light_tick_collect call_ext(VERDANT_NATIVE, "byond:vn_light_tick_collect")
+
+// --- outdoor ceiling/sky sweep (init only) ---
+
+#define vn_outdoor_begin(maxx, maxy, maxz, zup) call_ext(VERDANT_NATIVE, "byond:vn_outdoor_begin")(maxx, maxy, maxz, zup)
+/// props: 2 hex nibbles per cell — 1 closed, 2 transparent, 4 weatherproof, 8 wp-structure, 16 pseudo_roof, 32 area-outdoors
+#define vn_outdoor_rows(z, y0, y1, props) call_ext(VERDANT_NATIVE, "byond:vn_outdoor_rows")(z, y0, y1, props)
+#define vn_outdoor_compute call_ext(VERDANT_NATIVE, "byond:vn_outdoor_compute")
+/// -> per-cell result nibbles: 1 CEIL_SKYVISIBLE, 2 CEIL_WEATHERPROOF, state << 2
+#define vn_outdoor_fetch(z) call_ext(VERDANT_NATIVE, "byond:vn_outdoor_fetch")(z)
+/// -> flat [xy_packed_0based, result_nibble] per effect-needing cell
+#define vn_outdoor_fetch_effects(z) call_ext(VERDANT_NATIVE, "byond:vn_outdoor_fetch_effects")(z)
+
+// --- dmm row digestion (map load) ---
+
+/// -> flat [model_index] per tile (1-based position in keys, 0 for space_key), row-major
+#define vn_dmm_digest(key_len, keys, space_key, rows) call_ext(VERDANT_NATIVE, "byond:vn_dmm_digest")(key_len, keys, space_key, rows)
 
 /// Route light_source.update_corners()/SSlighting.fire() through the native engine.
 GLOBAL_VAR_INIT(vn_lighting_native, FALSE)

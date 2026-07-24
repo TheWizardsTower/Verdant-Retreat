@@ -70,12 +70,95 @@ SUBSYSTEM_DEF(outdoor_effects)
 /datum/controller/subsystem/outdoor_effects/Initialize(timeofday)
 	if(!initialized)
 		get_time_of_day()
-		InitializeTurfs()
+		var/native_done = FALSE
+		if(VN_OK && !world.GetConfig("env", "VN_NO_NATIVE_OUTDOOR"))
+			ceiling_status_caching = TRUE
+			native_done = vn_outdoor_sweep()
+			ceiling_status_caching = FALSE
+			if(native_done)
+				log_world("SSoutdoor_effects: native ceiling sweep applied")
+		if(!native_done)
+			InitializeTurfs()
 		initialized = TRUE
 	ceiling_status_caching = TRUE
 	fire(FALSE, TRUE)
 	ceiling_status_caching = FALSE
 	..()
+
+/datum/controller/subsystem/outdoor_effects/proc/vn_outdoor_row(y, z, list/out)
+	var/list/row = list()
+	for(var/x in 1 to world.maxx)
+		var/turf/T = locate(x, y, z)
+		var/p = 0
+		if(isclosedturf(T))
+			p |= 1
+		if(istransparentturf(T))
+			p |= 2
+		if(T.weatherproof)
+			p |= 4
+		for(var/obj/structure/S in T.contents)
+			if(S.weatherproof == TRUE)
+				p |= 8
+				break
+		if(T.pseudo_roof)
+			p |= 16
+		var/area/A = T.loc
+		if(A.outdoors)
+			p |= 32
+		row += ascii2text(p + 48)
+	out += jointext(row, "")
+
+/datum/controller/subsystem/outdoor_effects/proc/vn_outdoor_sweep()
+	var/list/zup = list()
+	var/mz = length(SSmapping.multiz_levels)
+	for(var/z in 1 to world.maxz)
+		var/up = 0
+		if(mz >= z && islist(SSmapping.multiz_levels[z]) && SSmapping.multiz_levels[z][Z_LEVEL_UP] && z + 1 <= world.maxz)
+			up = z + 1
+		zup += up
+	var/list/station = SSmapping.levels_by_trait(ZTRAIT_STATION)
+	var/list/needed = list()
+	for(var/z in station)
+		var/cz = z
+		while(cz && !(cz in needed))
+			needed += cz
+			cz = zup[cz]
+	if(!vn_check_result(vn_outdoor_begin(world.maxx, world.maxy, world.maxz, zup), "outdoor_begin"))
+		return FALSE
+	for(var/z in needed)
+		var/y = 1
+		while(y <= world.maxy)
+			var/y1 = min(y + 15, world.maxy)
+			var/list/rows = list()
+			for(var/yy in y to y1)
+				vn_outdoor_row(yy, z, rows)
+			if(!vn_check_result(vn_outdoor_rows(z, y, y1, jointext(rows, "")), "outdoor_rows"))
+				return FALSE
+			y = y1 + 1
+			CHECK_TICK
+	if(!vn_check_result(vn_outdoor_compute(), "outdoor_compute"))
+		return FALSE
+	for(var/z in station)
+		var/list/effects = vn_outdoor_fetch_effects(z)
+		if(!islist(effects))
+			vn_check_result(effects, "outdoor_fetch_effects")
+			return FALSE
+		var/n = length(effects)
+		var/i = 1
+		while(i < n)
+			var/xy = effects[i]
+			var/bits = effects[i + 1]
+			i += 2
+			var/turf/T = locate((xy % world.maxx) + 1, round(xy / world.maxx) + 1, z)
+			var/state = (bits >> 2) & 3
+			if(!T.outdoor_effect)
+				T.outdoor_effect = new /atom/movable/outdoor_effect(T)
+			T.outdoor_effect.state = state
+			T.outdoor_effect.weatherproof = (bits & 2) ? TRUE : FALSE
+			GLOB.SUNLIGHT_QUEUE_UPDATE += T.outdoor_effect
+			if(i % 8192 == 1)
+				CHECK_TICK
+	return TRUE
 
 /datum/controller/subsystem/outdoor_effects/stat_entry(msg)
 	msg = "W:[GLOB.SUNLIGHT_QUEUE_WORK.len]|U:[GLOB.SUNLIGHT_QUEUE_UPDATE.len]|C:[GLOB.SUNLIGHT_QUEUE_CORNER.len]"
