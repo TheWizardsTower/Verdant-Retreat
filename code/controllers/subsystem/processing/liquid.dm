@@ -277,7 +277,7 @@ PROCESSING_SUBSYSTEM_DEF(liquid)
 		T.liquid_overlay.icon_state = "rivermove"
 		T.liquid_overlay.dir = T.cell.flow_dir
 	else
-		T.liquid_overlay.icon_state = "together"
+		T.liquid_overlay.icon_state = "together-NEW"
 
 	if((fluid_level >= FLUID_FULL && isopenspace(GetAbove(T))) || istype(T, /turf/open/floor/rogue/riverbot) || istype(T, /turf/open/floor/rogue/lakebed))
 		T.liquid_overlay.layer = ABOVE_MOB_LAYER
@@ -511,7 +511,7 @@ PROCESSING_SUBSYSTEM_DEF(liquid)
 
 /obj/effect/liquid
 	icon = 'icons/turf/newwater.dmi'
-	icon_state = "together"
+	icon_state = "together-NEW"
 	plane = FLOOR_PLANE
 	layer = BELOW_MOB_LAYER
 	mouse_opacity = 0

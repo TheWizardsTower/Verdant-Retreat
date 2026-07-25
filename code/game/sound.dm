@@ -184,7 +184,9 @@
 		S.frequency = get_rand_frequency()
 	if(frequency)
 		S.frequency = frequency
-
+	if(GET_FLUID_LEVEL(get_turf(src)) >= FLUID_FULL)
+		S.environment = ENV_UNDERWATER
+		frequency = 40500 //10% lower
 	if(source)
 
 		// Get topmost atom if source is nested in containers

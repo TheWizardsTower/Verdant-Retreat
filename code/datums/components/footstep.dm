@@ -132,7 +132,14 @@ var/list/kick_verb
 		if(!GLOB.footstep[T.footstep] || (LAZYLEN(GLOB.footstep[T.footstep]) < 3))
 			testing("SOME silly guy GAVE AN INVALID FOOTSTEP VALUE ([T.footstep]) TO [T.type]!!! FIX THIS SHIT!!!")
 			return
-		used_footsteps = GLOB.footstep[T.footstep][1]
+		//Probably a bad name for this var, but basically checking if there's liquid in the tile, use the proper sfx if so.
+		var/final_footstep = T.footstep
+		var/how_much_water = GET_FLUID_LEVEL(get_turf(parent))
+		if(how_much_water > FLUID_EMPTY)
+			final_footstep = FOOTSTEP_SHALLOW
+			if(how_much_water > FLUID_VERY_HIGH)
+				final_footstep = FOOTSTEP_WATER
+		used_footsteps = GLOB.footstep[final_footstep][1]
 		used_footsteps = used_footsteps.Copy()
 		used_sound = pick_n_take(used_footsteps)
 		if(used_sound == last_sound)
@@ -142,9 +149,9 @@ var/list/kick_verb
 			used_sound = last_sound
 		last_sound = used_sound
 		playsound(parent, used_sound,
-			GLOB.footstep[T.footstep][2],
+			GLOB.footstep[final_footstep][2],
 			FALSE,
-			GLOB.footstep[T.footstep][3] + e_range)
+			GLOB.footstep[final_footstep][3] + e_range)
 //	if(!islamia(H))
 	else
 		//SANITY CHECK, WILL NOT PLAY A SOUND IF THE LIST IS INVALID
