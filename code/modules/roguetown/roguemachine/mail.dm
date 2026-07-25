@@ -349,8 +349,8 @@
 			to_chat(user, span_warning("The machine doesn't respond."))
 			return	
 		if(alert(user, "Send Mail?",,"YES","NO") == "YES")
-			var/send2place = input(user, "Where to? (Person or #number)", "SCARLET REACH", null)
-			var/sentfrom = input(user, "Who is this from? (Leave blank to send anonymously)", "SCARLET REACH", null)
+			var/send2place = input(user, "Where to? (Person or #number)", "[SSmapping.config.map_name]", null)
+			var/sentfrom = input(user, "Who is this from? (Leave blank to send anonymously)", "[SSmapping.config.map_name]", null)
 			if(!sentfrom)
 				sentfrom = "Anonymous"
 			if(findtext(send2place, "#"))
