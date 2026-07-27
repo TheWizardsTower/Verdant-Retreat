@@ -182,7 +182,7 @@
 		water_level = newwater
 	water_level = round(water_level)
 	if(water_level > 0)
-		START_PROCESSING(SSwaterlevel, src)
+		GLOB.pool_manager.queue_wet_update(src)
 	if(shouldupdate)
 		update_water()
 

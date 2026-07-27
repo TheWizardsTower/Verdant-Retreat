@@ -71,6 +71,9 @@
 /mob/living/proc/check_drowning()
 	if(istype(loc, /turf/open/water))
 		handle_inwater(loc)
+		return
+	if(is_submerged())
+		handle_inwater(loc)
 
 /mob/living/carbon/human/check_drowning()
 	if(isdullahan(src))

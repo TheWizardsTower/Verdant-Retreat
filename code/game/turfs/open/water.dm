@@ -186,8 +186,6 @@
 						if(AM.loc == src)
 							water_overlay.layer = ABOVE_MOB_LAYER
 							water_overlay.plane = GAME_PLANE
-			if(water_level >= 2)
-				L.underwater_float_start()
 		if(!istype(L, /mob/living/carbon/human/species/skeleton))
 			return
 		if(!istype(src, /turf/open/water/sewer))

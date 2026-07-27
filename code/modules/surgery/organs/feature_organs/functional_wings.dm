@@ -74,6 +74,7 @@
 		if(isopenspace(GET_TURF_ABOVE(turf)))
 			turf = GET_TURF_ABOVE(turf)
 	owner.movement_type |= FLYING
+	owner.update_submersion()
 	flying = TRUE
 	to_chat(owner, span_notice("I start flying."))
 	init_signals()
@@ -119,6 +120,7 @@
 
 /datum/action/item_action/organ_action/use/flight/proc/remove_signals()
 	owner.movement_type &= ~FLYING
+	owner.update_submersion()
 	flying = FALSE
 
 	UnregisterSignal(owner, list(

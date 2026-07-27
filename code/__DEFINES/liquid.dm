@@ -5,6 +5,11 @@
 #define FLUID_MAX_TRANSFER_RATE 60 // Maximum speed at which liquids get transferred between tiles.
 #define MIN_FLUID_VOLUME 1 // At least 1 unit of fluid has to be able to transfer to a turf for the turf to be added to the cells list.
 #define MAX_FLUID_VOLUME 100 // Maximum amount of fluid each cell can contain (at this point it's just completely full)
+#define LIQUID_ABSORPTION_WETNESS_MULT 3
+#define RAIN_INJECT_INTERVAL (2 SECONDS)
+#define RAIN_INJECT_BASE_SAMPLES 6
+#define RAIN_INJECT_RADIUS 7
+#define RAIN_INJECT_AMOUNT 3
 
 // Fluid level defines for use by the fluid subsystem, these are pretty arbitrary and the actual fluidsum is checked by SSliquid. Use the macro: GET_FLUID_LEVEL(turf)
 #define FLUID_EMPTY 0
@@ -58,3 +63,5 @@
 #endif
 
 #define RIVER_PUSH_BASE_CD 10
+
+#define LIQUID_FALL_MIST_THRESHOLD 5

@@ -1,6 +1,7 @@
 /turf/open
 	plane = FLOOR_PLANE
 	var/slowdown = 0 //negative for faster, positive for slower
+	var/liquid_absorption = 0
 
 	var/postdig_icon_change = FALSE
 	var/postdig_icon

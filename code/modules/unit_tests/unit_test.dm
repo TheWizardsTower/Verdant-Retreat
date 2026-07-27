@@ -81,7 +81,7 @@ GLOBAL_VAR_INIT(focused_test, focused_test())
 
 	for(var/I in tests_to_run)
 		if(ispath(I, /datum/unit_test/focus_only))
-			return
+			continue
 		var/datum/unit_test/test = new I
 
 		GLOB.current_test = test

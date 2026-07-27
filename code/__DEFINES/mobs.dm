@@ -53,6 +53,30 @@
 #define MOB_SIZE_HUMAN 2
 #define MOB_SIZE_LARGE 3
 
+//Submersion state, used by mob/living/var/submersion_level
+#define SUBMERSION_NONE 0
+#define SUBMERSION_PARTIAL 1
+#define SUBMERSION_FULL 2
+
+#define SUBMERSION_FILTER_ID "submersion_mask"
+#define SUBMERSION_MASK_OFFSET_PARTIAL 16
+#define SUBMERSION_MASK_OFFSET_FULL -8
+
+//Breath pool, used by /mob/living/carbon/var/breath_remaining
+#define BREATH_BASE_TIME (15 SECONDS)
+#define BREATH_PER_SWIM_LEVEL (5 SECONDS)
+#define BREATH_PER_ENDURANCE (1 SECONDS)
+#define BREATH_FLOOR (5 SECONDS)
+#define BREATH_DRAIN_PER_TICK (2 SECONDS)
+#define BREATH_REGEN_PER_TICK (4 SECONDS)
+#define DROWN_DAMAGE_BASE 30
+#define DROWN_DAMAGE_MIN 10
+#define DROWN_DAMAGE_ABYSSOR_BONUS 10
+
+#define BREATH_METER_IDLE "idle"
+#define BREATH_METER_HOLDING "holding"
+#define BREATH_METER_DROWNING "drowning"
+
 //Ventcrawling defines
 #define VENTCRAWLER_NONE   0
 #define VENTCRAWLER_NUDE   1

@@ -36,6 +36,9 @@
 /// From /obj/item/grabbing/bite/drinklimb() (mob/living/target)
 #define COMSIG_LIVING_DRINKED_LIMB_BLOOD "living_drinked_limb_blood"
 
+/// From /mob/living/proc/update_submersion() (old_level, new_level)
+#define COMSIG_LIVING_SUBMERSION_CHANGED "living_submersion_changed"
+
 /// From /obj/item/organ/proc/Remove() (mob/living/carbon/lost_organ, obj/item/organ/removed, special, drop_if_replaced)
 #define COMSIG_MOB_ORGAN_REMOVED "mob_organ_removed"
 /// From /obj/item/organ/proc/Insert() (mob/living/carbon/receiver, obj/item/organ/inserted, special)

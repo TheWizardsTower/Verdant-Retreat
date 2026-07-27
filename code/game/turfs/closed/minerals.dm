@@ -361,3 +361,8 @@
 /turf/closed/mineral/rogue/bedrock/Melt()
 	to_be_destroyed = FALSE
 	return src
+
+/turf/closed/mineral/rogue/aquifer
+	name = "damp rock"
+	desc = "Water seeps through veins in this stone."
+	baseturfs = /turf/open/floor/rogue/naturalstone/aquifer

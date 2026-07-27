@@ -163,6 +163,12 @@ SUBSYSTEM_DEF(native)
 				log_world("verdant_native: fluids [vn_fluid_status()] deltas=[SSliquid.vn_deltas_applied] events=[SSliquid.vn_events_applied]")
 				sleep(100)
 	
+#ifdef VN_SELFTEST
+	if(world.params["vn_test"] || world.GetConfig("env", "VN_TEST"))
+		spawn(100)
+			RunSelfTests()
+#endif
+
 	if(world.GetConfig("env", "VN_FLUID_DIAG"))
 		spawn(100)
 			var/cycle = 0

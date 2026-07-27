@@ -4,8 +4,7 @@
 	SEND_SIGNAL(SSquadtree, COMSIG_MOB_MOVED, src)
 	update_turf_movespeed(loc)
 	update_pixel_shifting(TRUE)
-	if(underwater_bobbing && !can_underwater_float(loc))
-		underwater_float_stop()
+	update_submersion()
 //	if(m_intent == MOVE_INTENT_RUN)
 //		consider_ambush()
 

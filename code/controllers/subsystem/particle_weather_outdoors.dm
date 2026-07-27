@@ -226,8 +226,8 @@ SUBSYSTEM_DEF(outdoor_effects)
 
 	//Add our weather particle obj to any new weather screens
 	if(SSParticleWeather.initialized)
-		for (i in 1 to weather_planes_need_vis.len)
-			var/atom/movable/screen/plane_master/weather_effect/W = weather_planes_need_vis[i]
+		while (i < length(weather_planes_need_vis))
+			var/atom/movable/screen/plane_master/weather_effect/W = weather_planes_need_vis[++i]
 			if(W)
 				W.vis_contents = list(SSParticleWeather.getweatherEffect())
 			if(init_tick_checks)
@@ -235,11 +235,11 @@ SUBSYSTEM_DEF(outdoor_effects)
 			else if (MC_TICK_CHECK)
 				break
 		if (i)
-			weather_planes_need_vis.Cut(1, i+1)
+			weather_planes_need_vis.Cut(1, min(i, length(weather_planes_need_vis)) + 1)
 			i = 0
 
-	for (i in 1 to GLOB.SUNLIGHT_QUEUE_WORK.len)
-		var/turf/T = GLOB.SUNLIGHT_QUEUE_WORK[i]
+	while (i < length(GLOB.SUNLIGHT_QUEUE_WORK))
+		var/turf/T = GLOB.SUNLIGHT_QUEUE_WORK[++i]
 		if(T)
 			T.get_sky_and_weather_states()
 			if(T.outdoor_effect)
@@ -250,15 +250,15 @@ SUBSYSTEM_DEF(outdoor_effects)
 		else if (MC_TICK_CHECK)
 			break
 	if (i)
-		GLOB.SUNLIGHT_QUEUE_WORK.Cut(1, i+1)
+		GLOB.SUNLIGHT_QUEUE_WORK.Cut(1, min(i, length(GLOB.SUNLIGHT_QUEUE_WORK)) + 1)
 		i = 0
 
 
 	if(!init_tick_checks)
 		MC_SPLIT_TICK
 
-	for (i in 1 to GLOB.SUNLIGHT_QUEUE_UPDATE.len)
-		var/atom/movable/outdoor_effect/U = GLOB.SUNLIGHT_QUEUE_UPDATE[i]
+	while (i < length(GLOB.SUNLIGHT_QUEUE_UPDATE))
+		var/atom/movable/outdoor_effect/U = GLOB.SUNLIGHT_QUEUE_UPDATE[++i]
 		if(U)
 			U.process_state()
 			update_outdoor_effect_overlays(U)
@@ -268,15 +268,15 @@ SUBSYSTEM_DEF(outdoor_effects)
 		else if (MC_TICK_CHECK)
 			break
 	if (i)
-		GLOB.SUNLIGHT_QUEUE_UPDATE.Cut(1, i+1)
+		GLOB.SUNLIGHT_QUEUE_UPDATE.Cut(1, min(i, length(GLOB.SUNLIGHT_QUEUE_UPDATE)) + 1)
 		i = 0
 
 
 	if(!init_tick_checks)
 		MC_SPLIT_TICK
 
-	for (i in 1 to GLOB.SUNLIGHT_QUEUE_CORNER.len)
-		var/turf/T = GLOB.SUNLIGHT_QUEUE_CORNER[i]
+	while (i < length(GLOB.SUNLIGHT_QUEUE_CORNER))
+		var/turf/T = GLOB.SUNLIGHT_QUEUE_CORNER[++i]
 		var/atom/movable/outdoor_effect/U = T.outdoor_effect
 
 		/* if we haven't initialized but we are affected, create new and check state */
@@ -302,7 +302,7 @@ SUBSYSTEM_DEF(outdoor_effects)
 			break
 
 	if (i)
-		GLOB.SUNLIGHT_QUEUE_CORNER.Cut(1, i+1)
+		GLOB.SUNLIGHT_QUEUE_CORNER.Cut(1, min(i, length(GLOB.SUNLIGHT_QUEUE_CORNER)) + 1)
 		i = 0
 
 	if(check_cycle())

@@ -180,6 +180,11 @@
 	else if(!muffled)
 		S.environment = -1
 
+	if(isliving(src))
+		var/mob/living/LM = src
+		if(LM.submersion_level == SUBMERSION_FULL)
+			S.environment = ENV_UNDERWATER
+
 	if(vary)
 		S.frequency = get_rand_frequency()
 	if(frequency)

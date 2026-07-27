@@ -520,7 +520,11 @@
 	update_movespeed(FALSE)
 
 /mob/living/proc/cure_holdbreath(source)
-	REMOVE_TRAIT(src, TRAIT_HOLDBREATH, source)
+	if(!iscarbon(src))
+		return
+	var/mob/living/carbon/C = src
+	C.holding_breath = FALSE
+	C.breath_remaining = C.get_breath_max()
 
 /mob/living/proc/cure_paralysis(source)
 	REMOVE_TRAIT(src, TRAIT_PARALYSIS, source)

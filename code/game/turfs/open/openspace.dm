@@ -91,28 +91,9 @@ GLOBAL_DATUM_INIT(openspace_backdrop_one_for_all, /atom/movable/openspace_backdr
 		return FALSE // Otherwise they can swim
 	return ..()
 
-/mob/living/proc/vn_update_swim_mask()
-	var/static/icon/waterline_mask
-	var/swimming = FALSE
-	var/turf/T = loc
-	if(isturf(T) && isopenspace(T) && !(movement_type & FLYING))
-		var/turf/below = GetBelow(T)
-		if(below?.cell && below.cell.fluidsum >= 80)
-			swimming = TRUE
-	if(swimming)
-		if(!waterline_mask)
-			waterline_mask = icon('icons/turf/newwater.dmi', "df")
-		add_filter("vn_swim_mask", 1, alpha_mask_filter(icon = waterline_mask))
-	else
-		remove_filter("vn_swim_mask")
-	update_vision_cone()
-
 // Swimming through openspace when water is below
 /turf/open/transparent/openspace/Entered(atom/movable/AM, atom/oldLoc)
 	. = ..()
-	if(isliving(AM))
-		var/mob/living/L = AM
-		L.vn_update_swim_mask()
 	var/turf/below = GetBelow(src)
 	if(!below?.cell || below.cell.fluidsum < 80)
 		return
@@ -126,9 +107,6 @@ GLOBAL_DATUM_INIT(openspace_backdrop_one_for_all, /atom/movable/openspace_backdr
 
 /turf/open/transparent/openspace/Exited(atom/movable/AM, atom/newloc)
 	. = ..()
-	if(isliving(AM))
-		var/mob/living/L = AM
-		L.vn_update_swim_mask()
 	var/turf/below = GetBelow(src)
 	if(!below?.cell || below.cell.fluidsum < 80)
 		return

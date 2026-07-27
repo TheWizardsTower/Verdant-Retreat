@@ -623,7 +623,7 @@
 	if (InCritical() || health <= 0 || (blood_volume < BLOOD_VOLUME_SURVIVE))
 		log_message("Has [whispered ? "whispered his final words" : "succumbed to death"] while in [InFullCritical() ? "hard":"soft"] critical with [round(health, 0.1)] points of health!", LOG_ATTACK)
 
-		if(istype(src.loc, /turf/open/water) && !HAS_TRAIT(src, TRAIT_NOBREATH) && lying && client)
+		if((istype(src.loc, /turf/open/water) || is_submerged()) && !HAS_TRAIT(src, TRAIT_NOBREATH) && lying && client)
 			record_round_statistic(STATS_PEOPLE_DROWNED)
 
 		adjustOxyLoss(201)
@@ -1560,15 +1560,6 @@
 	underwater_bobbing = FALSE
 	animate(src, pixel_z = 0, time = 0.5 SECONDS)
 
-/mob/living/proc/can_underwater_float(atom/newloc)
-	var/turf/open/water/W = newloc
-	if(!istype(W) || W.water_level < 2)
-		return FALSE
-	for(var/obj/structure/S in W)
-		if(S.obj_flags & BLOCK_Z_OUT_DOWN)
-			return FALSE
-	return TRUE
-
 /mob/living/proc/extinguish_mob()
 	if(HAS_TRAIT(src, TRAIT_NO_EXTINGUISH)) //The everlasting flames will not be extinguished
 		return
@@ -1799,6 +1790,8 @@
 			add_movespeed_modifier(MOVESPEED_ID_LIVING_LIMBLESS, update=TRUE, priority=100, override=TRUE, multiplicative_slowdown=limbless_slowdown, movetypes=GROUND)
 		else
 			remove_movespeed_modifier(MOVESPEED_ID_LIVING_LIMBLESS, update=TRUE)
+
+	update_submersion()
 
 /mob/living/proc/fall(forced)
 	if(!(mobility_flags & MOBILITY_USE))

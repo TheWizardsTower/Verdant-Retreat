@@ -88,7 +88,9 @@
 #include "anchored_mobs.dm"
 #include "component_tests.dm"
 #include "create_and_destroy.dm"
+#include "drowning.dm"
 #include "focus_only_tests.dm"
+#include "liquid_absorption.dm"
 #include "reagent_id_typos.dm"
 #include "reagent_recipe_collisions.dm"
 #include "spawn_humans.dm"
@@ -96,6 +98,7 @@
 #include "subsystem_init.dm"
 #include "timer_sanity.dm"
 #include "unit_test.dm"
+#include "water_overlay_mask.dm"
 // END_INCLUDE
 #ifdef REFERENCE_TRACKING_DEBUG //Don't try and parse this file if ref tracking isn't turned on. IE: don't parse ref tracking please mr linter
 #include "find_reference_sanity.dm"

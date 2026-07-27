@@ -1,3 +1,19 @@
+/mob/living/carbon
+	var/breath_remaining = -1
+	var/holding_breath = FALSE
+	var/drowning_active = FALSE
+
+/mob/living/carbon/proc/get_breath_max()
+	return max(BREATH_FLOOR, BREATH_BASE_TIME + get_skill_level(/datum/skill/misc/swimming) * BREATH_PER_SWIM_LEVEL + (STAEND - 10) * BREATH_PER_ENDURANCE)
+
+/mob/living/carbon/proc/get_drown_damage()
+	. = clamp(DROWN_DAMAGE_BASE - STACON, DROWN_DAMAGE_MIN, DROWN_DAMAGE_BASE)
+	if(has_world_trait(/datum/world_trait/abyssor_rage))
+		. += DROWN_DAMAGE_ABYSSOR_BONUS
+
+/mob/living/carbon/proc/is_holding_breath()
+	return holding_breath && breath_remaining > 0
+
 /mob/living/carbon/Life(seconds, times_fired)
 	set invisibility = 0
 
@@ -138,10 +154,9 @@
 
 /mob/living/carbon/human/handle_roguebreath()
 	..()
+	handle_breath()
 	if(HAS_TRAIT(src, TRAIT_NOBREATH))
 		return TRUE
-	if(HAS_TRAIT(src, TRAIT_HOLDBREATH))
-		adjustChokeOxyLoss(10)
 	if(istype(loc, /obj/structure/closet/dirthole))
 		adjustChokeOxyLoss(5)
 	if(istype(loc, /obj/structure/closet/burial_shroud))
@@ -156,27 +171,87 @@
 				next_smell = world.time + 30 SECONDS
 				T.pollution.smell_act(src)
 
-/mob/living/proc/handle_inwater(turf/open/water/W, extinguish = TRUE, force_drown = FALSE)
+/mob/living/carbon/human/proc/handle_breath()
+	if(HAS_TRAIT(src, TRAIT_NOBREATH) || HAS_TRAIT(src, TRAIT_WATERBREATHING))
+		breath_remaining = get_breath_max()
+		drowning_active = FALSE
+		hud_used?.shutdown_breath_meter()
+		return
+	if(breath_remaining < 0)
+		breath_remaining = get_breath_max()
+
+	var/underwater = (submersion_level == SUBMERSION_FULL)
+
+	if(holding_breath)
+		var/had = breath_remaining
+		breath_remaining = max(0, breath_remaining - BREATH_DRAIN_PER_TICK)
+		if(had > 0 && breath_remaining <= 0)
+			holding_breath = FALSE
+			if(!underwater)
+				INVOKE_ASYNC(src, PROC_REF(emote), "gasp")
+				to_chat(src, span_userdanger("I can't hold my breath any longer!"))
+
+	if(underwater && !is_holding_breath())
+		if(!drowning_active)
+			drowning_active = TRUE
+			playsound(src, 'sound/foley/waterenter.ogg', 100, TRUE)
+			INVOKE_ASYNC(src, PROC_REF(emote), "gasp")
+			to_chat(src, span_userdanger("Water floods my lungs!"))
+		adjustChokeOxyLoss(get_drown_damage())
+		if(stat == DEAD && client)
+			record_round_statistic(STATS_PEOPLE_DROWNED)
+		INVOKE_ASYNC(src, PROC_REF(emote), "drown")
+	else
+		drowning_active = FALSE
+
+	if(!holding_breath && !underwater)
+		breath_remaining = min(get_breath_max(), breath_remaining + BREATH_REGEN_PER_TICK)
+
+	if(!hud_used)
+		return
+	var/max_breath = get_breath_max()
+	if(!(submersion_level != SUBMERSION_NONE || holding_breath || breath_remaining < max_breath))
+		hud_used.shutdown_breath_meter()
+		return
+	hud_used.initialize_breath_meter()
+	var/atom/movable/screen/bloodpool/breath/meter = hud_used.breath_meter
+	meter.set_value(breath_remaining / max_breath, 5)
+	var/target_state = drowning_active ? BREATH_METER_DROWNING : (holding_breath ? BREATH_METER_HOLDING : BREATH_METER_IDLE)
+	if(meter.color_state != target_state)
+		meter.color_state = target_state
+		switch(target_state)
+			if(BREATH_METER_DROWNING)
+				meter.set_fill_color("#E04A3C")
+			if(BREATH_METER_HOLDING)
+				meter.set_fill_color("#3CC7E0")
+			if(BREATH_METER_IDLE)
+				meter.set_fill_color("#2A7A8C")
+
+/mob/living/proc/handle_inwater(turf/W, extinguish = TRUE, force_drown = FALSE)
 	if(!extinguish)
 		return
 	if(is_floor_hazard_immune())
 		return
-	if(lying || W.water_level == 3)
+	var/wl = 3
+	if(istype(W, /turf/open/water))
+		var/turf/open/water/WT = W
+		wl = WT.water_level
+	if(!(mobility_flags & MOBILITY_STAND) || wl == 3)
 		SoakMob(FULL_BODY)
-	else
-		if(W.water_level == 2)
-			SoakMob(BELOW_CHEST)
+	else if(wl == 2)
+		SoakMob(BELOW_CHEST)
 
 /mob/living/carbon/handle_inwater(turf/onturf, extinguish = TRUE, force_drown = FALSE)
 	..()
-	if(!(mobility_flags & MOBILITY_STAND) || force_drown)
-		if (HAS_TRAIT(src, TRAIT_NOBREATH) || HAS_TRAIT(src, TRAIT_WATERBREATHING) || HAS_TRAIT(src, TRAIT_HOLDBREATH))
-			return TRUE
-		if(stat == DEAD && client)
-			record_round_statistic(STATS_PEOPLE_DROWNED)
-		var/drown_damage = has_world_trait(/datum/world_trait/abyssor_rage) ? 10 : 5
-		adjustChokeOxyLoss(drown_damage)
-		emote("drown")
+	if(!force_drown)
+		return
+	if(HAS_TRAIT(src, TRAIT_NOBREATH) || HAS_TRAIT(src, TRAIT_WATERBREATHING) || is_holding_breath())
+		return TRUE
+	if(stat == DEAD && client)
+		record_round_statistic(STATS_PEOPLE_DROWNED)
+	breath_remaining = 0
+	adjustChokeOxyLoss(get_drown_damage())
+	emote("drown")
 
 /mob/living/carbon/human/handle_inwater(turf/onturf, extinguish = TRUE, force_drown = FALSE)
 	. = ..()
@@ -187,7 +262,7 @@
 /mob/living/carbon/human/handle_inwater(turf/onturf, extinguish = TRUE, force_drown = FALSE)
 	. = ..()
 	if(istype(onturf, /turf/open/water/sewer) && !HAS_TRAIT(src, TRAIT_NOSTINK))
-		if(!HAS_TRAIT(src, TRAIT_HOLDBREATH))
+		if(!is_holding_breath())
 			add_stress(/datum/stressevent/sewertouched)
 
 /mob/living/carbon/proc/get_complex_pain()

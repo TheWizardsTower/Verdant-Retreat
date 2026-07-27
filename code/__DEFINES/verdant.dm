@@ -10,7 +10,7 @@
 // take over. NEVER assume a native call succeeded.
 
 // ABI compatibility number; must match kAbi in the DLL's Exports.cpp.
-#define VERDANT_ABI 3
+#define VERDANT_ABI 4
 
 #ifndef VERDANT_NATIVE
 /* This comment bypasses grep checks */ /var/__verdant_native
@@ -141,14 +141,20 @@ GLOBAL_VAR_INIT(vn_safe_mode, FALSE)
 /// edits: flat [op,x,y,z,a,b ...]; returns applied count
 #define vn_fluid_edit(edits) call_ext(VERDANT_NATIVE, "byond:vn_fluid_edit")(edits)
 #define vn_fluid_tick_begin call_ext(VERDANT_NATIVE, "byond:vn_fluid_tick_begin")
-/// -> [n_delta, (x,y,z,ntypes,(mat,amt)*n)..., n_event, (sx,sy,sz,tx,ty,tz,amt)...]
+/// -> [n_delta, (x,y,z,ntypes,(mat,amt)*n)..., n_event, (sx,sy,sz,tx,ty,tz,amt)..., n_fall, (x,y,z,amt)...]
 /// or an empty list while the tick is still running
 #define vn_fluid_tick_collect call_ext(VERDANT_NATIVE, "byond:vn_fluid_tick_collect")
+#define vn_fluid_config(key, value) call_ext(VERDANT_NATIVE, "byond:vn_fluid_config")(key, value)
 #define vn_fluid_total(x, y, z) call_ext(VERDANT_NATIVE, "byond:vn_fluid_total")(x, y, z)
 #define vn_fluid_get(x, y, z) call_ext(VERDANT_NATIVE, "byond:vn_fluid_get")(x, y, z)
 #define vn_fluid_pool_cells(x, y, z) call_ext(VERDANT_NATIVE, "byond:vn_fluid_pool_cells")(x, y, z)
 #define vn_fluid_pool_stats(x, y, z) call_ext(VERDANT_NATIVE, "byond:vn_fluid_pool_stats")(x, y, z)
 #define vn_fluid_status call_ext(VERDANT_NATIVE, "byond:vn_fluid_status")
+
+/// edge_drain config applied to the native engine on every successful NativeInit
+GLOBAL_VAR_INIT(vn_liquid_edge_drain, TRUE)
+/// U-bend vertical surface equalization, applied the same way
+GLOBAL_VAR_INIT(vn_liquid_ubend, TRUE)
 
 // --- behavior trees ---
 
