@@ -45,6 +45,9 @@ SUBSYSTEM_DEF(outdoor_effects)
 	init_order = INIT_ORDER_OUTDOOR_EFFECTS
 	var/list/atom/movable/screen/plane_master/weather_effect/weather_planes_need_vis = list()
 
+	/// Every live outdoor_effect, for uniform map-wide weather sampling (rain injection)
+	var/list/outdoor_effect_registry = list()
+
 	var/list/atom/movable/screen/fullscreen/lighting_backdrop/sunlight/sunlighting_planes = list()
 	var/datum/time_of_day/current_step_datum
 	var/datum/time_of_day/next_step_datum

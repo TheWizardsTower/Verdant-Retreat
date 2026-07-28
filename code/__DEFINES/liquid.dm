@@ -7,9 +7,9 @@
 #define MAX_FLUID_VOLUME 100 // Maximum amount of fluid each cell can contain (at this point it's just completely full)
 #define LIQUID_ABSORPTION_WETNESS_MULT 3
 #define RAIN_INJECT_INTERVAL (2 SECONDS)
-#define RAIN_INJECT_BASE_SAMPLES 6
-#define RAIN_INJECT_RADIUS 7
+#define RAIN_INJECT_DENSITY 0.027 // Chance per exposed outdoor turf per interval at full severity
 #define RAIN_INJECT_AMOUNT 3
+#define LIQUID_DOUSE_THRESHOLD 10 // Standing fluid depth at which ground-level fires are snuffed
 
 // Fluid level defines for use by the fluid subsystem, these are pretty arbitrary and the actual fluidsum is checked by SSliquid. Use the macro: GET_FLUID_LEVEL(turf)
 #define FLUID_EMPTY 0

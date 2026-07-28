@@ -196,6 +196,17 @@ GLOBAL_DATUM_INIT(acid_overlay, /mutable_appearance, mutable_appearance('icons/e
 		if(fire_burn_start)
 			fire_burn_start = null
 
+///Called when standing fluid on our turf reaches LIQUID_DOUSE_THRESHOLD; depth is the cell's fluidsum.
+/obj/proc/water_douse(depth)
+	if(resistance_flags & ON_FIRE)
+		extinguish()
+		return
+	if(depth >= FLUID_THRESHOLD)
+		extinguish()
+
+/obj/item/water_douse(depth)
+	extinguish()
+
 ///Called when the obj is hit by a tesla bolt.
 /obj/proc/tesla_act(power, tesla_flags, shocked_targets)
 	return

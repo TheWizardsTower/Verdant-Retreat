@@ -128,7 +128,8 @@ GLOBAL_DATUM_INIT(pool_manager, /datum/pool_manager, new)
     return pools
 
 /**
- * Processes continuous liquid behaviors for all mobs standing in liquid pools.
+ * Processes continuous liquid behaviors for all mobs standing in liquid pools,
+ * and douses burnables on flooded turfs.
  * Should be called periodically from the liquid subsystem.
  */
 /datum/pool_manager/proc/process_continuous_behaviors()
@@ -142,6 +143,9 @@ GLOBAL_DATUM_INIT(pool_manager, /datum/pool_manager, new)
     for(var/turf/T as anything in liquid_turfs)
         if(!T?.cell || T.cell.fluidsum < MIN_FLUID_VOLUME)
             continue
+
+        if(!istype(T, /turf/open/water))
+            T.douse_contents()
 
         // Find all mobs on this liquid turf
         for(var/mob/living/M in T)
@@ -249,8 +253,8 @@ GLOBAL_DATUM_INIT(pool_manager, /datum/pool_manager, new)
             wet_update_queue -= T
 
 /**
- * Stochastically injects water near players during rain, scaled by weather severity.
- * Should be called periodically from the liquid subsystem.
+ * Stochastically rains onto exposed outdoor turfs across the whole map, scaled by
+ * weather severity. Should be called periodically from the liquid subsystem.
  */
 /datum/pool_manager/proc/process_rain_injection()
     if(world.time < rain_inject_timer)
@@ -262,29 +266,34 @@ GLOBAL_DATUM_INIT(pool_manager, /datum/pool_manager, new)
     if(!W || !W.running || W.target_trait != PARTICLEWEATHER_RAIN)
         return
 
-    var/n = round(RAIN_INJECT_BASE_SAMPLES * W.severityMod())
+    var/list/exposed = SSoutdoor_effects.outdoor_effect_registry
+    if(!length(exposed))
+        return
+
+    var/n = round(length(exposed) * RAIN_INJECT_DENSITY * W.severityMod())
     for(var/i in 1 to n)
-        if(!length(GLOB.player_list))
-            break
+        var/atom/movable/outdoor_effect/E = pick(exposed)
+        rain_hit(E?.source_turf)
 
-        var/mob/sampler = pick(GLOB.player_list)
-        var/turf/base = get_turf(sampler)
-        if(!base)
-            continue
+/**
+ * Applies one rain sample to a turf. Absorbent ground takes the post-absorption
+ * wetness directly with no fluid-sim involvement; anything else gets real fluid.
+ */
+/datum/pool_manager/proc/rain_hit(turf/open/T)
+    if(!istype(T) || istype(T, /turf/open/water))
+        return
+    if(!T.outdoor_effect || T.outdoor_effect.weatherproof)
+        return
 
-        var/turf/raw = locate(base.x + rand(-RAIN_INJECT_RADIUS, RAIN_INJECT_RADIUS), base.y + rand(-RAIN_INJECT_RADIUS, RAIN_INJECT_RADIUS), base.z)
-        if(!istype(raw, /turf/open) || istype(raw, /turf/open/water))
-            continue
+    if(T.liquid_absorption)
+        T.add_water(RAIN_INJECT_AMOUNT * LIQUID_ABSORPTION_WETNESS_MULT)
+        return
 
-        var/turf/open/candidate = raw
-        if(!candidate.outdoor_effect || candidate.outdoor_effect.weatherproof)
-            continue
+    if(!T.cell)
+        T.cell = new /cell(T)
+        T.cell.InitLiquids()
 
-        if(!candidate.cell)
-            candidate.cell = new /cell(candidate)
-            candidate.cell.InitLiquids()
-
-        var/datum/liquid/water_fluid = candidate.cell.get_fluid_datum(WATER)
-        if(water_fluid)
-            GLOB.liquid_manager.add_fluid(candidate, water_fluid, RAIN_INJECT_AMOUNT)
-        candidate.add_water(RAIN_INJECT_AMOUNT)
+    var/datum/liquid/water_fluid = T.cell.get_fluid_datum(WATER)
+    if(water_fluid)
+        GLOB.liquid_manager.add_fluid(T, water_fluid, RAIN_INJECT_AMOUNT)
+    T.add_water(RAIN_INJECT_AMOUNT)

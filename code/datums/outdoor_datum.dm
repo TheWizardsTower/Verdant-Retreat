@@ -46,6 +46,9 @@ Sunlight System
 	if (!force)
 		return QDEL_HINT_LETMELIVE
 
+	if(SSoutdoor_effects)
+		SSoutdoor_effects.outdoor_effect_registry -= src
+
 	//If we are a source of light - disable it, to fix out corner refs
 	disable_sunlight()
 
@@ -67,6 +70,8 @@ Sunlight System
 		qdel(source_turf.outdoor_effect, force = TRUE)
 		source_turf.outdoor_effect = null //No qdel_null force
 	source_turf.outdoor_effect = src
+	if(SSoutdoor_effects)
+		SSoutdoor_effects.outdoor_effect_registry[src] = TRUE
 
 
 /atom/movable/outdoor_effect/proc/disable_sunlight()

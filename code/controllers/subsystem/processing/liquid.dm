@@ -464,6 +464,12 @@ PROCESSING_SUBSYSTEM_DEF(liquid)
 			GLOB.pool_manager.liquid_turfs[T] = TRUE
 		else
 			GLOB.pool_manager.liquid_turfs -= T
+		if(T.cell.fluidsum >= LIQUID_DOUSE_THRESHOLD)
+			if(!T.cell.doused)
+				T.cell.doused = TRUE
+				T.douse_contents()
+		else
+			T.cell.doused = FALSE
 		update_cell_image(T)
 		if(istype(T, /turf/open/floor/rogue/riverbot) || istype(T, /turf/open/floor/rogue/lakebed))
 			for(var/mob/living/L in T)

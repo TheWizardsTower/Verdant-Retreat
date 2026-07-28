@@ -93,6 +93,7 @@
 #include "life_cadence.dm"
 #include "life_counters.dm"
 #include "liquid_absorption.dm"
+#include "rain_douse.dm"
 #include "reagent_id_typos.dm"
 #include "reagent_recipe_collisions.dm"
 #include "spawn_humans.dm"
