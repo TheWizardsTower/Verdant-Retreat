@@ -71,7 +71,7 @@
 /datum/reagent/water/reaction_mob(mob/living/L, method=TOUCH, reac_volume)
 	. = ..()
 	if(method == TOUCH && reac_volume >= 15 && L.fire_stacks > 0)
-		var/datum/status_effect/fire_handler/fire_stacks/fire_effect = L.has_status_effect(/datum/status_effect/fire_handler/fire_stacks)
+		var/datum/status_effect/fire_handler/fire_stacks/fire_effect = L.get_status_effect_exact(/datum/status_effect/fire_handler/fire_stacks)
 		if(fire_effect)
 			fire_effect.extinguish()
 			fire_effect.adjust_stacks(-L.fire_stacks)
@@ -283,15 +283,15 @@
 			H.adjust_hydration(hydration)
 	var/old_count = LAZYACCESS(data, "misc")
 	LAZYSET(data, "misc", old_count + 1)
-	M.jitteriness = min(M.jitteriness+4,10)
+	M.adjust_timed_status_effect(4 * STATUS_COUNTER_UNIT, /datum/status_effect/life_counter/jitter, max_duration = 10 * STATUS_COUNTER_UNIT)
 	if(data >= 25)		// 10 units, 45 seconds @ metabolism 0.4 units & tick rate 1.8 sec
-		if(!M.stuttering)
-			M.stuttering = 1
-		M.stuttering = min(M.stuttering+4, 10)
+		if(!M.has_status_effect(/datum/status_effect/life_counter/stutter))
+			M.set_timed_status_effect(1 * STATUS_COUNTER_UNIT, /datum/status_effect/life_counter/stutter)
+		M.adjust_timed_status_effect(4 * STATUS_COUNTER_UNIT, /datum/status_effect/life_counter/stutter, max_duration = 10 * STATUS_COUNTER_UNIT)
 		M.Dizzy(5)
 	if(data >= 60)	// 30 units, 135 seconds
-		M.jitteriness = 0
-		M.stuttering = 0
+		M.remove_status_effect(/datum/status_effect/life_counter/jitter)
+		M.remove_status_effect(/datum/status_effect/life_counter/stutter)
 		holder.remove_reagent(type, volume)	// maybe this is a little too perfect and a max() cap on the statuses would be better??
 		return
 	holder.remove_reagent(type, 0.4)	//fixed consumption to prevent balancing going out of whack
@@ -882,9 +882,9 @@
 
 /datum/reagent/cryptobiolin/on_mob_life(mob/living/carbon/M)
 	M.Dizzy(1)
-	if(!M.confused)
-		M.confused = 1
-	M.confused = max(M.confused, 20)
+	if(!M.has_status_effect(/datum/status_effect/life_counter/confusion))
+		M.set_timed_status_effect(1 * STATUS_COUNTER_UNIT, /datum/status_effect/life_counter/confusion)
+	M.set_timed_status_effect(20 * STATUS_COUNTER_UNIT, /datum/status_effect/life_counter/confusion, only_if_higher = TRUE)
 	..()
 
 /datum/reagent/impedrezene
@@ -894,11 +894,11 @@
 	taste_description = "numbness"
 
 /datum/reagent/impedrezene/on_mob_life(mob/living/carbon/M)
-	M.jitteriness = max(M.jitteriness-5,0)
+	M.adjust_timed_status_effect(-5 * STATUS_COUNTER_UNIT, /datum/status_effect/life_counter/jitter)
 	if(prob(80))
 		M.adjustOrganLoss(ORGAN_SLOT_BRAIN, 2*REM)
 	if(prob(50))
-		M.drowsyness = max(M.drowsyness, 3)
+		M.set_timed_status_effect(3 * STATUS_COUNTER_UNIT, /datum/status_effect/life_counter/drowsiness, only_if_higher = TRUE)
 	if(prob(10))
 		M.emote("drool")
 	..()
@@ -953,16 +953,16 @@
 
 /datum/reagent/nitrous_oxide/reaction_mob(mob/living/M, method=TOUCH, reac_volume)
 	if(method == VAPOR)
-		M.drowsyness += max(round(reac_volume, 1), 2)
+		M.adjust_drowsyness(max(round(reac_volume, 1), 2))
 
 /datum/reagent/nitrous_oxide/on_mob_life(mob/living/carbon/M)
-	M.drowsyness += 2
+	M.adjust_drowsyness(2)
 	if(ishuman(M))
 		var/mob/living/carbon/human/H = M
 		H.blood_volume = max(H.blood_volume - 10, 0)
 	if(prob(20))
 		M.losebreath += 2
-		M.confused = min(M.confused + 2, 5)
+		M.adjust_timed_status_effect(2 * STATUS_COUNTER_UNIT, /datum/status_effect/life_counter/confusion, max_duration = 5 * STATUS_COUNTER_UNIT)
 	..()
 
 /datum/reagent/stimulum
@@ -1454,10 +1454,10 @@
 	can_synth = TRUE
 
 /datum/reagent/peaceborg/confuse/on_mob_life(mob/living/carbon/M)
-	if(M.confused < 6)
-		M.confused = CLAMP(M.confused + 3, 0, 5)
-	if(M.dizziness < 6)
-		M.dizziness = CLAMP(M.dizziness + 3, 0, 5)
+	if(M.get_counter_units(/datum/status_effect/life_counter/confusion) < 6)
+		M.adjust_timed_status_effect(3 * STATUS_COUNTER_UNIT, /datum/status_effect/life_counter/confusion, max_duration = 5 * STATUS_COUNTER_UNIT)
+	if(M.get_counter_units(/datum/status_effect/life_counter/dizziness) < 6)
+		M.adjust_timed_status_effect(3 * STATUS_COUNTER_UNIT, /datum/status_effect/life_counter/dizziness, max_duration = 5 * STATUS_COUNTER_UNIT)
 	if(prob(20))
 		to_chat(M, "You feel confused and disorientated.")
 	..()

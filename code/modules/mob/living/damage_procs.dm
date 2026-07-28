@@ -111,17 +111,17 @@
 		if(EFFECT_UNCONSCIOUS)
 			Unconscious(effect * hit_percent)
 		if(EFFECT_SLUR)
-			slurring = max(slurring,(effect * hit_percent))
+			set_timed_status_effect((effect * hit_percent) * STATUS_COUNTER_UNIT, /datum/status_effect/life_counter/slur, only_if_higher = TRUE)
 		if(EFFECT_STUTTER)
 			if((status_flags & CANSTUN) && !HAS_TRAIT(src, TRAIT_STUNIMMUNE)) // stun is usually associated with stutter
-				stuttering = max(stuttering,(effect * hit_percent))
+				set_timed_status_effect((effect * hit_percent) * STATUS_COUNTER_UNIT, /datum/status_effect/life_counter/stutter, only_if_higher = TRUE)
 		if(EFFECT_EYE_BLUR)
 			blur_eyes(effect * hit_percent)
 		if(EFFECT_DROWSY)
-			drowsyness = max(drowsyness,(effect * hit_percent))
+			set_timed_status_effect((effect * hit_percent) * STATUS_COUNTER_UNIT, /datum/status_effect/life_counter/drowsiness, only_if_higher = TRUE)
 		if(EFFECT_JITTER)
 			if((status_flags & CANSTUN) && !HAS_TRAIT(src, TRAIT_STUNIMMUNE))
-				jitteriness = max(jitteriness,(effect * hit_percent))
+				Jitter(effect * hit_percent)
 	return 1
 
 

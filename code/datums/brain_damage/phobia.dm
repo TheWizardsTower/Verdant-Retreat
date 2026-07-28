@@ -129,10 +129,10 @@
 			owner.Jitter(5)
 			owner.blind_eyes(10)
 		if(4)
-			owner.dizziness += 10
-			owner.confused += 10
+			owner.adjust_timed_status_effect(10 * STATUS_COUNTER_UNIT, /datum/status_effect/life_counter/dizziness)
+			owner.adjust_timed_status_effect(10 * STATUS_COUNTER_UNIT, /datum/status_effect/life_counter/confusion)
 			owner.Jitter(10)
-			owner.stuttering += 10
+			owner.adjust_timed_status_effect(10 * STATUS_COUNTER_UNIT, /datum/status_effect/life_counter/stutter)
 
 // Defined phobia types for badminry, not included in the RNG trauma pool to avoid diluting.
 

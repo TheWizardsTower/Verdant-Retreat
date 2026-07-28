@@ -51,12 +51,6 @@
 
 	handle_gravity()
 
-	handle_traits() // eye, ear, brain damages
-	if(life_work & LIFEWORK_STATUS)
-		handle_status_effects() //all special effects, stun, knockdown, jitteryness, hallucination, sleeping, etc
-		if(life_status_settled())
-			life_work &= ~LIFEWORK_STATUS
-
 	if(rogue_sneaking || m_intent == MOVE_INTENT_SNEAK || world.time < mob_timers[MT_INVISIBILITY])
 		update_sneak_invis()
 
@@ -164,25 +158,6 @@
 		//	simple_remove_embedded_object(embedded)
 		//	to_chat(src,span_danger("[embedded] falls out of me!"))
 
-//this updates all special effects: knockdown, druggy, stuttering, etc..
-/mob/living/proc/handle_status_effects()
-	if(confused)
-		confused = max(confused - 1, 0)
-	if(slowdown)
-		slowdown = max(slowdown - 1, 0)
-	if(slowdown <= 0)
-		remove_movespeed_modifier(MOVESPEED_ID_LIVING_SLOWDOWN_STATUS)
-
-/mob/living/proc/handle_traits()
-	//Eyes
-	if(eye_blind)	//blindness, heals slowly over time
-		if(HAS_TRAIT_FROM(src, TRAIT_BLIND, EYES_COVERED)) //covering your eyes heals blurry eyes faster
-			adjust_blindness(-3)
-		else if(!stat && !(HAS_TRAIT(src, TRAIT_BLIND)))
-			adjust_blindness(-1)
-	else if(eye_blurry)			//blurry eyes heal slowly
-		adjust_blurriness(-1)
-
 /mob/living/proc/update_damage_hud()
 	return
 
@@ -222,8 +197,6 @@
 /mob/living/proc/life_work_upkeep(times_fired)
 	if(!life_work_id)
 		life_work_id = SSmobs.LifeWorkRegister(src)
-	if((times_fired + life_work_id) % 15 == 0)
-		life_work |= LIFEWORK_STATUS
 	if((times_fired + life_work_id) % 30 == 0)
 		life_work |= LIFEWORK_ALL
 
@@ -235,6 +208,3 @@
 
 /mob/living/proc/life_fire_water_settled()
 	return !on_fire && fire_stacks <= 0 && !istype(loc, /turf/open/water)
-
-/mob/living/proc/life_status_settled()
-	return !confused && !slowdown

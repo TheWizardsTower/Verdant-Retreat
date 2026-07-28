@@ -1,6 +1,6 @@
 /mob/living/carbon/human/say_mod(input, message_mode)
 	verb_say = dna.species.say_mod
-	if(slurring)
+	if(has_status_effect(/datum/status_effect/life_counter/slur))
 		return "slurs"
 	else
 		. = ..()

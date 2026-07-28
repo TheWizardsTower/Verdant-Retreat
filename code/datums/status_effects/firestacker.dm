@@ -38,7 +38,7 @@
 	set_stacks(new_stacks)
 
 	for(var/enemy_type in enemy_types)
-		var/datum/status_effect/fire_handler/enemy_effect = owner.has_status_effect(enemy_type)
+		var/datum/status_effect/fire_handler/enemy_effect = owner.get_status_effect_exact(enemy_type)
 		if(enemy_effect)
 			if(forced)
 				qdel(enemy_effect)
@@ -57,7 +57,7 @@
 	if(!forced)
 		var/list/merge_effects = list()
 		for(var/merge_type in merge_types)
-			var/datum/status_effect/fire_handler/merge_effect = owner.has_status_effect(merge_type)
+			var/datum/status_effect/fire_handler/merge_effect = owner.get_status_effect_exact(merge_type)
 			if(merge_effect)
 				merge_effects += merge_effects
 
@@ -68,7 +68,7 @@
 			return
 
 	for(var/override_type in override_types)
-		var/datum/status_effect/fire_handler/override_effect = owner.has_status_effect(override_type)
+		var/datum/status_effect/fire_handler/override_effect = owner.get_status_effect_exact(override_type)
 		if(override_effect)
 			if(forced)
 				qdel(override_effect)
@@ -144,9 +144,6 @@
 
 /datum/status_effect/fire_handler/fire_stacks/on_creation(mob/living/new_owner, new_stacks, forced = FALSE)
 	. = ..()
-
-/datum/status_effect/fire_handler/fire_stacks/on_remove()
-	pass()
 
 /datum/status_effect/fire_handler/fire_stacks/tick(wait)
 	if(stacks <= 0)
@@ -227,7 +224,6 @@
 /datum/status_effect/fire_handler/fire_stacks/proc/extinguish()
 	QDEL_NULL(moblight)
 	on_fire = FALSE
-	SEND_SIGNAL(owner, COMSIG_CLEAR_MOOD_EVENT, "on_fire")
 	SEND_SIGNAL(owner, COMSIG_LIVING_EXTINGUISHED, owner)
 	cache_stacks()
 

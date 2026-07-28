@@ -709,7 +709,7 @@
 	. = ..()
 	if(. && iscarbon(user))
 		var/mob/living/carbon/C = user
-		return !C.silent
+		return !C.has_status_effect(/datum/status_effect/silenced)
 
 /datum/emote/living/laugh/run_emote(mob/living/user, params, type_override, intentional)
 	. = ..()

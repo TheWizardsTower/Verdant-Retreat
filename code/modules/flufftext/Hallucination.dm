@@ -25,20 +25,6 @@ GLOBAL_LIST_INIT(hallucination_list, list(
 	))
 
 
-/mob/living/carbon/proc/handle_hallucinations()
-	if(!hallucination)
-		return
-
-	hallucination--
-
-	if(world.time < next_hallucination)
-		return
-
-	var/halpick = pickweight(GLOB.hallucination_list)
-	new halpick(src, FALSE)
-
-	next_hallucination = world.time + rand(100, 600)
-
 /mob/living/carbon/proc/set_screwyhud(hud_type)
 	hal_screwyhud = hud_type
 	update_health_hud()
@@ -956,7 +942,7 @@ GLOBAL_LIST_INIT(hallucination_list, list(
 	target.set_screwyhud(SCREWYHUD_DEAD)
 	target.Paralyze(300)
 	target.playsound_local(target, 'sound/misc/deth.ogg', 100, 0)
-	target.silent += 10
+	target.adjust_timed_status_effect(10 * STATUS_COUNTER_UNIT, /datum/status_effect/silenced)
 	to_chat(target, "<span class='deadsay'><b>[target.real_name]</b> has died at <b>[get_area_name(target)]</b>.</span>")
 	if(prob(50))
 		var/mob/fakemob
@@ -974,7 +960,7 @@ GLOBAL_LIST_INIT(hallucination_list, list(
 	sleep(rand(70,90))
 	target.set_screwyhud(SCREWYHUD_NONE)
 	target.SetParalyzed(0)
-	target.silent = FALSE
+	target.remove_status_effect(/datum/status_effect/silenced)
 	qdel(src)
 
 /datum/hallucination/fire
@@ -1042,8 +1028,8 @@ GLOBAL_LIST_INIT(hallucination_list, list(
 	target.playsound_local(get_turf(src), "sparks", 100, 1)
 	target.staminaloss += 50
 	target.Stun(40)
-	target.jitteriness += 1000
-	target.do_jitter_animation(target.jitteriness)
+	target.adjust_timed_status_effect(1000 * STATUS_COUNTER_UNIT, /datum/status_effect/life_counter/jitter)
+	target.do_jitter_animation(target.get_counter_units(/datum/status_effect/life_counter/jitter))
 	addtimer(CALLBACK(src, PROC_REF(shock_drop)), 20)
 
 /datum/hallucination/shock/proc/reset_shock_animation()
@@ -1052,7 +1038,8 @@ GLOBAL_LIST_INIT(hallucination_list, list(
 		target.client.images.Remove(electrocution_skeleton_anim)
 
 /datum/hallucination/shock/proc/shock_drop()
-	target.jitteriness = max(target.jitteriness - 990, 10) //Still jittery, but vastly less
+	target.adjust_timed_status_effect(-990 * STATUS_COUNTER_UNIT, /datum/status_effect/life_counter/jitter)
+	target.Jitter(10)
 	target.Paralyze(60)
 
 /datum/hallucination/husks

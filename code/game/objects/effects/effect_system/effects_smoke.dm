@@ -236,7 +236,7 @@
 	if(..())
 		if(M.is_holding_breath())
 			return 0
-		M.silent = max(M.silent, 8)
+		M.set_timed_status_effect(8 * STATUS_COUNTER_UNIT, /datum/status_effect/silenced, only_if_higher = TRUE)
 		return 1
 
 /datum/effect_system/smoke_spread/mute_gas

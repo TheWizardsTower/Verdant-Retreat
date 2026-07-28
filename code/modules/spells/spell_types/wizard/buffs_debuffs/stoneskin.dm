@@ -51,6 +51,7 @@
 /datum/status_effect/buff/stoneskin
 	var/outline_colour ="#808080" // Granite Grey
 	id = "stoneskin"
+	exclusion_group = "stoneskin"
 	alert_type = /atom/movable/screen/alert/status_effect/buff/stoneskin
 	effectedstats = list("constitution" = 5)
 	var/hadcritres = FALSE

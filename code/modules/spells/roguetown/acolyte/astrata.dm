@@ -192,7 +192,7 @@ GLOBAL_LIST_EMPTY(divine_destruction_mobs) // Tracks mobs undergoing divine dest
 	if(isliving(user))
 		var/mob/living/L = user
 		L.adjust_fire_stacks(-L.fire_stacks)
-		var/datum/status_effect/fire_handler/fire_stacks/FS = L.has_status_effect(/datum/status_effect/fire_handler/fire_stacks)
+		var/datum/status_effect/fire_handler/fire_stacks/FS = L.get_status_effect_exact(/datum/status_effect/fire_handler/fire_stacks)
 		if(FS)
 			FS.extinguish()
 		

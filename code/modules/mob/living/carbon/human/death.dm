@@ -158,8 +158,8 @@
 			user_species.soul_light_off()
 			update_body()
 
-	dizziness = 0
-	jitteriness = 0
+	remove_status_effect(/datum/status_effect/life_counter/dizziness)
+	remove_status_effect(/datum/status_effect/life_counter/jitter)
 	dna.species.spec_death(gibbed, src)
 
 	if(SSticker.HasRoundStarted())

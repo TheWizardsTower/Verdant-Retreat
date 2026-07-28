@@ -1386,11 +1386,6 @@
 		var/mob/living/carbon/human/H = usr
 		H.check_for_injuries(H)
 
-/atom/movable/screen/mood
-	name = "mood"
-	icon_state = "mood5"
-	screen_loc = null
-
 /atom/movable/screen/healths/blood
 	name = "life"
 	icon_state = "blood100"

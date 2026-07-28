@@ -567,7 +567,7 @@ All foods are distributed among various categories. Use common sense.
 				var/obj/item/organ/eyes/E = H.getorganslot(ORGAN_SLOT_EYES) //FIXME: getorganslot() and getorgan() don't actually differentiate organ types! This means that transplanted golem eyes will still cry, but I need to mess with all of the organ checking code to unfuck this!
 				if (E && !(H.eyesclosed || HAS_TRAIT(H,TRAIT_NOPAIN) || H.is_eyes_covered() || HAS_TRAIT(H,TRAIT_BLIND) || H.get_skill_level(/datum/skill/craft/cooking) > SKILL_LEVEL_JOURNEYMAN)) //The painless will not be irritated by onions. Golems, skellies, meth-heads, etc. Expert+ chefs will also be unaffected.
 					to_chat(user,span_warning("The onion's juices sting my eyes!"))
-					user.blur_eyes(4)
+					H.blur_eyes(4)
 					if (prob(50))
 						user.emote("cry",forced=TRUE)
 		

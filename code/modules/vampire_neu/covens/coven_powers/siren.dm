@@ -198,8 +198,8 @@
 			continue
 
 		listener.Stun(duration_length)
-		listener.confused += 10
-		listener.jitteriness += 10
+		listener.adjust_timed_status_effect(10 * STATUS_COUNTER_UNIT, /datum/status_effect/life_counter/confusion)
+		listener.adjust_timed_status_effect(10 * STATUS_COUNTER_UNIT, /datum/status_effect/life_counter/jitter)
 		listener.soundbang_act(intensity = 1, stun_pwr = 0, damage_pwr = 5, deafen_pwr = 15)
 		listener.apply_damage(50, BRUTE, BODY_ZONE_HEAD)
 

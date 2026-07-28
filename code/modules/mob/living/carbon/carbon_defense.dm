@@ -373,16 +373,17 @@
 		if(should_stun)
 			Paralyze(30)
 		//Jitter and other fluff.
-		jitteriness += 1000
-		do_jitter_animation(jitteriness)
-		stuttering += 2
+		adjust_timed_status_effect(1000 * STATUS_COUNTER_UNIT, /datum/status_effect/life_counter/jitter)
+		do_jitter_animation(get_counter_units(/datum/status_effect/life_counter/jitter))
+		adjust_timed_status_effect(2 * STATUS_COUNTER_UNIT, /datum/status_effect/life_counter/stutter)
 		emote("painscream")
 	addtimer(CALLBACK(src, PROC_REF(secondary_shock), should_stun), 20)
 	return shock_damage
 
 ///Called slightly after electrocute act to reduce jittering and apply a secondary stun.
 /mob/living/carbon/proc/secondary_shock(should_stun)
-	jitteriness = max(jitteriness - 990, 10)
+	adjust_timed_status_effect(-990 * STATUS_COUNTER_UNIT, /datum/status_effect/life_counter/jitter)
+	Jitter(10)
 	if(should_stun)
 		Paralyze(60)
 
@@ -400,13 +401,6 @@
 	M.visible_message("<span class='notice'>[M] shakes [src].</span>", \
 				"<span class='notice'>I shake [src] to get [p_their()] attention.</span>")
 	shake_camera(src, 2, 1)
-	SEND_SIGNAL(src, COMSIG_ADD_MOOD_EVENT, "hug", /datum/mood_event/hug)
-	if(HAS_TRAIT(M, TRAIT_FRIENDLY))
-		var/datum/component/mood/mood = M.GetComponent(/datum/component/mood)
-		if (mood.sanity >= SANITY_GREAT)
-			SEND_SIGNAL(src, COMSIG_ADD_MOOD_EVENT, "friendly_hug", /datum/mood_event/besthug, M)
-		else if (mood.sanity >= SANITY_DISTURBED)
-			SEND_SIGNAL(src, COMSIG_ADD_MOOD_EVENT, "friendly_hug", /datum/mood_event/betterhug, M)
 	for(var/datum/brain_trauma/trauma in M.get_traumas())
 		trauma.on_hug(M, src)
 	AdjustStun(-60)

@@ -49,6 +49,7 @@
 /datum/status_effect/buff/guidance
 	var/outline_colour ="#f58e2d"
 	id = "guidance"
+	exclusion_group = "guidance"
 	alert_type = /atom/movable/screen/alert/status_effect/buff/guidance
 	duration = 1 MINUTES
 

@@ -131,7 +131,7 @@ GLOBAL_DATUM_INIT(openspace_backdrop_one_for_all, /atom/movable/openspace_backdr
 			L.adjustFireLoss(25)
 			return
 		else if(L.fire_stacks > 0)
-			var/datum/status_effect/fire_handler/fire_stacks/fire_effect = L.has_status_effect(/datum/status_effect/fire_handler/fire_stacks)
+			var/datum/status_effect/fire_handler/fire_stacks/fire_effect = L.get_status_effect_exact(/datum/status_effect/fire_handler/fire_stacks)
 			if(fire_effect)
 				fire_effect.extinguish()
 				fire_effect.adjust_stacks(-L.fire_stacks)

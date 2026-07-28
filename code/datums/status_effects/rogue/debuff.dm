@@ -1,5 +1,6 @@
 /datum/status_effect/debuff
 	status_type = STATUS_EFFECT_REFRESH
+	tick_interval = STATUS_EFFECT_NO_TICK
 
 ///////////////////////////
 
@@ -218,7 +219,7 @@
 	desc = "Something has been taken from me, and it will take time to recover."
 
 /datum/status_effect/debuff/vamp_dreams
-	id = "sleepytime"
+	id = "vamp_dreams"
 	alert_type = /atom/movable/screen/alert/status_effect/debuff/vamp_dreams
 	needs_processing = FALSE
 
@@ -243,14 +244,7 @@
 	id = "breedable"
 	alert_type = /atom/movable/screen/alert/status_effect/debuff/breedable
 	duration = 30 SECONDS
-
-/datum/status_effect/debuff/breedable/on_apply()
-	. = ..()
-	ADD_TRAIT(owner, TRAIT_CRITICAL_RESISTANCE, id)
-
-/datum/status_effect/debuff/breedable/on_remove()
-	. = ..()
-	REMOVE_TRAIT(owner, TRAIT_CRITICAL_RESISTANCE, id)
+	granted_traits = list(TRAIT_CRITICAL_RESISTANCE)
 
 /atom/movable/screen/alert/status_effect/debuff/breedable
 	name = "Obedient"
@@ -451,6 +445,7 @@
 
 /datum/status_effect/debuff/dazed
 	id = "dazed"
+	exclusion_group = "dazed"
 	alert_type = /atom/movable/screen/alert/status_effect/debuff/dazed
 	effectedstats = list("perception" = -2, "intelligence" = -2)
 	duration = 15 SECONDS
@@ -505,6 +500,7 @@
 
 /datum/status_effect/debuff/knockout
 	id = "knockout"
+	tick_interval = 10
 	effectedstats = null
 	alert_type = null
 	duration = 12 SECONDS
@@ -979,17 +975,6 @@
 ///HARPY FLIGHT STUFF END///
 ///////////////////////////
 
-/datum/status_effect/debuff/specialcd
-	id = "specialcd"
-	alert_type = /atom/movable/screen/alert/status_effect/debuff/specialcd
-	duration = 30 SECONDS
-	status_type = STATUS_EFFECT_UNIQUE
-
-/datum/status_effect/debuff/specialcd/on_creation(mob/living/new_owner, new_dur)
-	if(new_dur)
-		duration = new_dur
-	return ..()
-
 /atom/movable/screen/alert/status_effect/debuff/specialcd
 	name = "Special Manouevre Cooldown"
 	desc = "I used it. I must wait."
@@ -998,6 +983,7 @@
 //baotha stuff
 /datum/status_effect/debuff/joybringer_druqks
 	id = "joybringer_druqks"
+	tick_interval = 10
 	effectedstats = list(STATKEY_LCK = -2)
 	duration = 3 SECONDS
 	alert_type = null
@@ -1023,7 +1009,7 @@
 		SSdroning.play_area_sound(get_area(owner), owner.client)
 
 /datum/status_effect/debuff/joybringer_druqks/tick()
-	owner.hallucination += 3
+	owner.adjust_timed_status_effect(3 * STATUS_COUNTER_UNIT, /datum/status_effect/life_counter/hallucinating)
 	owner.Jitter(1)
 
 	if(!prob(10))

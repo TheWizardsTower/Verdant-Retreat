@@ -599,17 +599,15 @@ GLOBAL_LIST_INIT(department_radio_keys, list(
 	if(HAS_TRAIT(src, TRAIT_UNINTELLIGIBLE_SPEECH))
 		message = unintelligize(message)
 
+	var/stutter_units = get_counter_units(/datum/status_effect/life_counter/stutter)
 	if(derpspeech)
-		message = derpspeech(message, stuttering)
+		message = derpspeech(message, stutter_units)
 
-	if(stuttering)
+	if(stutter_units)
 		message = stutter(message)
 
-	if(slurring)
+	if(has_status_effect(/datum/status_effect/life_counter/slur))
 		message = slur(message)
-
-	if(cultslurring)
-		message = cultslur(message)
 
 	message = capitalize(message)
 
@@ -640,7 +638,7 @@ GLOBAL_LIST_INIT(department_radio_keys, list(
 		. = verb_whisper
 	else if(message_mode == MODE_WHISPER_CRIT)
 		. = "[verb_whisper] in [p_their()] last breath"
-	else if(stuttering)
+	else if(has_status_effect(/datum/status_effect/life_counter/stutter))
 		. = "stammers"
 	else if(derpspeech)
 		. = "gibbers"

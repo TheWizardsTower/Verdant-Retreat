@@ -152,9 +152,9 @@
 		return TRUE
 	switch(current_cycle)
 		if(1 to 5)
-			M.confused += 1
-			M.drowsyness += 1
-			M.slurring += 3
+			M.adjust_timed_status_effect(1 * STATUS_COUNTER_UNIT, /datum/status_effect/life_counter/confusion)
+			M.adjust_drowsyness(1)
+			M.adjust_timed_status_effect(3 * STATUS_COUNTER_UNIT, /datum/status_effect/life_counter/slur)
 		if(5 to 8)
 			M.adjustStaminaLoss(40, 0)
 		if(9 to INFINITY)
@@ -190,7 +190,7 @@
 	taste_description = "sourness"
 
 /datum/reagent/toxin/mindbreaker/on_mob_life(mob/living/carbon/M)
-	M.hallucination += 5
+	M.adjust_timed_status_effect(5 * STATUS_COUNTER_UNIT, /datum/status_effect/life_counter/hallucinating)
 	return ..()
 
 /datum/reagent/toxin/plantbgone
@@ -268,8 +268,8 @@
 /datum/reagent/toxin/chloralhydrate/on_mob_life(mob/living/carbon/M)
 	switch(current_cycle)
 		if(1 to 10)
-			M.confused += 2
-			M.drowsyness += 2
+			M.adjust_timed_status_effect(2 * STATUS_COUNTER_UNIT, /datum/status_effect/life_counter/confusion)
+			M.adjust_drowsyness(2)
 		if(10 to 50)
 			M.Sleeping(40, 0)
 			. = 1
@@ -322,7 +322,7 @@
 	taste_description = "silence"
 
 /datum/reagent/toxin/mutetoxin/on_mob_life(mob/living/carbon/M)
-	M.silent = max(M.silent, 3)
+	M.set_timed_status_effect(3 * STATUS_COUNTER_UNIT, /datum/status_effect/silenced, only_if_higher = TRUE)
 	..()
 
 /datum/reagent/toxin/histamine
@@ -406,8 +406,6 @@
 	M.adjustOrganLoss(ORGAN_SLOT_BRAIN, 3*REM, 150)
 	if(M.toxloss <= 60)
 		M.adjustToxLoss(1*REM, 0)
-	if(current_cycle >= 4)
-		SEND_SIGNAL(M, COMSIG_ADD_MOOD_EVENT, "smacked out", /datum/mood_event/narcotic_heavy, name)
 	if(current_cycle >= 18)
 		M.Sleeping(40, 0)
 	..()
@@ -837,7 +835,7 @@
 
 /datum/reagent/toxin/bungotoxin/on_mob_life(mob/living/carbon/M)
 	M.adjustOrganLoss(ORGAN_SLOT_HEART, 3)
-	M.confused = M.dizziness //add a tertiary effect here if this is isn't an effective poison.
+	M.set_timed_status_effect(M.get_counter_units(/datum/status_effect/life_counter/dizziness) * STATUS_COUNTER_UNIT, /datum/status_effect/life_counter/confusion) //add a tertiary effect here if this is isn't an effective poison.
 	if(current_cycle >= 12 && prob(8))
 		var/tox_message = pick("You feel my heart spasm in my chest.", "You feel faint.","You feel you need to catch my breath.","You feel a prickle of pain in my chest.")
 		to_chat(M, span_notice("[tox_message]"))

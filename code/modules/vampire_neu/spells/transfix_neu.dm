@@ -81,8 +81,8 @@
 				break
 
 		if(bloodroll >= willroll)
-			target.drowsyness = min(target.drowsyness + 50, 150)
-			switch(target.drowsyness)
+			target.adjust_timed_status_effect(50 * STATUS_COUNTER_UNIT, /datum/status_effect/life_counter/drowsiness, max_duration = 150 * STATUS_COUNTER_UNIT)
+			switch(target.get_counter_units(/datum/status_effect/life_counter/drowsiness))
 				if(0 to 50)
 					to_chat(target, "You feel like a curtain is coming over your mind.")
 					to_chat(user, "The mind of [target] gives way slightly.")

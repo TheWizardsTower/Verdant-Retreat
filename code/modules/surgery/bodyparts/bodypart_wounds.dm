@@ -91,7 +91,7 @@ GLOBAL_LIST_INIT(brain_penetration_zones, list(BODY_ZONE_PRECISE_SKULL, BODY_ZON
 /obj/item/bodypart/proc/heal_wounds(heal_amount)
 	if(!length(wounds))
 		return FALSE
-	if(HAS_TRAIT(owner, TRAIT_SILVER_WEAK) && owner.has_status_effect(/datum/status_effect/fire_handler/fire_stacks/sunder) || owner.has_status_effect(/datum/status_effect/fire_handler/fire_stacks/sunder/blessed))
+	if(HAS_TRAIT(owner, TRAIT_SILVER_WEAK) && owner.get_status_effect_exact(/datum/status_effect/fire_handler/fire_stacks/sunder) || owner.has_status_effect(/datum/status_effect/fire_handler/fire_stacks/sunder/blessed))
 		return
 	var/healed_any = FALSE
 	for(var/datum/wound/wound as anything in wounds)
@@ -894,7 +894,6 @@ GLOBAL_LIST_INIT(brain_penetration_zones, list(BODY_ZONE_PRECISE_SKULL, BODY_ZON
 			C.invalidate_bleed_cache()
 		if(!owner.has_embedded_objects())
 			owner.clear_alert("embeddedobject")
-			SEND_SIGNAL(owner, COMSIG_CLEAR_MOOD_EVENT, "embedded")
 		update_disabled()
 	if (embedder.embedding?.clamp_limbs)
 		get_surgery_flags() // hacky workaround that ensures cached clamp flag status updates properly

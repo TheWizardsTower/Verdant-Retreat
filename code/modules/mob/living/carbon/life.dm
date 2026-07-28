@@ -116,19 +116,19 @@
 								visible_message(span_info("[src] audibly grits their teeth. ENDURING through their pain."), span_info("Through my faith in HIM, I ENDURE."))
 							else
 								visible_message(span_info("[src] trembled for a moment, but they remain stood."), span_info("My strong constitution keeps me upright."))
-							stuttering += 5
+							adjust_timed_status_effect(5 * STATUS_COUNTER_UNIT, /datum/status_effect/life_counter/stutter)
 							emote("painmoan")
 							return
 					if(prob(probby) && !HAS_TRAIT(src, TRAIT_NOPAINSTUN) && !has_status_effect(/datum/status_effect/buff/psyhealing))
 						Immobilize(10)
 						emote("painscream")
-						stuttering += 5
+						adjust_timed_status_effect(5 * STATUS_COUNTER_UNIT, /datum/status_effect/life_counter/stutter)
 						addtimer(CALLBACK(src, PROC_REF(Stun), 110), 10)
 						addtimer(CALLBACK(src, PROC_REF(Knockdown), 110), 10)
 						mob_timers["painstun"] = world.time + 160
 					else
 						emote("painmoan")
-						stuttering += 5
+						adjust_timed_status_effect(5 * STATUS_COUNTER_UNIT, /datum/status_effect/life_counter/stutter)
 				else
 					if(painpercent >= 80)
 						if(probby)
@@ -147,10 +147,6 @@
 		if(istype(O, /obj/item/organ/heart) || istype(O, /obj/item/organ/stomach) || istype(O, /obj/item/organ/eyes/night_vision))
 			return FALSE
 	return TRUE
-
-/mob/living/carbon/life_status_settled()
-	return !confused && !slowdown && !dizziness && !drowsyness && !jitteriness && !stuttering && !slurring && \
-		!cultslurring && !silent && !druggy && !hallucination && !drunkenness
 
 /mob/living/carbon/human/handle_roguebreath()
 	..()
@@ -375,132 +371,6 @@ GLOBAL_LIST_INIT(ballmer_windows_me_msg, list("Yo man, what if, we like, uh, put
 												"You ever wonder if /dev/null supports sharding?",
 												"Do you know who ate all the donuts?",
 												"What if we use a language that was written on a napkin and created over 1 weekend for all of our servers?"))
-
-//this updates all special effects: stun, sleeping, knockdown, druggy, stuttering, etc..
-/mob/living/carbon/handle_status_effects()
-	..()
-
-	var/restingpwr = 1 + 4 * resting
-
-	//Dizziness
-	if(dizziness)
-		var/client/C = client
-		var/pixel_x_diff = 0
-		var/pixel_y_diff = 0
-		var/temp
-		var/saved_dizz = dizziness
-		if(C)
-			var/oldsrc = src
-			var/amplitude = dizziness*(sin(dizziness * world.time) + 1) // This shit is annoying at high strength
-			src = null
-			spawn(0)
-				if(C)
-					temp = amplitude * sin(saved_dizz * world.time)
-					pixel_x_diff += temp
-					C.pixel_x += temp
-					temp = amplitude * cos(saved_dizz * world.time)
-					pixel_y_diff += temp
-					C.pixel_y += temp
-					sleep(3)
-					if(C)
-						temp = amplitude * sin(saved_dizz * world.time)
-						pixel_x_diff += temp
-						C.pixel_x += temp
-						temp = amplitude * cos(saved_dizz * world.time)
-						pixel_y_diff += temp
-						C.pixel_y += temp
-					sleep(3)
-					if(C)
-						C.pixel_x -= pixel_x_diff
-						C.pixel_y -= pixel_y_diff
-			src = oldsrc
-		dizziness = max(dizziness - restingpwr, 0)
-
-	if(drowsyness)
-		drowsyness = max(drowsyness - restingpwr, 0)
-		blur_eyes(2)
-		if(drowsyness >= 100)
-			Sleeping(300)
-
-	//Jitteriness
-	if(jitteriness)
-		do_jitter_animation(jitteriness)
-		jitteriness = max(jitteriness - restingpwr, 0)
-		SEND_SIGNAL(src, COMSIG_ADD_MOOD_EVENT, "jittery", /datum/mood_event/jittery)
-	else
-		SEND_SIGNAL(src, COMSIG_CLEAR_MOOD_EVENT, "jittery")
-
-	if(stuttering)
-		stuttering = max(stuttering-1, 0)
-
-	if(slurring)
-		slurring = max(slurring-1,0)
-
-	if(cultslurring)
-		cultslurring = max(cultslurring-1, 0)
-
-	if(silent)
-		silent = max(silent-1, 0)
-
-	if(druggy)
-		adjust_drugginess(-1)
-
-	if(hallucination)
-		handle_hallucinations()
-
-	if(drunkenness)
-		drunkenness = max(drunkenness - (drunkenness * 0.04) - 0.01, 0)
-		if(drunkenness >= 3)
-//			SEND_SIGNAL(src, COMSIG_ADD_MOOD_EVENT, "drunk", /datum/mood_event/drunk)
-			if(prob(3))
-				slurring += 2
-			jitteriness = max(jitteriness - 3, 0)
-			apply_status_effect(/datum/status_effect/buff/drunk)
-			add_stress(/datum/stressevent/drunk)
-		else
-			remove_stress(/datum/stressevent/drunk)
-		if(drunkenness >= 8.5) // Roughly 2 cups
-			if(has_flaw(/datum/charflaw/addiction/alcoholic))
-				sate_addiction()
-		if(drunkenness >= 11 && slurring < 5)
-			slurring += 1.2
-
-		if(drunkenness >= 41)
-			if(prob(25))
-				confused += 2
-			Dizzy(10)
-
-		if(drunkenness >= 51)
-			adjustToxLoss(1)
-			if(prob(3))
-				confused += 15
-				vomit() // vomiting clears toxloss, consider this a blessing
-			Dizzy(25)
-
-		if(drunkenness >= 61)
-			adjustToxLoss(1)
-			if(prob(50))
-				blur_eyes(5)
-
-		if(drunkenness >= 71)
-			adjustToxLoss(1)
-			if(prob(10))
-				blur_eyes(5)
-
-		if(drunkenness >= 81)
-			adjustToxLoss(3)
-			if(prob(5) && !stat)
-				to_chat(src, span_warning("Maybe I should lie down for a bit..."))
-
-		if(drunkenness >= 91)
-			adjustToxLoss(5)
-//			adjustOrganLoss(ORGAN_SLOT_BRAIN, 0.4)
-			if(prob(20) && !stat)
-				to_chat(src, span_warning("Just a quick nap..."))
-				Sleeping(900)
-
-		if(drunkenness >= 101)
-			adjustToxLoss(5) //Let's be honest you shouldn't be alive by now
 
 //used in human and monkey handle_environment()
 /mob/living/carbon/proc/natural_bodytemperature_stabilization()

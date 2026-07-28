@@ -70,7 +70,7 @@
 
 /datum/component/wet_floor/proc/AfterSlip(mob/living/L)
 	if(highest_strength == TURF_WET_LUBE)
-		L.confused = max(L.confused, 8)
+		L.set_timed_status_effect(8 * STATUS_COUNTER_UNIT, /datum/status_effect/life_counter/confusion, only_if_higher = TRUE)
 	if(highest_strength == TURF_WET_MAGIC)
 		if(istype(L))
 			L.visible_message("<span class='warning'>[L] slips on the slick surface!</span>",

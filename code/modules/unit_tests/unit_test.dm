@@ -73,11 +73,13 @@ GLOBAL_VAR_INIT(focused_test, focused_test())
 	CHECK_TICK
 
 	var/list/tests_to_run = sortTim(subtypesof(/datum/unit_test), /proc/cmp_unit_test_priority)
+	var/list/focused_tests = list()
 	for(var/_test_to_run in tests_to_run)
 		var/datum/unit_test/test_to_run = _test_to_run
 		if(initial(test_to_run.focus))
-			tests_to_run = list(test_to_run)
-			break
+			focused_tests += test_to_run
+	if(length(focused_tests))
+		tests_to_run = focused_tests
 
 	for(var/I in tests_to_run)
 		if(ispath(I, /datum/unit_test/focus_only))
