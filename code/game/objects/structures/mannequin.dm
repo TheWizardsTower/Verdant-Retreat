@@ -773,6 +773,26 @@
 
 	return bodyparts
 
+/obj/structure/mannequin/lordgender
+
+/obj/structure/mannequin/lordgender/lordcolor(primary, secondary)
+	. = ..()
+	var/turf/target = get_turf(src)
+	qdel(src)
+	var/mob/living/rulermob = SSticker.rulermob
+	if(isliving(rulermob))
+
+		var/obj/M = /obj/structure/mannequin/male
+		if(rulermob.gender == FEMALE)
+			M=/obj/structure/mannequin/male/female
+		var/obj/structure/mannequin/real_mannequin = new M(target)
+		if(!real_mannequin)
+			return	
+		for(var/obj/item/clothing/clothing in get_turf(real_mannequin))
+			var/slot = real_mannequin.MannequinSlotHelper(clothing.slot_flags)
+			if(slot)
+				real_mannequin.MannequinEquip(clothing, slot)
+
 #undef SLOT_MANNEQUIN_SHIRT
 #undef SLOT_MANNEQUIN_FEET
 #undef SLOT_MANNEQUIN_GLOVES

@@ -482,7 +482,7 @@
 	name = "river bottom"
 	desc = "The rocky bed of a flowing river."
 	icon = 'icons/turf/roguefloor.dmi'
-	icon_state = "riverbot"
+	icon_state = "grimshart"
 	footstep = FOOTSTEP_WATER
 	barefootstep = FOOTSTEP_WATER
 	clawfootstep = FOOTSTEP_WATER

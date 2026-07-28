@@ -17,6 +17,24 @@
 	attacked_sound = list('sound/combat/hits/onwood/woodimpact (1).ogg','sound/combat/hits/onwood/woodimpact (2).ogg')
 
 
+/obj/structure/fluff/littlebanners/custom
+	icon_state = "hangingbanners_custom"
+/obj/structure/fluff/littlebanners/custom/Initialize()
+	. = ..()
+	GLOB.lordcolor += src
+/obj/structure/fluff/littlebanners/custom/Destroy()
+	. = ..()
+	GLOB.lordcolor -= src	
+/obj/structure/fluff/littlebanners/custom/lordcolor(primary,secondary)
+	if(!primary || !secondary)
+		return
+	var/mutable_appearance/M = mutable_appearance(icon, "hangingbanners_primary", -(layer+0.1))
+	M.color = primary
+	add_overlay(M)
+	M = mutable_appearance(icon, "wallflag_secondary", -(layer+0.1))
+	M.color = secondary
+	add_overlay(M)
+
 /obj/structure/fluff/littlebanners/greenblue
 	icon_state = "hangingbanners_gb"
 

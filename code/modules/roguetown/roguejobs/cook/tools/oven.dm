@@ -89,13 +89,13 @@
 	pixel_y = 0
 	switch(dir)
 		if(SOUTH)
-			pixel_y = 32
-		if(NORTH)
 			pixel_y = -32
+		if(NORTH)
+			pixel_y = 32
 		if(WEST)
-			pixel_x = 32
-		if(EAST)
 			pixel_x = -32
+		if(EAST)
+			pixel_x = 32
 	icon_state = "[base_state][on]"
 	set_light(on) //kind of a kludge but i don't really know how best to fix this
 

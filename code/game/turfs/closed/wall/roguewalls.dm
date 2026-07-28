@@ -172,12 +172,15 @@
 	name = "dark wood wall"
 	desc = "Made from durable, somewhat darker wood." // i am not sure if the wood is really dark
 	icon = 'icons/turf/roguewall.dmi'
-	icon_state = "corner"
+	icon = 'icons/turf/smooth/walls/wood_dark.dmi'
+	icon_state = MAP_SWITCH("wood", "wood_dark-0")
+	smoothing_flags = SMOOTH_BITMASK
+	smoothing_groups = SMOOTH_GROUP_CLOSED_WALL + SMOOTH_GROUP_WALLS_WOOD
+	smoothing_list = SMOOTH_GROUP_DOOR_SECRET + SMOOTH_GROUP_WALLS_WOOD
 	blade_dulling = DULLING_BASHCHOP
 	max_integrity = 1100
 	break_sound = 'sound/combat/hits/onwood/destroywalldoor.ogg'
 	attacked_sound = list('sound/combat/hits/onwood/woodimpact (1).ogg','sound/combat/hits/onwood/woodimpact (2).ogg')
-//	sheet_type = /obj/item/grown/log/tree/lumber
 	above_floor = /turf/open/floor/rogue/wood/ruined
 	baseturfs = list(/turf/open/floor/rogue/wood/ruined)
 	neighborlay = "dirtedge"

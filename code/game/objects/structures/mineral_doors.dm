@@ -909,6 +909,14 @@
 	resident_role = /datum/job/roguetown/knight
 	lockid = null //Will be randomized
 
+/obj/structure/mineral_door/wood/fancywood/council
+	locked = TRUE
+	keylock = TRUE
+	grant_resident_key = TRUE
+	resident_key_type = /obj/item/roguekey
+	resident_role = /datum/job/roguetown/councillor
+	lockid = null //Will be randomized
+
 /obj/structure/mineral_door/wood/deadbolt
 	desc = "This door comes with a deadbolt."
 	icon_state = "wooddir"

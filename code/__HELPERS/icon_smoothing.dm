@@ -193,7 +193,6 @@ DEFINE_BITFIELD(smoothing_junction, list(
 
 	if(new_junction & SOUTHWEST)
 		handle_edge_icon(SOUTHWEST)
-	testing("[src] has junction @ [x], [y], [z].")
 /turf/proc/handle_edge_icon(dir)
 	if(neighborlay_self)
 		add_neighborlay(dir, neighborlay_self)

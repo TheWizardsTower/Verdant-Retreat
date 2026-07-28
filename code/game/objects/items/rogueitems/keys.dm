@@ -214,6 +214,12 @@
 	icon_state = "ekey"
 	lockid = "knight"
 
+/obj/item/roguekey/knight
+	name = "councilor's key"
+	desc = "This is a key to the council's chambers."
+	icon_state = "ekey"
+	lockid = "council"
+
 /obj/item/roguekey/merchant
 	name = "merchant's key"
 	desc = "A merchant's key."
