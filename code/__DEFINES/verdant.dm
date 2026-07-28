@@ -10,7 +10,7 @@
 // take over. NEVER assume a native call succeeded.
 
 // ABI compatibility number; must match kAbi in the DLL's Exports.cpp.
-#define VERDANT_ABI 1
+#define VERDANT_ABI 4
 
 #ifndef VERDANT_NATIVE
 /* This comment bypasses grep checks */ /var/__verdant_native
@@ -85,6 +85,8 @@ GLOBAL_VAR_INIT(vn_safe_mode, FALSE)
 #define vn_grid_load_rows(z, y0, y1, cells, edges) call_ext(VERDANT_NATIVE, "byond:vn_grid_load_rows")(z, y0, y1, cells, edges)
 /// Returns mismatch count as a number, or an ERR string.
 #define vn_grid_audit_rows(z, y0, y1, cells, edges) call_ext(VERDANT_NATIVE, "byond:vn_grid_audit_rows")(z, y0, y1, cells, edges)
+/// -> flat [x, y, dm_cell, mirror_cell, dm_edge, mirror_edge] per mismatch from the last audit call (max 16)
+#define vn_grid_audit_detail call_ext(VERDANT_NATIVE, "byond:vn_grid_audit_detail")
 /// updates: flat [x,y,z,code, ...]; returns applied count
 #define vn_grid_update(updates) call_ext(VERDANT_NATIVE, "byond:vn_grid_update")(updates)
 /// updates: flat [x,y,z,mask, ...]; returns applied count
@@ -139,14 +141,20 @@ GLOBAL_VAR_INIT(vn_safe_mode, FALSE)
 /// edits: flat [op,x,y,z,a,b ...]; returns applied count
 #define vn_fluid_edit(edits) call_ext(VERDANT_NATIVE, "byond:vn_fluid_edit")(edits)
 #define vn_fluid_tick_begin call_ext(VERDANT_NATIVE, "byond:vn_fluid_tick_begin")
-/// -> [n_delta, (x,y,z,ntypes,(mat,amt)*n)..., n_event, (sx,sy,sz,tx,ty,tz,amt)...]
+/// -> [n_delta, (x,y,z,ntypes,(mat,amt)*n)..., n_event, (sx,sy,sz,tx,ty,tz,amt)..., n_fall, (x,y,z,amt)...]
 /// or an empty list while the tick is still running
 #define vn_fluid_tick_collect call_ext(VERDANT_NATIVE, "byond:vn_fluid_tick_collect")
+#define vn_fluid_config(key, value) call_ext(VERDANT_NATIVE, "byond:vn_fluid_config")(key, value)
 #define vn_fluid_total(x, y, z) call_ext(VERDANT_NATIVE, "byond:vn_fluid_total")(x, y, z)
 #define vn_fluid_get(x, y, z) call_ext(VERDANT_NATIVE, "byond:vn_fluid_get")(x, y, z)
 #define vn_fluid_pool_cells(x, y, z) call_ext(VERDANT_NATIVE, "byond:vn_fluid_pool_cells")(x, y, z)
 #define vn_fluid_pool_stats(x, y, z) call_ext(VERDANT_NATIVE, "byond:vn_fluid_pool_stats")(x, y, z)
 #define vn_fluid_status call_ext(VERDANT_NATIVE, "byond:vn_fluid_status")
+
+/// edge_drain config applied to the native engine on every successful NativeInit
+GLOBAL_VAR_INIT(vn_liquid_edge_drain, TRUE)
+/// U-bend vertical surface equalization, applied the same way
+GLOBAL_VAR_INIT(vn_liquid_ubend, TRUE)
 
 // --- behavior trees ---
 
@@ -211,24 +219,50 @@ GLOBAL_LIST_EMPTY(vn_bt_tree_ids)
 
 #define VN_LIGHT_EVT_ADD 1
 #define VN_LIGHT_EVT_REMOVE 2
+#define VN_LIGHT_EVT_ADD_TURFS 3
+#define VN_LIGHT_EVT_ADD_BOX 4
 
 // corner datum x/y are the +-0.5 positions, so round(x*2) is exact.
-#define VN_LIGHT_CORNER_ID(C) (((C.z - 1) * (2 * world.maxx) * (2 * world.maxy)) + ((round(C.y * 2) - 1) * (2 * world.maxx)) + (round(C.x * 2) - 1))
+// Strides are 2*max+1: corner cx2 spans [1, 2*maxx+1], so an even stride
+// would alias the map-edge corner column onto the next row. Must match
+// light::PackCorner in the DLL exactly.
+#define VN_LIGHT_CORNER_ID(C) (((C.z - 1) * (2 * world.maxx + 1) * (2 * world.maxy + 1)) + ((round(C.y * 2) - 1) * (2 * world.maxx + 1)) + (round(C.x * 2) - 1))
+
+// packed (x,y,z) turf identity for ADD_TURFS events; must match light::PackTurf.
+#define VN_LIGHT_TURF_ID(T) (((T.z - 1) * world.maxx * world.maxy) + ((T.y - 1) * world.maxx) + (T.x - 1))
 
 #define vn_light_init(maxx, maxy, maxz) call_ext(VERDANT_NATIVE, "byond:vn_light_init")(maxx, maxy, maxz)
 #define vn_light_reset call_ext(VERDANT_NATIVE, "byond:vn_light_reset")
-/// events: flat [1, source_id, sx,sy,sz, power, inner_range, outer_range, falloff_curve, lum_r, lum_g, lum_b, n, corner_id x n] for ADD/REPLACE, [2, source_id] for REMOVE, concatenated
+/// events: flat [1, source_id, sx,sy,sz, power, inner_range, outer_range, falloff_curve, lum_r, lum_g, lum_b, n, corner_id x n] for ADD/REPLACE, [2, source_id] for REMOVE, [3, ...same header..., n, turf_id x n] for ADD_TURFS (corners derived native-side), concatenated
 #define vn_light_tick_begin(events) call_ext(VERDANT_NATIVE, "byond:vn_light_tick_begin")(events)
 /// -> [n, (corner_id, delta_r, delta_g, delta_b) x n] or an empty list while the tick is still running
 #define vn_light_tick_collect call_ext(VERDANT_NATIVE, "byond:vn_light_tick_collect")
+
+// --- outdoor ceiling/sky sweep (init only) ---
+
+#define vn_outdoor_begin(maxx, maxy, maxz, zup) call_ext(VERDANT_NATIVE, "byond:vn_outdoor_begin")(maxx, maxy, maxz, zup)
+/// props: 2 hex nibbles per cell — 1 closed, 2 transparent, 4 weatherproof, 8 wp-structure, 16 pseudo_roof, 32 area-outdoors
+#define vn_outdoor_rows(z, y0, y1, props) call_ext(VERDANT_NATIVE, "byond:vn_outdoor_rows")(z, y0, y1, props)
+#define vn_outdoor_compute call_ext(VERDANT_NATIVE, "byond:vn_outdoor_compute")
+/// -> per-cell result nibbles: 1 CEIL_SKYVISIBLE, 2 CEIL_WEATHERPROOF, state << 2
+#define vn_outdoor_fetch(z) call_ext(VERDANT_NATIVE, "byond:vn_outdoor_fetch")(z)
+/// -> flat [xy_packed_0based, result_nibble] per effect-needing cell
+#define vn_outdoor_fetch_effects(z) call_ext(VERDANT_NATIVE, "byond:vn_outdoor_fetch_effects")(z)
+
+// --- dmm row digestion (map load) ---
+
+/// -> flat [model_index] per tile (1-based position in keys, 0 for space_key), row-major
+#define vn_dmm_digest(key_len, keys, space_key, rows) call_ext(VERDANT_NATIVE, "byond:vn_dmm_digest")(key_len, keys, space_key, rows)
 
 /// Route light_source.update_corners()/SSlighting.fire() through the native engine.
 GLOBAL_VAR_INIT(vn_lighting_native, FALSE)
 /// world.maxz as of the last successful vn_light_init; corners on z beyond
 /// this are not native-managed (z-levels can be added at runtime).
 GLOBAL_VAR_INIT(vn_light_inited_maxz, 0)
-/// "[VN_LIGHT_CORNER_ID]" -> /datum/lighting_corner, registered in New()
-GLOBAL_LIST_EMPTY(vn_light_corners)
+/// VN_LIGHT_CORNER_ID (numeric key) -> /datum/lighting_corner, registered in New().
+/// An alist: numeric keys are legal and fast, but it cannot be for-looped or
+/// indexed positionally — iterate SSlighting.all_corners instead.
+GLOBAL_VAR_INIT(vn_light_corners, alist())
 /// All live /datum/light_source instances, maintained in New()/Destroy()
 GLOBAL_LIST_EMPTY(all_light_sources)
 

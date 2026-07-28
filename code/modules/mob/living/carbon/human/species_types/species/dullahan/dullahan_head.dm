@@ -617,7 +617,7 @@
 		. = verb_whisper
 	else if(message_mode == MODE_WHISPER_CRIT)
 		. = "[verb_whisper] in [p_their()] last breath"
-	else if(original_owner.stuttering)
+	else if(original_owner.has_status_effect(/datum/status_effect/life_counter/stutter))
 		. = "stammers"
 	else if(original_owner.derpspeech)
 		. = "gibbers"

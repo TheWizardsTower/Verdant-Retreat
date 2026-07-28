@@ -42,7 +42,7 @@ SUBSYSTEM_DEF(overlays)
 	if (count)
 		var/c = count
 		count = 0 //so if we runtime on the Cut, we don't try again.
-		queue.Cut(1,c+1)
+		queue.Cut(1, min(c, length(queue)) + 1)
 
 	for (var/thing in queue)
 		count++
@@ -65,7 +65,7 @@ SUBSYSTEM_DEF(overlays)
 			CHECK_TICK
 
 	if (count)
-		queue.Cut(1,count+1)
+		queue.Cut(1, min(count, length(queue)) + 1)
 		count = 0
 
 /proc/iconstate2appearance(icon, iconstate)

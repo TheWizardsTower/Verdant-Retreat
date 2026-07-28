@@ -1,5 +1,6 @@
 /datum/status_effect/debuff
 	status_type = STATUS_EFFECT_REFRESH
+	tick_interval = STATUS_EFFECT_NO_TICK
 
 ///////////////////////////
 
@@ -218,7 +219,7 @@
 	desc = "Something has been taken from me, and it will take time to recover."
 
 /datum/status_effect/debuff/vamp_dreams
-	id = "sleepytime"
+	id = "vamp_dreams"
 	alert_type = /atom/movable/screen/alert/status_effect/debuff/vamp_dreams
 	needs_processing = FALSE
 
@@ -243,14 +244,7 @@
 	id = "breedable"
 	alert_type = /atom/movable/screen/alert/status_effect/debuff/breedable
 	duration = 30 SECONDS
-
-/datum/status_effect/debuff/breedable/on_apply()
-	. = ..()
-	ADD_TRAIT(owner, TRAIT_CRITICAL_RESISTANCE, id)
-
-/datum/status_effect/debuff/breedable/on_remove()
-	. = ..()
-	REMOVE_TRAIT(owner, TRAIT_CRITICAL_RESISTANCE, id)
+	granted_traits = list(TRAIT_CRITICAL_RESISTANCE)
 
 /atom/movable/screen/alert/status_effect/debuff/breedable
 	name = "Obedient"
@@ -451,6 +445,7 @@
 
 /datum/status_effect/debuff/dazed
 	id = "dazed"
+	exclusion_group = "dazed"
 	alert_type = /atom/movable/screen/alert/status_effect/debuff/dazed
 	effectedstats = list("perception" = -2, "intelligence" = -2)
 	duration = 15 SECONDS
@@ -505,6 +500,7 @@
 
 /datum/status_effect/debuff/knockout
 	id = "knockout"
+	tick_interval = 10
 	effectedstats = null
 	alert_type = null
 	duration = 12 SECONDS
@@ -803,6 +799,7 @@
 		harpy.put_in_hands(talons_final, TRUE, FALSE, TRUE)
 		break
 	harpy.movement_type |= FLYING
+	harpy.update_submersion()
 	harpy.dna.species.speedmod += 0.3
 	harpy.add_movespeed_modifier(MOVESPEED_ID_SPECIES, TRUE, 100, override=TRUE, multiplicative_slowdown = harpy.dna.species.speedmod)
 	harpy.apply_status_effect(/datum/status_effect/debuff/flight_sound_loop)
@@ -845,6 +842,7 @@
 	harpy.remove_movespeed_modifier(MOVESPEED_ID_SPECIES, TRUE)
 	var/turf/tile_under_harpy = harpy.loc
 	harpy.movement_type &= ~FLYING
+	harpy.update_submersion()
 	tile_under_harpy.zFall(harpy)
 	remove_signals()
 	animate(harpy)
@@ -919,6 +917,7 @@
 	animate(passenger, pixel_y = passenger.pixel_y + 3, time = 6, loop = -1) // thank you shadowdeath6
 	animate(pixel_y = passenger.pixel_y - 3, time = 6) // thank you oog
 	passenger.movement_type |= FLYING
+	passenger.update_submersion()
 	passenger.drop_all_held_items() // think fast chucklenuts
 	passenger.put_in_hands(new /obj/item/harpy_leg, TRUE, FALSE, TRUE) // will have to make it so ppl can't dismount themselves
 
@@ -941,6 +940,7 @@
 		harpy.stop_pulling()
 	var/turf/tile_under_passenger = passenger.loc
 	passenger.movement_type &= ~FLYING
+	passenger.update_submersion()
 	tile_under_passenger.zFall(passenger)
 
 /atom/movable/screen/alert/status_effect/debuff/harpy_passenger
@@ -975,17 +975,6 @@
 ///HARPY FLIGHT STUFF END///
 ///////////////////////////
 
-/datum/status_effect/debuff/specialcd
-	id = "specialcd"
-	alert_type = /atom/movable/screen/alert/status_effect/debuff/specialcd
-	duration = 30 SECONDS
-	status_type = STATUS_EFFECT_UNIQUE
-
-/datum/status_effect/debuff/specialcd/on_creation(mob/living/new_owner, new_dur)
-	if(new_dur)
-		duration = new_dur
-	return ..()
-
 /atom/movable/screen/alert/status_effect/debuff/specialcd
 	name = "Special Manouevre Cooldown"
 	desc = "I used it. I must wait."
@@ -994,6 +983,7 @@
 //baotha stuff
 /datum/status_effect/debuff/joybringer_druqks
 	id = "joybringer_druqks"
+	tick_interval = 10
 	effectedstats = list(STATKEY_LCK = -2)
 	duration = 3 SECONDS
 	alert_type = null
@@ -1019,7 +1009,7 @@
 		SSdroning.play_area_sound(get_area(owner), owner.client)
 
 /datum/status_effect/debuff/joybringer_druqks/tick()
-	owner.hallucination += 3
+	owner.adjust_timed_status_effect(3 * STATUS_COUNTER_UNIT, /datum/status_effect/life_counter/hallucinating)
 	owner.Jitter(1)
 
 	if(!prob(10))

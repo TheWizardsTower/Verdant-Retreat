@@ -6,9 +6,9 @@
 	var/mappath = null
 	var/loaded = 0 // Times loaded this round
 	var/datum/parsed_map/cached_map
-	var/keep_cached_map = FALSE
+	var/keep_cached_map = TRUE
 
-/datum/map_template/New(path = null, rename = null, cache = FALSE)
+/datum/map_template/New(path = null, rename = null, cache = TRUE)
 	if(path && !mappath)
 		mappath = path
 	if(!path && mappath)

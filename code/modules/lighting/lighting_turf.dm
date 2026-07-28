@@ -11,6 +11,7 @@
 
 // Causes any affecting light sources to be queued for a visibility update, for example a door got opened.
 /turf/proc/reconsider_lights()
+	SSlighting.vn_box_demote_near(src)
 	var/datum/light_source/L
 	var/thing
 	for (thing in affecting_lights)

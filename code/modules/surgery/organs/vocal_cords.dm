@@ -312,7 +312,7 @@
 		for(var/mob/living/carbon/C in listeners)
 			if(user.mind && (user.mind.assigned_role == "Curator" || user.mind.assigned_role == "Mime"))
 				power_multiplier *= 3
-			C.silent += (10 * power_multiplier)
+			C.adjust_timed_status_effect((10 * power_multiplier) * STATUS_COUNTER_UNIT, /datum/status_effect/silenced)
 
 	//HALLUCINATE
 	else if((findtext(message, hallucinate_words)))

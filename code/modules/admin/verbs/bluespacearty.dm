@@ -19,4 +19,4 @@
 	else
 		target.adjustBruteLoss(min(99,(target.health - 1)))
 		target.Paralyze(400)
-		target.stuttering = 20
+		target.set_timed_status_effect(20 * STATUS_COUNTER_UNIT, /datum/status_effect/life_counter/stutter)

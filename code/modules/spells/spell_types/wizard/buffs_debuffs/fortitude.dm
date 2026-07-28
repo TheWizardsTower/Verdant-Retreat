@@ -49,6 +49,7 @@
 /datum/status_effect/buff/fortitude
 	var/outline_colour ="#008000" // Forest green to avoid le sparkle mage
 	id = "fortitude"
+	exclusion_group = "fortitude"
 	alert_type = /atom/movable/screen/alert/status_effect/buff/fortitude
 	duration = 1 MINUTES
 

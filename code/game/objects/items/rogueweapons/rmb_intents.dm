@@ -69,7 +69,7 @@
 		return
 	if(!user.mind)
 		return
-	if(user.has_status_effect(/datum/status_effect/debuff/specialcd))
+	if(user.combat_cooldown_active("specialcd"))
 		return
 
 	user.face_atom(target)
@@ -113,14 +113,14 @@
 		return
 	if(!user.mind)
 		return
-	if(user.has_status_effect(/datum/status_effect/debuff/feintcd))
+	if(user.combat_cooldown_active("feintcd"))
 		return
 	var/mob/living/L = target
 	if (L.client && !L.cmode)
 		playsound(user, 'sound/combat/feint.ogg', 100, TRUE)
 		user.visible_message(span_danger("[user] attempts to feint an attack at [L], but only makes a fool of themselves!"))
 		user.OffBalance(3 SECONDS)
-		user.apply_status_effect(/datum/status_effect/debuff/feintcd)
+		user.set_combat_cooldown("feintcd", 30 SECONDS, /atom/movable/screen/alert/status_effect/debuff/feintcd)
 		for(var/mob/living/carbon/human/H in view(7, user))
 			if(H == user || !H.client)
 				continue
@@ -153,12 +153,12 @@
 		autofail = TRUE
 		special_msg = span_warning("They need to see me for me to feint them!")
 
-	user.apply_status_effect(/datum/status_effect/debuff/feintcd, newcd)
+	user.set_combat_cooldown("feintcd", newcd, /atom/movable/screen/alert/status_effect/debuff/feintcd)
 
-	if(autofail) 
+	if(autofail)
 		newcd = 10 SECONDS
 		playsound(user, 'sound/combat/feint.ogg', 100, TRUE)
-		user.apply_status_effect(/datum/status_effect/debuff/feintcd, newcd)
+		user.set_combat_cooldown("feintcd", newcd, /atom/movable/screen/alert/status_effect/debuff/feintcd)
 		if(special_msg)
 			to_chat(user, special_msg)
 		return
@@ -176,11 +176,11 @@
 			perc = clamp(perc, 2.5, 97.5)
 			to_chat(user, span_warning("[L.p_they(TRUE)] did not fall for my feint! [perc]%"))
 	loser.apply_status_effect(/datum/status_effect/debuff/exposed, feintdur)
-	loser.apply_status_effect(/datum/status_effect/debuff/clickcd, max(1.5 SECONDS + user_feintmod, 2.5 SECONDS))
+	loser.apply_click_cooldown(max(1.5 SECONDS + user_feintmod, 2.5 SECONDS))
 	loser.Immobilize(feintdur)
 	loser.stamina_add(L.stamina * 0.1)
 	loser.Slowdown(2)
-	user.apply_status_effect(/datum/status_effect/debuff/feintcd, newcd)
+	user.set_combat_cooldown("feintcd", newcd, /atom/movable/screen/alert/status_effect/debuff/feintcd)
 	if(loser == L)
 		to_chat(user, span_notice("[L.p_they(TRUE)] fell for my feint attack!"))
 		to_chat(L, span_danger("I fall for [user.p_their()] feint attack!"))
@@ -204,7 +204,7 @@
 		var/datum/status_effect/buff/magearmor/MA = user.has_status_effect(/datum/status_effect/buff/magearmor)
 		if (!MA)
 			return
-		var/stamina_to_deduct = MA.duration / 100 // they're in deciseconds, remember. so 30 seconds = 30 stamina. also, athletics applies to this as well because stamina_add
+		var/stamina_to_deduct = MA.remaining() / 100 // they're in deciseconds, remember. so 30 seconds = 30 stamina. also, athletics applies to this as well because stamina_add
 		if ((user.stamina + stamina_to_deduct) < user.max_stamina)
 			user.stamina_add(stamina_to_deduct)
 			user.changeNext_move(CLICK_CD_MELEE)
@@ -215,7 +215,7 @@
 			// this path renders us unable to clash, which is the tradeoff for magearmor anyway, so wig out from here.
 			return
 
-	if(!user.has_status_effect(/datum/status_effect/buff/clash) && !user.has_status_effect(/datum/status_effect/debuff/clashcd))
+	if(!user.has_status_effect(/datum/status_effect/buff/clash) && !user.combat_cooldown_active("clashcd"))
 		if(!user.get_active_held_item()) //Nothing in our hand to Guard with.
 			return 
 		if(user.r_grab || user.l_grab || length(user.grabbedby)) //Not usable while grabs are in play.
@@ -268,7 +268,7 @@
 	var/mob/living/carbon/human/HU = user
 	if (isturf(target) || user == target)
 		// RMB on turf or self: DEFEND.
-		if (!HU.has_status_effect(/datum/status_effect/debuff/clashcd))
+		if (!HU.combat_cooldown_active("clashcd"))
 			HU.attempt_riposte(user, target)
 			HU.changeNext_move(0.5 SECONDS)
 			return
@@ -297,7 +297,7 @@
 			return
 
 		// RMB on mob (priority 3): attempt a feint if possible and off cooldown.
-		if (!HU.has_status_effect(/datum/status_effect/debuff/feintcd))
+		if (!HU.combat_cooldown_active("feintcd"))
 			HU.attempt_feint(user, target)
 			HU.changeNext_move(0.5 SECONDS)
 			return

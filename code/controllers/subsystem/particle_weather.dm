@@ -73,6 +73,7 @@ SUBSYSTEM_DEF(ParticleWeather)
 
 /datum/controller/subsystem/ParticleWeather/proc/SetparticleEffect(particles/P, blend_type, filter_type, color, secondary_filter_type)
 	particleEffect = P
+	getweatherEffect()
 	weatherEffect.particles = particleEffect
 	if(color)
 		weatherEffect.color = color
@@ -90,6 +91,7 @@ SUBSYSTEM_DEF(ParticleWeather)
 /datum/controller/subsystem/ParticleWeather/proc/stopWeather()
 	for(var/obj/act_on as anything in GLOB.weather_act_upon_list)
 		act_on.weather = FALSE
-	weatherEffect.particles = null
+	if(weatherEffect)
+		weatherEffect.particles = null
 	QDEL_NULL(runningWeather)
 	QDEL_NULL(particleEffect)

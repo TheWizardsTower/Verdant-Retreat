@@ -1,3 +1,19 @@
+/mob/living/carbon
+	var/breath_remaining = -1
+	var/holding_breath = FALSE
+	var/drowning_active = FALSE
+
+/mob/living/carbon/proc/get_breath_max()
+	return max(BREATH_FLOOR, BREATH_BASE_TIME + get_skill_level(/datum/skill/misc/swimming) * BREATH_PER_SWIM_LEVEL + (STAEND - 10) * BREATH_PER_ENDURANCE)
+
+/mob/living/carbon/proc/get_drown_damage()
+	. = clamp(DROWN_DAMAGE_BASE - STACON, DROWN_DAMAGE_MIN, DROWN_DAMAGE_BASE)
+	if(has_world_trait(/datum/world_trait/abyssor_rage))
+		. += DROWN_DAMAGE_ABYSSOR_BONUS
+
+/mob/living/carbon/proc/is_holding_breath()
+	return holding_breath && breath_remaining > 0
+
 /mob/living/carbon/Life(seconds, times_fired)
 	set invisibility = 0
 
@@ -100,19 +116,19 @@
 								visible_message(span_info("[src] audibly grits their teeth. ENDURING through their pain."), span_info("Through my faith in HIM, I ENDURE."))
 							else
 								visible_message(span_info("[src] trembled for a moment, but they remain stood."), span_info("My strong constitution keeps me upright."))
-							stuttering += 5
+							adjust_timed_status_effect(5 * STATUS_COUNTER_UNIT, /datum/status_effect/life_counter/stutter)
 							emote("painmoan")
 							return
 					if(prob(probby) && !HAS_TRAIT(src, TRAIT_NOPAINSTUN) && !has_status_effect(/datum/status_effect/buff/psyhealing))
 						Immobilize(10)
 						emote("painscream")
-						stuttering += 5
+						adjust_timed_status_effect(5 * STATUS_COUNTER_UNIT, /datum/status_effect/life_counter/stutter)
 						addtimer(CALLBACK(src, PROC_REF(Stun), 110), 10)
 						addtimer(CALLBACK(src, PROC_REF(Knockdown), 110), 10)
 						mob_timers["painstun"] = world.time + 160
 					else
 						emote("painmoan")
-						stuttering += 5
+						adjust_timed_status_effect(5 * STATUS_COUNTER_UNIT, /datum/status_effect/life_counter/stutter)
 				else
 					if(painpercent >= 80)
 						if(probby)
@@ -132,16 +148,11 @@
 			return FALSE
 	return TRUE
 
-/mob/living/carbon/life_status_settled()
-	return !confused && !slowdown && !dizziness && !drowsyness && !jitteriness && !stuttering && !slurring && \
-		!cultslurring && !silent && !druggy && !hallucination && !drunkenness
-
 /mob/living/carbon/human/handle_roguebreath()
 	..()
+	handle_breath()
 	if(HAS_TRAIT(src, TRAIT_NOBREATH))
 		return TRUE
-	if(HAS_TRAIT(src, TRAIT_HOLDBREATH))
-		adjustChokeOxyLoss(10)
 	if(istype(loc, /obj/structure/closet/dirthole))
 		adjustChokeOxyLoss(5)
 	if(istype(loc, /obj/structure/closet/burial_shroud))
@@ -156,27 +167,87 @@
 				next_smell = world.time + 30 SECONDS
 				T.pollution.smell_act(src)
 
-/mob/living/proc/handle_inwater(turf/open/water/W, extinguish = TRUE, force_drown = FALSE)
+/mob/living/carbon/human/proc/handle_breath()
+	if(HAS_TRAIT(src, TRAIT_NOBREATH) || HAS_TRAIT(src, TRAIT_WATERBREATHING))
+		breath_remaining = get_breath_max()
+		drowning_active = FALSE
+		hud_used?.shutdown_breath_meter()
+		return
+	if(breath_remaining < 0)
+		breath_remaining = get_breath_max()
+
+	var/underwater = (submersion_level == SUBMERSION_FULL)
+
+	if(holding_breath)
+		var/had = breath_remaining
+		breath_remaining = max(0, breath_remaining - BREATH_DRAIN_PER_TICK)
+		if(had > 0 && breath_remaining <= 0)
+			holding_breath = FALSE
+			if(!underwater)
+				INVOKE_ASYNC(src, PROC_REF(emote), "gasp")
+				to_chat(src, span_userdanger("I can't hold my breath any longer!"))
+
+	if(underwater && !is_holding_breath())
+		if(!drowning_active)
+			drowning_active = TRUE
+			playsound(src, 'sound/foley/waterenter.ogg', 100, TRUE)
+			INVOKE_ASYNC(src, PROC_REF(emote), "gasp")
+			to_chat(src, span_userdanger("Water floods my lungs!"))
+		adjustChokeOxyLoss(get_drown_damage())
+		if(stat == DEAD && client)
+			record_round_statistic(STATS_PEOPLE_DROWNED)
+		INVOKE_ASYNC(src, PROC_REF(emote), "drown")
+	else
+		drowning_active = FALSE
+
+	if(!holding_breath && !underwater)
+		breath_remaining = min(get_breath_max(), breath_remaining + BREATH_REGEN_PER_TICK)
+
+	if(!hud_used)
+		return
+	var/max_breath = get_breath_max()
+	if(!(submersion_level != SUBMERSION_NONE || holding_breath || breath_remaining < max_breath))
+		hud_used.shutdown_breath_meter()
+		return
+	hud_used.initialize_breath_meter()
+	var/atom/movable/screen/bloodpool/breath/meter = hud_used.breath_meter
+	meter.set_value(breath_remaining / max_breath, 5)
+	var/target_state = drowning_active ? BREATH_METER_DROWNING : (holding_breath ? BREATH_METER_HOLDING : BREATH_METER_IDLE)
+	if(meter.color_state != target_state)
+		meter.color_state = target_state
+		switch(target_state)
+			if(BREATH_METER_DROWNING)
+				meter.set_fill_color("#E04A3C")
+			if(BREATH_METER_HOLDING)
+				meter.set_fill_color("#3CC7E0")
+			if(BREATH_METER_IDLE)
+				meter.set_fill_color("#2A7A8C")
+
+/mob/living/proc/handle_inwater(turf/W, extinguish = TRUE, force_drown = FALSE)
 	if(!extinguish)
 		return
 	if(is_floor_hazard_immune())
 		return
-	if(lying || W.water_level == 3)
+	var/wl = 3
+	if(istype(W, /turf/open/water))
+		var/turf/open/water/WT = W
+		wl = WT.water_level
+	if(!(mobility_flags & MOBILITY_STAND) || wl == 3)
 		SoakMob(FULL_BODY)
-	else
-		if(W.water_level == 2)
-			SoakMob(BELOW_CHEST)
+	else if(wl == 2)
+		SoakMob(BELOW_CHEST)
 
 /mob/living/carbon/handle_inwater(turf/onturf, extinguish = TRUE, force_drown = FALSE)
 	..()
-	if(!(mobility_flags & MOBILITY_STAND) || force_drown)
-		if (HAS_TRAIT(src, TRAIT_NOBREATH) || HAS_TRAIT(src, TRAIT_WATERBREATHING) || HAS_TRAIT(src, TRAIT_HOLDBREATH))
-			return TRUE
-		if(stat == DEAD && client)
-			record_round_statistic(STATS_PEOPLE_DROWNED)
-		var/drown_damage = has_world_trait(/datum/world_trait/abyssor_rage) ? 10 : 5
-		adjustChokeOxyLoss(drown_damage)
-		emote("drown")
+	if(!force_drown)
+		return
+	if(HAS_TRAIT(src, TRAIT_NOBREATH) || HAS_TRAIT(src, TRAIT_WATERBREATHING) || is_holding_breath())
+		return TRUE
+	if(stat == DEAD && client)
+		record_round_statistic(STATS_PEOPLE_DROWNED)
+	breath_remaining = 0
+	adjustChokeOxyLoss(get_drown_damage())
+	emote("drown")
 
 /mob/living/carbon/human/handle_inwater(turf/onturf, extinguish = TRUE, force_drown = FALSE)
 	. = ..()
@@ -187,7 +258,7 @@
 /mob/living/carbon/human/handle_inwater(turf/onturf, extinguish = TRUE, force_drown = FALSE)
 	. = ..()
 	if(istype(onturf, /turf/open/water/sewer) && !HAS_TRAIT(src, TRAIT_NOSTINK))
-		if(!HAS_TRAIT(src, TRAIT_HOLDBREATH))
+		if(!is_holding_breath())
 			add_stress(/datum/stressevent/sewertouched)
 
 /mob/living/carbon/proc/get_complex_pain()
@@ -300,132 +371,6 @@ GLOBAL_LIST_INIT(ballmer_windows_me_msg, list("Yo man, what if, we like, uh, put
 												"You ever wonder if /dev/null supports sharding?",
 												"Do you know who ate all the donuts?",
 												"What if we use a language that was written on a napkin and created over 1 weekend for all of our servers?"))
-
-//this updates all special effects: stun, sleeping, knockdown, druggy, stuttering, etc..
-/mob/living/carbon/handle_status_effects()
-	..()
-
-	var/restingpwr = 1 + 4 * resting
-
-	//Dizziness
-	if(dizziness)
-		var/client/C = client
-		var/pixel_x_diff = 0
-		var/pixel_y_diff = 0
-		var/temp
-		var/saved_dizz = dizziness
-		if(C)
-			var/oldsrc = src
-			var/amplitude = dizziness*(sin(dizziness * world.time) + 1) // This shit is annoying at high strength
-			src = null
-			spawn(0)
-				if(C)
-					temp = amplitude * sin(saved_dizz * world.time)
-					pixel_x_diff += temp
-					C.pixel_x += temp
-					temp = amplitude * cos(saved_dizz * world.time)
-					pixel_y_diff += temp
-					C.pixel_y += temp
-					sleep(3)
-					if(C)
-						temp = amplitude * sin(saved_dizz * world.time)
-						pixel_x_diff += temp
-						C.pixel_x += temp
-						temp = amplitude * cos(saved_dizz * world.time)
-						pixel_y_diff += temp
-						C.pixel_y += temp
-					sleep(3)
-					if(C)
-						C.pixel_x -= pixel_x_diff
-						C.pixel_y -= pixel_y_diff
-			src = oldsrc
-		dizziness = max(dizziness - restingpwr, 0)
-
-	if(drowsyness)
-		drowsyness = max(drowsyness - restingpwr, 0)
-		blur_eyes(2)
-		if(drowsyness >= 100)
-			Sleeping(300)
-
-	//Jitteriness
-	if(jitteriness)
-		do_jitter_animation(jitteriness)
-		jitteriness = max(jitteriness - restingpwr, 0)
-		SEND_SIGNAL(src, COMSIG_ADD_MOOD_EVENT, "jittery", /datum/mood_event/jittery)
-	else
-		SEND_SIGNAL(src, COMSIG_CLEAR_MOOD_EVENT, "jittery")
-
-	if(stuttering)
-		stuttering = max(stuttering-1, 0)
-
-	if(slurring)
-		slurring = max(slurring-1,0)
-
-	if(cultslurring)
-		cultslurring = max(cultslurring-1, 0)
-
-	if(silent)
-		silent = max(silent-1, 0)
-
-	if(druggy)
-		adjust_drugginess(-1)
-
-	if(hallucination)
-		handle_hallucinations()
-
-	if(drunkenness)
-		drunkenness = max(drunkenness - (drunkenness * 0.04) - 0.01, 0)
-		if(drunkenness >= 3)
-//			SEND_SIGNAL(src, COMSIG_ADD_MOOD_EVENT, "drunk", /datum/mood_event/drunk)
-			if(prob(3))
-				slurring += 2
-			jitteriness = max(jitteriness - 3, 0)
-			apply_status_effect(/datum/status_effect/buff/drunk)
-			add_stress(/datum/stressevent/drunk)
-		else
-			remove_stress(/datum/stressevent/drunk)
-		if(drunkenness >= 8.5) // Roughly 2 cups
-			if(has_flaw(/datum/charflaw/addiction/alcoholic))
-				sate_addiction()
-		if(drunkenness >= 11 && slurring < 5)
-			slurring += 1.2
-
-		if(drunkenness >= 41)
-			if(prob(25))
-				confused += 2
-			Dizzy(10)
-
-		if(drunkenness >= 51)
-			adjustToxLoss(1)
-			if(prob(3))
-				confused += 15
-				vomit() // vomiting clears toxloss, consider this a blessing
-			Dizzy(25)
-
-		if(drunkenness >= 61)
-			adjustToxLoss(1)
-			if(prob(50))
-				blur_eyes(5)
-
-		if(drunkenness >= 71)
-			adjustToxLoss(1)
-			if(prob(10))
-				blur_eyes(5)
-
-		if(drunkenness >= 81)
-			adjustToxLoss(3)
-			if(prob(5) && !stat)
-				to_chat(src, span_warning("Maybe I should lie down for a bit..."))
-
-		if(drunkenness >= 91)
-			adjustToxLoss(5)
-//			adjustOrganLoss(ORGAN_SLOT_BRAIN, 0.4)
-			if(prob(20) && !stat)
-				to_chat(src, span_warning("Just a quick nap..."))
-				Sleeping(900)
-
-		if(drunkenness >= 101)
-			adjustToxLoss(5) //Let's be honest you shouldn't be alive by now
 
 //used in human and monkey handle_environment()
 /mob/living/carbon/proc/natural_bodytemperature_stabilization()

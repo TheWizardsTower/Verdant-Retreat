@@ -1,5 +1,6 @@
 /datum/status_effect/buff
 	status_type = STATUS_EFFECT_REFRESH
+	tick_interval = STATUS_EFFECT_NO_TICK
 
 
 /datum/status_effect/buff/drunk
@@ -48,6 +49,7 @@
 
 /datum/status_effect/buff/druqks
 	id = "druqks"
+	exclusion_group = "druqks"
 	alert_type = /atom/movable/screen/alert/status_effect/buff/druqks
 	effectedstats = list("intelligence" = 5,"speed" = 3,"fortune" = -5)
 	duration = 2 MINUTES
@@ -98,16 +100,8 @@
 	alert_type = /atom/movable/screen/alert/status_effect/buff/druqks
 	effectedstats = list("speed" = -5, "perception" = 2)
 	duration = 30 SECONDS
-
-/datum/status_effect/buff/ozium/on_apply()
-	. = ..()
-	owner.add_stress(/datum/stressevent/ozium)
-	ADD_TRAIT(owner, TRAIT_NOPAIN, id)
-
-/datum/status_effect/buff/ozium/on_remove()
-	owner.remove_stress(/datum/stressevent/ozium)
-	REMOVE_TRAIT(owner, TRAIT_NOPAIN, id)
-	. = ..()
+	stress_event = /datum/stressevent/ozium
+	granted_traits = list(TRAIT_NOPAIN)
 
 /datum/status_effect/buff/moondust
 	id = "moondust"
@@ -140,55 +134,31 @@
 	alert_type = /atom/movable/screen/alert/status_effect/buff/druqks
 	effectedstats = list("speed" = -5, "endurance" = 4, "intelligence" = -3, "constitution" = 3)
 	duration = 80 SECONDS
-	var/originalcmode = ""
+	stress_event = /datum/stressevent/ozium
+	granted_traits = list(TRAIT_NOPAIN, TRAIT_CRITICAL_RESISTANCE)
+	combat_music = 'sound/music/combat_ozium.ogg'
 
 /datum/status_effect/buff/herozium/nextmove_modifier()
 	return 1.2
-
-/datum/status_effect/buff/herozium/on_apply()
-	. = ..()
-	owner.add_stress(/datum/stressevent/ozium)
-	ADD_TRAIT(owner, TRAIT_NOPAIN, id)
-	ADD_TRAIT(owner, TRAIT_CRITICAL_RESISTANCE, id)
-	originalcmode = owner.cmode_music
-	owner.cmode_music = 'sound/music/combat_ozium.ogg'
-
-/datum/status_effect/buff/herozium/on_remove()
-	owner.remove_stress(/datum/stressevent/ozium)
-	REMOVE_TRAIT(owner, TRAIT_NOPAIN, id)
-	REMOVE_TRAIT(owner, TRAIT_CRITICAL_RESISTANCE, id)
-	owner.cmode_music = originalcmode
-	. = ..()
 
 /datum/status_effect/buff/starsugar
 	id = "starsugar"
 	alert_type = /atom/movable/screen/alert/status_effect/buff/druqks
 	effectedstats = list("speed" = 4, "endurance" = 4, "intelligence" = -3, "constitution" = -3)
 	duration = 80 SECONDS
-	var/originalcmode = ""
 	var/haddodge = FALSE
 	var/haddarkvision = FALSE
+	stress_event = /datum/stressevent/starsugar
+	granted_traits = list(TRAIT_DODGEEXPERT, TRAIT_DARKVISION)
+	combat_music = 'sound/music/combat_starsugar.ogg'
 
 /datum/status_effect/buff/starsugar/nextmove_modifier()
 	return 0.7
 
 /datum/status_effect/buff/starsugar/on_apply()
 	. = ..()
-	owner.add_stress(/datum/stressevent/starsugar)
-	ADD_TRAIT(owner, TRAIT_DODGEEXPERT, id)
-	ADD_TRAIT(owner, TRAIT_DARKVISION, id)
 	if(owner.has_status_effect(/datum/status_effect/debuff/sleepytime))
 		owner.remove_status_effect(/datum/status_effect/debuff/sleepytime)
-	originalcmode = owner.cmode_music
-	owner.cmode_music = 'sound/music/combat_starsugar.ogg'
-
-
-/datum/status_effect/buff/starsugar/on_remove()
-	REMOVE_TRAIT(owner, TRAIT_DODGEEXPERT, id)
-	REMOVE_TRAIT(owner, TRAIT_DARKVISION, id)
-	owner.remove_stress(/datum/stressevent/starsugar)
-	owner.cmode_music = originalcmode
-	. = ..()
 
 /datum/status_effect/buff/weed
 	id = "weed"
@@ -226,20 +196,15 @@
 	icon_state = "weed"
 
 /datum/status_effect/buff/vitae
-	id = "druqks"
+	id = "vitae"
 	alert_type = /atom/movable/screen/alert/status_effect/buff/vitae
 	effectedstats = list("fortune" = 2)
 	duration = 1 MINUTES
+	stress_event = /datum/stressevent/high
 
 /datum/status_effect/buff/vitae/on_apply()
 	. = ..()
-	owner.add_stress(/datum/stressevent/high)
 	SEND_SIGNAL(owner, COMSIG_LUX_TASTED)
-
-/datum/status_effect/buff/vitae/on_remove()
-	owner.remove_stress(/datum/stressevent/high)
-
-	. = ..()
 
 /atom/movable/screen/alert/status_effect/buff/vitae
 	name = "Invigorated"
@@ -377,6 +342,7 @@
 	id = "wardenbuff"
 	alert_type = /atom/movable/screen/alert/status_effect/buff/wardenbuff
 	effectedstats = list("speed" = 1, "perception" = 3)
+	granted_traits = list(TRAIT_LONGSTRIDER)
 
 /datum/status_effect/buff/barkeepbuff
 	id = "barkeepbuff"
@@ -409,11 +375,13 @@
 	id = "dungeoneerbuff"
 	alert_type = /atom/movable/screen/alert/status_effect/buff/dungeoneerbuff
 	effectedstats = list("constitution" = 1,"endurance" = 1, "strength" = 2)//This only works in 2 small areas on the entire map
+	granted_traits = list(TRAIT_CIVILIZEDBARBARIAN)
 
 /datum/status_effect/buff/underdark
 	id = "underdarkbuff"
 	alert_type = /atom/movable/screen/alert/status_effect/buff/underdarkbuff
 	effectedstats = list("perception" = 1)
+	granted_traits = list(TRAIT_UNDERSIGHT)
 
 /datum/status_effect/buff/churchbuff/process()
 
@@ -451,14 +419,6 @@
 	if(!(our_area.warden_area))
 		owner.remove_status_effect(/datum/status_effect/buff/wardenbuff)
 
-/datum/status_effect/buff/wardenbuff/on_apply()
-	. = ..()
-	ADD_TRAIT(owner, TRAIT_LONGSTRIDER, id)
-
-/datum/status_effect/buff/wardenbuff/on_remove()
-	. = ..()
-	REMOVE_TRAIT(owner, TRAIT_LONGSTRIDER, id)
-
 /datum/status_effect/buff/dungeoneerbuff/process()
 
 	.=..()
@@ -466,28 +426,12 @@
 	if(!(our_area.cell_area))
 		owner.remove_status_effect(/datum/status_effect/buff/dungeoneerbuff)
 
-/datum/status_effect/buff/dungeoneerbuff/on_apply()
-	. = ..()
-	ADD_TRAIT(owner, TRAIT_CIVILIZEDBARBARIAN, id)
-
-/datum/status_effect/buff/dungeoneerbuff/on_remove()
-	. = ..()
-	REMOVE_TRAIT(owner, TRAIT_CIVILIZEDBARBARIAN, id)
-
 /datum/status_effect/buff/underdark/process()
 
 	.=..()
 	var/area/rogue/our_area = get_area(owner)
 	if(!(our_area.underdark_area))
 		owner.remove_status_effect(/datum/status_effect/buff/underdark)
-
-/datum/status_effect/buff/underdark/on_apply()
-	. = ..()
-	ADD_TRAIT(owner, TRAIT_UNDERSIGHT, id)
-
-/datum/status_effect/buff/underdark/on_remove()
-	. = ..()
-	REMOVE_TRAIT(owner, TRAIT_UNDERSIGHT, id)
 
 /atom/movable/screen/alert/status_effect/buff/healing//lesser miracle
 	name = "Healing Miracle"
@@ -498,6 +442,8 @@
 
 /datum/status_effect/buff/healing
 	id = "healing"
+	exclusion_group = "healing_aura"
+	tick_interval = 10
 	alert_type = /atom/movable/screen/alert/status_effect/buff/healing
 	duration = 10 SECONDS
 	examine_text = "SUBJECTPRONOUN is bathed in a restorative aura!"
@@ -577,6 +523,7 @@
 
 /datum/status_effect/buff/bloodheal
 	id = "bloodheal"
+	tick_interval = 10
 	alert_type = /atom/movable/screen/alert/status_effect/buff/bloodheal
 	duration = BLOODHEAL_DUR_DEFAULT
 	examine_text = "SUBJECTPRONOUN is bathed in a thick, pungent aura of iron!"
@@ -682,6 +629,7 @@
 
 /datum/status_effect/buff/psyhealing
 	id = "psyhealing"
+	tick_interval = 10
 	alert_type = /atom/movable/screen/alert/status_effect/buff/psyhealing
 	duration = 15 SECONDS
 	examine_text = "SUBJECTPRONOUN stirs with a sense of ENDURING!"
@@ -714,6 +662,7 @@
 
 /datum/status_effect/buff/psyvived
 	id = "psyvived"
+	tick_interval = 10
 	alert_type = /atom/movable/screen/alert/status_effect/buff/psyvived
 	duration = 30 SECONDS
 	examine_text = "SUBJECTPRONOUN moves with an air of ABSOLUTION!"
@@ -740,6 +689,7 @@
 /datum/status_effect/buff/rockmuncher
 	alert_type = /atom/movable/screen/alert/status_effect/buff/rockmuncher
 	id = "rockmuncher"
+	tick_interval = 10
 	duration = 10 SECONDS
 	var/healing_on_tick = 4
 
@@ -767,6 +717,7 @@
 //The better the gem, the better the heal.
 /datum/status_effect/buff/gemmuncher
 	id = "gemmuncher"
+	tick_interval = 10
 	alert_type = /atom/movable/screen/alert/status_effect/buff/gemmuncher
 	duration = 4 SECONDS
 	var/healing_on_tick = 3
@@ -799,6 +750,7 @@
 //Heals wounds based on stone level. Restores blood at a static rate.
 /datum/status_effect/buff/rockmuncher_lesser
 	id = "rockmuncher_lesser"
+	tick_interval = 10
 	alert_type = /atom/movable/screen/alert/status_effect/buff/rockmuncher_lesser
 	duration = 10 SECONDS
 	var/healing_on_tick = 1
@@ -966,6 +918,7 @@
 	alert_type = /atom/movable/screen/alert/status_effect/buff/moonlightdance
 	effectedstats = list("intelligence" = 2)
 	duration = 25 MINUTES
+	granted_traits = list(TRAIT_DARKVISION)
 
 /atom/movable/screen/alert/status_effect/buff/moonlightdance
 	name = "Moonlight Dance"
@@ -976,13 +929,11 @@
 /datum/status_effect/buff/moonlightdance/on_apply()
 	. = ..()
 	to_chat(owner, span_warning("I see through the Moonlight. Silvery threads dance in my vision."))
-	ADD_TRAIT(owner, TRAIT_DARKVISION, id)
 
 
 /datum/status_effect/buff/moonlightdance/on_remove()
 	. = ..()
 	to_chat(owner, span_warning("Noc's silver leaves my"))
-	REMOVE_TRAIT(owner, TRAIT_DARKVISION, id)
 
 
 
@@ -993,7 +944,8 @@
 	icon_state = "buff"
 
 /datum/status_effect/buff/flylordstriage
-	id = "healing"
+	id = "flylordstriage"
+	tick_interval = 10
 	alert_type = /atom/movable/screen/alert/status_effect/buff/healing
 	duration = 20 SECONDS
 	var/healing_on_tick = 40
@@ -1040,16 +992,12 @@
 	id = "undermaidenbargain"
 	alert_type = /atom/movable/screen/alert/status_effect/buff/undermaidenbargain
 	duration = 30 MINUTES
+	granted_traits = list(TRAIT_DEATHBARGAIN)
 
 /datum/status_effect/buff/undermaidenbargain/on_apply()
 	. = ..()
 	to_chat(owner, span_danger("You feel as though some horrible deal has been prepared in your name. May you never see it fulfilled..."))
 	playsound(owner, 'sound/misc/bell.ogg', 100, FALSE, -1)
-	ADD_TRAIT(owner, TRAIT_DEATHBARGAIN, id)
-
-/datum/status_effect/buff/undermaidenbargain/on_remove()
-	. = ..()
-	REMOVE_TRAIT(owner, TRAIT_DEATHBARGAIN, id)
 
 
 /datum/status_effect/buff/undermaidenbargainheal/on_apply()
@@ -1057,7 +1005,6 @@
 	owner.remove_status_effect(/datum/status_effect/buff/undermaidenbargain)
 	to_chat(owner, span_warning("You feel the deal struck in your name is being fulfilled..."))
 	playsound(owner, 'sound/misc/deadbell.ogg', 100, FALSE, -1)
-	ADD_TRAIT(owner, TRAIT_NODEATH, id)
 	var/dirgeline = rand(1,6)
 	spawn(15)
 		switch(dirgeline)
@@ -1078,13 +1025,14 @@
 	. = ..()
 	to_chat(owner, span_warning("The Bargain struck in my name has been fulfilled... I am thrown from Necra's embrace, another in my place..."))
 	playsound(owner, 'sound/misc/deadbell.ogg', 100, FALSE, -1)
-	REMOVE_TRAIT(owner, TRAIT_NODEATH, id)
 
 /datum/status_effect/buff/undermaidenbargainheal
 	id = "undermaidenbargainheal"
+	tick_interval = 10
 	alert_type = /atom/movable/screen/alert/status_effect/buff/undermaidenbargainheal
 	duration = 10 SECONDS
 	var/healing_on_tick = 20
+	granted_traits = list(TRAIT_NODEATH)
 
 /datum/status_effect/buff/undermaidenbargainheal/tick()
 	var/list/wCount = owner.get_wounds()
@@ -1116,18 +1064,15 @@
 	id = "lesserwolf"
 	alert_type = /atom/movable/screen/alert/status_effect/buff/lesserwolf
 	duration = 30 MINUTES
+	granted_traits = list(TRAIT_LONGSTRIDER, TRAIT_STRONGBITE)
 
 /datum/status_effect/buff/lesserwolf/on_apply()
 	. = ..()
 	to_chat(owner, span_warning("I feel my leg muscles grow taut, my teeth sharp, I am embued with the power of a predator. Branches and brush reach out for my soul..."))
-	ADD_TRAIT(owner, TRAIT_LONGSTRIDER, id)
-	ADD_TRAIT(owner, TRAIT_STRONGBITE, id)
 
 /datum/status_effect/buff/lesserwolf/on_remove()
 	. = ..()
 	to_chat(owner, span_warning("I feel Dendor's blessing leave my body..."))
-	REMOVE_TRAIT(owner, TRAIT_LONGSTRIDER, id)
-	REMOVE_TRAIT(owner, TRAIT_STRONGBITE, id)
 
 
 /atom/movable/screen/alert/status_effect/buff/xylix_pratfall
@@ -1235,18 +1180,17 @@
 	id = "pacify"
 	alert_type = /atom/movable/screen/alert/status_effect/buff/pacify
 	duration = 30 MINUTES
+	granted_traits = list(TRAIT_PACIFISM)
 
 /datum/status_effect/buff/pacify/on_apply()
 	. = ..()
 	to_chat(owner, span_green("Everything feels great!"))
 	owner.add_stress(/datum/stressevent/pacified)
-	ADD_TRAIT(owner, TRAIT_PACIFISM, id)
 	playsound(owner, 'sound/misc/peacefulwake.ogg', 100, FALSE, -1)
 
 /datum/status_effect/buff/pacify/on_remove()
 	. = ..()
 	to_chat(owner, span_warning("My mind is my own again, no longer awash with foggy peace!"))
-	REMOVE_TRAIT(owner, TRAIT_PACIFISM, id)
 
 //A lesser variant of Eoran blessing meant for peacecake consumption.
 /atom/movable/screen/alert/status_effect/buff/peacecake
@@ -1258,21 +1202,20 @@
 	id = "peacecake"
 	alert_type = /atom/movable/screen/alert/status_effect/buff/peacecake
 	duration = 5 MINUTES
+	granted_traits = list(TRAIT_PACIFISM)
 
 /datum/status_effect/buff/peacecake/on_apply()
 	. = ..()
 	to_chat(owner, span_green("Everything feels better."))
 	owner.add_stress(/datum/stressevent/pacified)
-	ADD_TRAIT(owner, TRAIT_PACIFISM, id)
 	playsound(owner, 'sound/misc/peacefulwake.ogg', 100, FALSE, -1)
 
 /datum/status_effect/buff/peacecake/on_remove()
 	. = ..()
 	to_chat(owner, span_warning("My mind is clear again, no longer clouded with foggy peace!"))
-	REMOVE_TRAIT(owner, TRAIT_PACIFISM, id)
 
 /datum/status_effect/buff/call_to_arms
-	id = "call_to_arms"
+	id = "call_to_arms_buff"
 	alert_type = /atom/movable/screen/alert/status_effect/buff/call_to_arms
 	duration = 2.5 MINUTES
 	effectedstats = list("strength" = 1, "endurance" = 2, "constitution" = 1)
@@ -1283,7 +1226,7 @@
 	icon_state = "call_to_arms"
 
 /datum/status_effect/buff/call_to_slaughter
-	id = "call_to_slaughter"
+	id = "call_to_slaughter_buff"
 	alert_type = /atom/movable/screen/alert/status_effect/buff/call_to_slaughter
 	duration = 2.5 MINUTES
 	effectedstats = list("strength" = 1, "endurance" = 2, "constitution" = 1)
@@ -1341,6 +1284,7 @@
 
 /datum/status_effect/buff/clash
 	id = "clash"
+	tick_interval = 10
 	duration = 6 SECONDS
 	var/dur
 	var/sfx_on_apply = 'sound/combat/clash_initiate.ogg'
@@ -1430,7 +1374,7 @@
 
 /datum/status_effect/buff/clash/on_remove()
 	. = ..()
-	owner.apply_status_effect(/datum/status_effect/debuff/clashcd, 30 SECONDS)
+	owner.set_combat_cooldown("clashcd", 30 SECONDS, /atom/movable/screen/alert/status_effect/debuff/clashcd)
 	var/newdur = world.time - dur
 	var/mob/living/carbon/human/H = owner
 	if(newdur > (initial(duration) - 0.2 SECONDS))	//Not checking exact duration to account for lag and any other tick / timing inconsistencies.
@@ -1658,6 +1602,7 @@
 
 /datum/status_effect/buff/recalling
 	id = "recalling"
+	tick_interval = 10
 	alert_type = /atom/movable/screen/alert/status_effect/buff/recalling
 	var/effect_color
 	var/datum/stressevent/stress_to_apply
@@ -1707,6 +1652,7 @@
 
 /datum/status_effect/buff/merchired
 	id = "merchired"
+	exclusion_group = "merchired"
 	alert_type = /atom/movable/screen/alert/status_effect/buff/merchired
 
 /atom/movable/screen/alert/status_effect/buff/merchired

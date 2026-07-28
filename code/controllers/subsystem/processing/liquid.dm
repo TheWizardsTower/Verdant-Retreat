@@ -43,6 +43,7 @@ PROCESSING_SUBSYSTEM_DEF(liquid)
 	var/list/vn_edit_queue = list()
 	var/vn_deltas_applied = 0
 	var/vn_events_applied = 0
+	var/vn_falls_applied = 0
 	var/vn_init_warned = FALSE
 
 /datum/controller/subsystem/processing/liquid/Initialize()
@@ -263,7 +264,7 @@ PROCESSING_SUBSYSTEM_DEF(liquid)
 				T.liquid_overlay.icon_state = "rivermove"
 				T.liquid_overlay.dir = below.cell.flow_dir
 			else
-				T.liquid_overlay.icon_state = "top2"
+				T.liquid_overlay.icon_state = "together"
 			T.liquid_overlay.alpha = 205
 			if(below.cell.is_liquid_source && T.cell && !T.cell.is_liquid_sink)
 				T.cell.make_liquid_sink(100)
@@ -332,6 +333,13 @@ PROCESSING_SUBSYSTEM_DEF(liquid)
 		GLOB.vn_liquid_mats["[fluid_path]"] = id
 		GLOB.vn_liquid_mat_paths["[id]"] = fluid_path
 
+	// vn_fluid_init() wipes engine config, so this must run on every successful init
+	vn_check_result(vn_fluid_config("edge_drain", GLOB.vn_liquid_edge_drain ? 1 : 0), "fluid_config_edge_drain")
+	vn_check_result(vn_fluid_config("evap_threshold", world.GetConfig("env", "VN_NO_EVAP") ? 0 : 10), "fluid_config_evap_threshold")
+	vn_check_result(vn_fluid_config("evap_rate", 1), "fluid_config_evap_rate")
+	vn_check_result(vn_fluid_config("ubend", GLOB.vn_liquid_ubend ? 1 : 0), "fluid_config_ubend")
+	vn_check_result(vn_fluid_config("ubend_rate", 10), "fluid_config_ubend_rate")
+
 	// bulk sync: everything with fluid plus sources/sinks/flow overrides
 	var/list/edits = list()
 	var/list/seen = list()
@@ -393,6 +401,9 @@ PROCESSING_SUBSYSTEM_DEF(liquid)
 	// DM-side periodic effects keep their own cadence
 	GLOB.pool_manager.process_continuous_behaviors()
 	GLOB.pool_manager.process_floor_reactions()
+	GLOB.pool_manager.process_absorption()
+	GLOB.pool_manager.process_rain_injection()
+	GLOB.pool_manager.process_wet_updates()
 
 /datum/controller/subsystem/processing/liquid/proc/NativeApplyResults(list/res)
 	var/cur = 1
@@ -453,7 +464,20 @@ PROCESSING_SUBSYSTEM_DEF(liquid)
 			GLOB.pool_manager.liquid_turfs[T] = TRUE
 		else
 			GLOB.pool_manager.liquid_turfs -= T
+		if(T.cell.fluidsum >= LIQUID_DOUSE_THRESHOLD)
+			if(!T.cell.doused)
+				T.cell.doused = TRUE
+				T.douse_contents()
+		else
+			T.cell.doused = FALSE
 		update_cell_image(T)
+		if(istype(T, /turf/open/floor/rogue/riverbot) || istype(T, /turf/open/floor/rogue/lakebed))
+			for(var/mob/living/L in T)
+				L.update_submersion()
+			var/turf/above_T = GetAbove(T)
+			if(above_T && isopenspace(above_T))
+				for(var/mob/living/L in above_T)
+					L.update_submersion()
 		vn_deltas_applied++
 
 	var/n_event = res[cur++]
@@ -465,6 +489,15 @@ PROCESSING_SUBSYSTEM_DEF(liquid)
 		if(S && E)
 			handle_flow_interaction(S, E, amt, TRUE, null)
 			vn_events_applied++
+
+	var/n_fall = res[cur++]
+	for(var/i in 1 to n_fall)
+		var/turf/L = locate(res[cur], res[cur + 1], res[cur + 2])
+		var/f_amt = res[cur + 3]
+		cur += 4
+		if(L)
+			L.liquid_fall_landed(f_amt)
+			vn_falls_applied++
 
 /datum/controller/subsystem/processing/liquid/proc/convert_fluid_to_reagent(datum/liquid/fluid, amount, atom/container, turf/T)
 	return GLOB.liquid_manager.convert_fluid_to_reagent(fluid, amount, container, T)

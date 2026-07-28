@@ -199,3 +199,91 @@ INITIALIZE_IMMEDIATE(/obj/effect/mapping_helpers/no_lava)
 /obj/effect/mapping_helpers/river_flow/tile/fast
 	name = "river flow marker (single tile, fast)"
 	flow_rate = 2
+
+/obj/effect/mapping_helpers/liquid_inlet
+	name = "liquid inlet marker"
+	icon_state = "field_dir"
+	late = TRUE
+	var/rate = 3
+	var/fluid_type = WATER
+
+/obj/effect/mapping_helpers/liquid_inlet/LateInitialize()
+	var/turf/T = get_turf(src)
+	if(!T.cell)
+		T.cell = new /cell(T)
+		T.cell.InitLiquids()
+	T.cell.make_liquid_source(rate, fluid_type)
+	T.refresh_river_overlay()
+	qdel(src)
+
+/obj/effect/mapping_helpers/liquid_inlet/trickle
+	name = "liquid inlet marker (trickle)"
+	rate = 1
+
+/obj/effect/mapping_helpers/liquid_inlet/heavy
+	name = "liquid inlet marker (heavy)"
+	rate = 10
+
+/obj/effect/mapping_helpers/liquid_outlet
+	name = "liquid outlet marker"
+	icon_state = "field_dir"
+	late = TRUE
+	var/rate = 3
+
+/obj/effect/mapping_helpers/liquid_outlet/LateInitialize()
+	var/turf/T = get_turf(src)
+	if(!T.cell)
+		T.cell = new /cell(T)
+		T.cell.InitLiquids()
+	T.cell.make_liquid_sink(rate)
+	qdel(src)
+
+/obj/effect/mapping_helpers/liquid_outlet/trickle
+	name = "liquid outlet marker (trickle)"
+	rate = 1
+
+/obj/effect/mapping_helpers/liquid_outlet/heavy
+	name = "liquid outlet marker (heavy)"
+	rate = 10
+
+/obj/effect/mapping_helpers/liquid_fill
+	name = "liquid fill marker"
+	icon_state = "field_dir"
+	late = TRUE
+	var/fluid_type = WATER
+	var/amount = MAX_FLUID_VOLUME
+
+/obj/effect/mapping_helpers/liquid_fill/LateInitialize()
+	var/turf/T = get_turf(src)
+	if(!istype(T, /turf/open))
+		log_mapping("[src] at [x],[y],[z] is not over an open turf.")
+		qdel(src)
+		return
+	if(!T.cell)
+		T.cell = new /cell(T)
+		T.cell.InitLiquids()
+	var/datum/liquid/fluid = T.cell.get_fluid_datum(fluid_type)
+	if(fluid)
+		T.cell.fluid_volume[fluid] = clamp(amount, 0, MAX_FLUID_VOLUME)
+		SSliquid.update_fluidsum(T)
+		SSliquid.cell_index[T] = TRUE
+		SSliquid.update_cell_image(T)
+	qdel(src)
+
+/obj/effect/mapping_helpers/liquid_fill/half
+	name = "liquid fill marker (half)"
+	amount = 50
+
+/obj/effect/mapping_helpers/aquifer_mark
+	name = "aquifer marker"
+	icon_state = "field_dir"
+	late = TRUE
+
+/obj/effect/mapping_helpers/aquifer_mark/LateInitialize()
+	var/turf/closed/mineral/M = get_turf(src)
+	if(!istype(M) || M.mineralType)
+		log_mapping("[src] at [x],[y],[z] is not over a barren mineral wall turf.")
+		qdel(src)
+		return
+	M.ChangeTurf(/turf/closed/mineral/rogue/aquifer, null, CHANGETURF_IGNORE_AIR)
+	qdel(src)

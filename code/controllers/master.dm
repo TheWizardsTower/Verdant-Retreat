@@ -39,6 +39,9 @@ GLOBAL_REAL(Master, /datum/controller/master) = new
 	var/make_runtime = 0
 
 	var/initializations_finished_with_no_players_logged_in	//I wonder what this could be?
+	/// TRUE once every subsystem has initialized; the lobby opens before this,
+	/// and the round may not start until it is set.
+	var/init_complete = FALSE
 
 	// The type of the last subsystem to be process()'d.
 	var/last_type_processed
@@ -192,12 +195,32 @@ GLOBAL_REAL(Master, /datum/controller/master) = new
 //#endif
 
 	current_ticklimit = CONFIG_GET(number/tick_limit_mc_init)
+	var/list/deferred_subsystems = list()
 	for (var/datum/controller/subsystem/SS in subsystems)
 		if (SS.flags & SS_NO_INIT)
+			continue
+		if (!(SS.flags & SS_INIT_LOBBY))
+			deferred_subsystems += SS
 			continue
 		SS.Initialize(REALTIMEOFDAY)
 		CHECK_TICK
 	current_ticklimit = TICK_LIMIT_RUNNING
+
+	var/lobby_time = (REALTIMEOFDAY - start_timeofday) / 10
+	log_world("Lobby opened within [lobby_time] second[lobby_time == 1 ? "" : "s"]; world initialization continuing")
+
+	if (!current_runlevel)
+		SetRunLevel(1)
+	world.change_fps(CONFIG_GET(number/fps))
+	Master.StartProcessing(0)
+
+	var/init_ticklimit = CONFIG_GET(number/tick_limit_mc_init)
+	for (var/datum/controller/subsystem/SS in deferred_subsystems)
+		current_ticklimit = length(GLOB.clients) ? TICK_LIMIT_RUNNING : init_ticklimit
+		SS.Initialize(REALTIMEOFDAY)
+		CHECK_TICK
+	current_ticklimit = TICK_LIMIT_RUNNING
+	init_complete = TRUE
 	var/time = (REALTIMEOFDAY - start_timeofday) / 10
 
 	var/msg = "Initializations complete within [time] second[time == 1 ? "" : "s"]!"
@@ -207,14 +230,9 @@ GLOBAL_REAL(Master, /datum/controller/master) = new
 #endif
 	log_world(msg)
 
-	if (!current_runlevel)
-		SetRunLevel(1)
-
 	setup_cargo_boat()
 	// Sort subsystems by display setting for easy access.
 	sortTim(subsystems, GLOBAL_PROC_REF(cmp_subsystem_display))
-	// Set world options.
-	world.change_fps(CONFIG_GET(number/fps))
 	var/initialized_tod = REALTIMEOFDAY
 
 	// The resume flag must be checked before sleeping or a world with no clients
@@ -227,8 +245,6 @@ GLOBAL_REAL(Master, /datum/controller/master) = new
 	if(sleep_offline_after_initializations && CONFIG_GET(flag/resume_after_initializations))
 		world.sleep_offline = FALSE
 	initializations_finished_with_no_players_logged_in = initialized_tod < REALTIMEOFDAY - 10
-	// Loop.
-	Master.StartProcessing(0)
 	SSgamemode.handle_picking_storyteller()
 
 /datum/controller/master/proc/SetRunLevel(new_runlevel)
@@ -423,6 +439,8 @@ GLOBAL_REAL(Master, /datum/controller/master) = new
 		if (SS.state != SS_IDLE)
 			continue
 		if (SS.can_fire <= 0)
+			continue
+		if (!SS.initialized && !(SS.flags & SS_NO_INIT))
 			continue
 		if (SS.next_fire > world.time)
 			continue

@@ -373,10 +373,29 @@
 
 //Instance an atom at (x,y,z) and gives it the variables in attributes
 /datum/parsed_map/proc/instance_atom(path,list/attributes, turf/crds, no_changeturf, placeOnTop)
+	var/mineral_rolled = FALSE
 	if(crds && SSmapping.mapload_stone_bottom && ispath(path, /turf/open/transparent/openspace) && !ispath(path, /turf/open/transparent/openspace/debug) && !SSmapping.level_trait(crds.z, ZTRAIT_DOWN))
 		path = /turf/open/floor/rogue/naturalstone
 		attributes = list()
 		SSmapping.mapload_stone_bottom_count++
+	else if(crds && SSmapping.mapload_above_floor && crds.z > 1 && ispath(path, /turf/open/transparent/openspace) && !ispath(path, /turf/open/transparent/openspace/debug) && SSmapping.level_trait(crds.z - 1, ZTRAIT_UP))
+		var/turf/closed/B = locate(crds.x, crds.y, crds.z - 1)
+		if(istype(B) && B.above_floor)
+			path = B.above_floor
+			attributes = list()
+			SSmapping.mapload_above_floor_count++
+	else if(crds && SSmapping.mapload_mineral_rolls && ispath(path, /turf/closed/mineral/random))
+		var/list/tbl = SSmapping.mineral_roll_table(path)
+		if(tbl)
+			if(prob(tbl[1]))
+				path = pickweight(tbl[2])
+				attributes = list()
+				SSmapping.mapload_mineral_roll_count++
+				mineral_rolled = TRUE
+			else
+				var/list/marked = attributes ? attributes.Copy() : list()
+				marked["roll_done"] = TRUE
+				attributes = marked
 	world.preloader_setup(attributes, path)
 
 	if(crds)
@@ -389,6 +408,10 @@
 				. = create_atom(path, crds)//first preloader pass
 		else
 			. = create_atom(path, crds)//first preloader pass
+
+	if(mineral_rolled && ismineralturf(.))
+		var/turf/closed/mineral/M = .
+		M.mineralAmt = rand(1, 5)
 
 	if(GLOB.use_preloader && .)//second preloader pass, for those atoms that don't ..() in New()
 		world.preloader_load(.)

@@ -31,9 +31,14 @@ SUBSYSTEM_DEF(mapping)
 
 	var/mapload_stone_bottom = TRUE
 	var/skip_offmap_prune = TRUE
+	var/mapload_mineral_rolls = TRUE
+	var/mapload_above_floor = TRUE
 	var/mapload_stone_bottom_count = 0
 	var/openspace_prune_count = 0
 	var/openspace_prune_skipped = 0
+	var/mapload_mineral_roll_count = 0
+	var/mapload_above_floor_count = 0
+	var/list/mineral_roll_cache = list()
 
 	// Z-manager stuff
 	var/station_start  // should only be used for maploading-related tasks
@@ -267,6 +272,8 @@ SUBSYSTEM_DEF(mapping)
 
 	mapload_stone_bottom = !world.GetConfig("env", "KEEP_OPENSPACE_BOTTOM")
 	skip_offmap_prune = !world.GetConfig("env", "PRUNE_ALL_LEVELS")
+	mapload_mineral_rolls = !world.GetConfig("env", "MAPLOAD_NO_MINERAL_ROLLS")
+	mapload_above_floor = !world.GetConfig("env", "MAPLOAD_NO_ABOVE_FLOOR")
 
 	// ensure we have space_level datums for compiled-in maps
 	InitializeDefaultZLevels()
@@ -324,6 +331,26 @@ SUBSYSTEM_DEF(mapping)
 		fdel("_maps/custom/[config.map_file]")
 		// And as the file is now removed set the next map to default.
 		next_map_config = load_map_config(default_to_box = TRUE)
+
+// initial() cannot read list vars, and :: needs a literal path, hence the switch.
+/datum/controller/subsystem/mapping/proc/mineral_roll_table(path)
+	if(path in mineral_roll_cache)
+		return mineral_roll_cache[path]
+	var/turf/closed/mineral/random/M = path
+	var/chance = initial(M.mineralChance)
+	var/list/weights
+	switch(path)
+		if(/turf/closed/mineral/random/rogue)
+			weights = /turf/closed/mineral/random/rogue::mineralSpawnChanceList
+		if(/turf/closed/mineral/random/rogue/med)
+			weights = /turf/closed/mineral/random/rogue/med::mineralSpawnChanceList
+		if(/turf/closed/mineral/random/rogue/high)
+			weights = /turf/closed/mineral/random/rogue/high::mineralSpawnChanceList
+	var/list/tbl = null
+	if(chance && islist(weights) && length(weights))
+		tbl = list(chance, weights)
+	mineral_roll_cache[path] = tbl
+	return tbl
 
 
 /datum/controller/subsystem/mapping/proc/maprotate()

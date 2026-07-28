@@ -8,7 +8,7 @@ SUBSYSTEM_DEF(ticker)
 	init_order = INIT_ORDER_TICKER
 
 	priority = FIRE_PRIORITY_TICKER
-	flags = SS_KEEP_TIMING
+	flags = SS_KEEP_TIMING | SS_INIT_LOBBY
 	runlevels = RUNLEVEL_LOBBY | RUNLEVEL_SETUP | RUNLEVEL_GAME
 
 	var/current_state = GAME_STATE_STARTUP	//state of current round (used by process()) Use the defines GAME_STATE_* !
@@ -29,6 +29,7 @@ SUBSYSTEM_DEF(ticker)
 
 	var/triai = 0							//Global holder for Triumvirate
 	var/tipped = 0							//Did we broadcast the tip of the day yet?
+	var/init_hold_announced = FALSE			//Told the lobby the roundstart is waiting on world initialization
 	var/selected_tip						// What will be the tip of the day?
 
 	var/timeLeft						//pregame timer
@@ -212,6 +213,12 @@ SUBSYSTEM_DEF(ticker)
 				tipped = TRUE
 
 			if(timeLeft <= 0)
+				if(!Master.init_complete)
+					timeLeft = 0
+					if(!init_hold_announced)
+						init_hold_announced = TRUE
+						to_chat(world, span_notice("The world is still being prepared - the round will begin once it is ready."))
+					return
 				if(!checkreqroles())
 					current_state = GAME_STATE_STARTUP
 					start_at = world.time + 600

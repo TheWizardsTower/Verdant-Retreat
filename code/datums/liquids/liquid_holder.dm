@@ -20,6 +20,7 @@ GLOBAL_LIST_EMPTY(liquid_types)
 	var/absorption_rate = 0 // Amount of fluid deleted per processing loop by the sink.
 	var/last_fluid_level = 0 // Tracks the amount of fluid in the last processing loop. So we know if we need to update the icon or not.
 	var/last_fluid_time = 0 // When this turf last had significant fluid (for pool persistence)
+	var/doused = FALSE // Whether the standing-fluid douse event already fired for the current wetting
 
 	var/fluid_flags // A bitfield of flags for fluids. Look in code\__defines\liquid.dm for definitions.
 	var/coords/coords

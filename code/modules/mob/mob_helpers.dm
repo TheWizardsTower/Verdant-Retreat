@@ -149,50 +149,6 @@
 		newphrase+="[newletter]";counter-=1
 	return newphrase
 
-/// Makes you talk like you got cult stunned, which is slurring but with some dark messages
-/proc/cultslur(n) // Inflicted on victims of a stun talisman
-	var/phrase = STRIP_HTML_SIMPLE(n,MAX_MESSAGE_LEN)
-	var/leng = length_char(phrase)
-	var/counter=length_char(phrase)
-	var/newphrase=""
-	var/newletter=""
-	while(counter>=1)
-		newletter=copytext_char(phrase,(leng-counter)+1,(leng-counter)+2)
-		if(prob(50))
-			if(lowertext(newletter)=="o")
-				newletter="u"
-			if(lowertext(newletter)=="t")
-				newletter="ch"
-			if(lowertext(newletter)=="a")
-				newletter="ah"
-			if(lowertext(newletter)=="u")
-				newletter="oo"
-			if(lowertext(newletter)=="c")
-				newletter=" NAR "
-			if(lowertext(newletter)=="s")
-				newletter=" SIE "
-		if(prob(25))
-			if(newletter==" ")
-				newletter=" no hope... "
-			if(newletter=="H")
-				newletter=" IT COMES... "
-
-		switch(rand(1,15))
-			if(1)
-				newletter="'"
-			if(2)
-				newletter+="agn"
-			if(3)
-				newletter="fth"
-			if(4)
-				newletter="nglu"
-			if(5)
-				newletter="glor"
-			else
-				;;
-		newphrase+="[newletter]";counter-=1
-	return newphrase
-
 ///Adds stuttering to the message passed in
 /proc/stutter(n)
 	var/te = STRIP_HTML_SIMPLE(n,MAX_MESSAGE_LEN)
@@ -738,9 +694,7 @@
 /proc/is_blind(A)
 	if(ismob(A))
 		var/mob/B = A
-		if(HAS_TRAIT(B, TRAIT_BLIND))
-			return TRUE
-		return B.eye_blind
+		return B.is_blind()
 	return FALSE
 
 ///Is the mob hallucinating?

@@ -64,7 +64,7 @@
 				msg += span_bloody("[m1] [bleed_wording]!")
 
 	//Fire/water stacks
-	if(has_status_effect(/datum/status_effect/fire_handler))
+	if(has_status_effect(/datum/status_effect/fire_handler/fire_stacks))
 		msg += "[m1] covered in something flammable."
 	if(has_status_effect(/datum/status_effect/fire_handler/wet_stacks))
 		msg += "[m1] soaked."

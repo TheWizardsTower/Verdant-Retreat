@@ -3,7 +3,7 @@
 		return
 	stop_looking()
 
-	silent = FALSE
+	remove_status_effect(/datum/status_effect/silenced)
 	losebreath = 0
 
 //	if(!gibbed)

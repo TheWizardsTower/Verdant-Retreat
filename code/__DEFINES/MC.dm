@@ -55,6 +55,11 @@
 /// This flag overrides SS_KEEP_TIMING
 #define SS_POST_FIRE_TIMING 64
 
+/// Initialized in the pre-lobby phase of Master/Initialize; the lobby opens
+/// before the remaining (map-dependent) subsystems initialize under the live
+/// MC loop. Only for subsystems whose Initialize touches no map state.
+#define SS_INIT_LOBBY 128
+
 //! SUBSYSTEM STATES
 #define SS_IDLE 0		/// aint doing shit.
 #define SS_QUEUED 1		/// queued to run

@@ -56,6 +56,8 @@ SUBSYSTEM_DEF(native)
 	if(!VN_OK)
 		can_fire = FALSE
 		return
+	if(!Master.init_complete)
+		return
 	if(!mirror_loaded)
 		BulkLoadGrid()
 		return
@@ -109,7 +111,10 @@ SUBSYSTEM_DEF(native)
 
 	mirror_loaded = TRUE
 	log_world("verdant_native: grid mirror loaded ([world.maxx]x[world.maxy]x[world.maxz])")
-	if(vn_check_result(vn_light_init(world.maxx, world.maxy, world.maxz), "light_init"))
+	if(GLOB.vn_lighting_native)
+		GLOB.vn_light_inited_maxz = world.maxz
+		log_world("verdant_native: native corner lighting already active from SSlighting init")
+	else if(vn_check_result(vn_light_init(world.maxx, world.maxy, world.maxz), "light_init"))
 		GLOB.vn_light_inited_maxz = world.maxz
 		if(!world.GetConfig("env", "VN_NO_NATIVE_LIGHT"))
 			GLOB.vn_lighting_native = TRUE
@@ -158,6 +163,12 @@ SUBSYSTEM_DEF(native)
 				log_world("verdant_native: fluids [vn_fluid_status()] deltas=[SSliquid.vn_deltas_applied] events=[SSliquid.vn_events_applied]")
 				sleep(100)
 	
+#ifdef VN_SELFTEST
+	if(world.params["vn_test"] || world.GetConfig("env", "VN_TEST"))
+		spawn(100)
+			RunSelfTests()
+#endif
+
 	if(world.GetConfig("env", "VN_FLUID_DIAG"))
 		spawn(100)
 			var/cycle = 0
@@ -274,6 +285,15 @@ SUBSYSTEM_DEF(native)
 	else if(res > 0)
 		audit_mismatches_found += res
 		log_world("verdant_native: grid audit found [res] stale cells (z=[audit_z] y=[y0]-[audit_y - 1]), resyncing - a turf-change hook is missing")
+		var/list/detail = vn_grid_audit_detail()
+		if(islist(detail))
+			for(var/i in 1 to length(detail) step 6)
+				var/turf/T = locate(detail[i], detail[i + 1], audit_z)
+				var/list/held = list()
+				for(var/atom/A as anything in T)
+					if(A.density || A.opacity)
+						held += "[A.type][A.density ? "/dense" : ""][A.opacity ? "/opaque" : ""]"
+				log_world("verdant_native: stale cell ([detail[i]],[detail[i + 1]],[audit_z]) [T.type] dm_cell=[detail[i + 2]] mirror_cell=[detail[i + 3]] dm_edge=[detail[i + 4]] mirror_edge=[detail[i + 5]] contents=[length(held) ? jointext(held, " ") : "none"]")
 		vn_check_result(vn_grid_load_rows(audit_z, y0, audit_y - 1, cells, edges), "audit_resync")
 	if(audit_y > world.maxy)
 		audit_y = 1

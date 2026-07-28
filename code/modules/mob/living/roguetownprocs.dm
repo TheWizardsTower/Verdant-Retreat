@@ -237,7 +237,7 @@
 				return FALSE
 			if(has_status_effect(/datum/status_effect/debuff/exposed))
 				return FALSE
-			if(has_status_effect(/datum/status_effect/debuff/riposted))
+			if(combat_cooldown_active("riposted"))
 				return FALSE
 			last_parry = world.time
 			if(intenty && !intenty.canparry)
@@ -501,7 +501,7 @@
 			if(world.time < last_dodge + dodgetime)
 				if(!istype(rmb_intent, /datum/rmb_intent/riposte))
 					return FALSE
-			if(has_status_effect(/datum/status_effect/debuff/riposted))
+			if(combat_cooldown_active("riposted"))
 				return FALSE
 			if(has_status_effect(/datum/status_effect/debuff/exposed))
 				return FALSE
@@ -1093,7 +1093,7 @@
 		visible_message(span_suicide("[src] ripostes [H] with \the [IM]!"))
 		playsound(src, 'sound/combat/clash_struck.ogg', 100)
 		H.apply_status_effect(/datum/status_effect/debuff/exposed, 3 SECONDS)
-		H.apply_status_effect(/datum/status_effect/debuff/clickcd, 3 SECONDS)
+		H.apply_click_cooldown(3 SECONDS)
 		H.Slowdown(3)
 		to_chat(src, span_notice("[capitalize(H.p_theyre())] exposed!"))
 		remove_status_effect(/datum/status_effect/buff/clash)
@@ -1209,7 +1209,7 @@
 	var/current_turf = get_turf(src)
 	var/target_turf = get_ranged_target_turf(current_turf, turndir, dist)
 	throw_item(target_turf, FALSE)
-	apply_status_effect(/datum/status_effect/debuff/clickcd, 3 SECONDS)
+	apply_click_cooldown(3 SECONDS)
 
 ///Proc that cancels Riposte with a small stamina penalty, unless it's an extreme case.
 /mob/living/carbon/human/proc/bad_guard(msg, cheesy = FALSE, custom_value)

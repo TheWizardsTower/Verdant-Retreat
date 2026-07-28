@@ -21,8 +21,6 @@
 	var/bleed_cache_dirty = TRUE
 	/// Last world.time the bleed cache was recalculated (prevents multiple recalcs per tick)
 	var/bleed_cache_last_update = 0
-	///Can't talk. Value goes down every life proc. //NOTE TO FUTURE CODERS: DO NOT INITIALIZE NUMERICAL VARS AS NULL OR I WILL MURDER YOU.
-	var/silent = FALSE
 	///How many dream images we have left to send
 	var/dreaming = 0
 
@@ -88,12 +86,8 @@
 	var/image/halbody
 	var/obj/halitem
 	var/hal_screwyhud = SCREWYHUD_NONE
-	var/next_hallucination = 0
 	var/cpr_time = 1 //CPR cooldown.
 	var/damageoverlaytemp = 0
-
-	///Overall drunkenness - check handle_alcohol() in life.dm for effects
-	var/drunkenness = 0
 	///used to halt stamina regen temporarily
 	var/stam_regen_start_time = 0
 	///knocks you down

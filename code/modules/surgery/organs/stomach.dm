@@ -63,15 +63,15 @@
 		var/pukeprob = 5 + 0.05 * H.disgust
 		if(H.disgust >= DISGUST_LEVEL_GROSS)
 			if(prob(10))
-				H.stuttering += 1
-				H.confused += 2
+				H.adjust_timed_status_effect(1 * STATUS_COUNTER_UNIT, /datum/status_effect/life_counter/stutter)
+				H.adjust_timed_status_effect(2 * STATUS_COUNTER_UNIT, /datum/status_effect/life_counter/confusion)
 			if(prob(10) && !H.stat)
 				to_chat(H, span_warning("I feel kind of iffy..."))
-			H.jitteriness = max(H.jitteriness - 3, 0)
+			H.adjust_timed_status_effect(-3 * STATUS_COUNTER_UNIT, /datum/status_effect/life_counter/jitter)
 		if(H.disgust >= DISGUST_LEVEL_VERYGROSS)
 			if(prob(pukeprob)) //iT hAndLeS mOrE ThaN PukInG
-				H.confused += 2.5
-				H.stuttering += 1
+				H.adjust_timed_status_effect(2.5 * STATUS_COUNTER_UNIT, /datum/status_effect/life_counter/confusion)
+				H.adjust_timed_status_effect(1 * STATUS_COUNTER_UNIT, /datum/status_effect/life_counter/stutter)
 				H.vomit(10, 0, 1, 0, 1, 0)
 			H.Dizzy(5)
 		if(H.disgust >= DISGUST_LEVEL_DISGUSTED)
@@ -82,16 +82,12 @@
 	switch(H.disgust)
 		if(0 to DISGUST_LEVEL_GROSS)
 			H.clear_alert("disgust")
-			SEND_SIGNAL(H, COMSIG_CLEAR_MOOD_EVENT, "disgust")
 		if(DISGUST_LEVEL_GROSS to DISGUST_LEVEL_VERYGROSS)
 			H.throw_alert("disgust", /atom/movable/screen/alert/gross)
-			SEND_SIGNAL(H, COMSIG_ADD_MOOD_EVENT, "disgust", /datum/mood_event/gross)
 		if(DISGUST_LEVEL_VERYGROSS to DISGUST_LEVEL_DISGUSTED)
 			H.throw_alert("disgust", /atom/movable/screen/alert/verygross)
-			SEND_SIGNAL(H, COMSIG_ADD_MOOD_EVENT, "disgust", /datum/mood_event/verygross)
 		if(DISGUST_LEVEL_DISGUSTED to INFINITY)
 			H.throw_alert("disgust", /atom/movable/screen/alert/disgusted)
-			SEND_SIGNAL(H, COMSIG_ADD_MOOD_EVENT, "disgust", /datum/mood_event/disgusted)
 
 /obj/item/organ/stomach/Insert(mob/living/carbon/M, special = 0)
 	var/mob/living/carbon/old_owner = owner
@@ -105,7 +101,6 @@
 	var/mob/living/carbon/human/H = owner
 	if(istype(H))
 		H.clear_alert("disgust")
-		SEND_SIGNAL(H, COMSIG_CLEAR_MOOD_EVENT, "disgust")
 	..()
 	if(H && !QDELETED(H))
 		RegisterSignal(H, COMSIG_LIVING_LIFE, PROC_REF(missing_stomach_effects))

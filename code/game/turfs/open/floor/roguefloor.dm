@@ -235,7 +235,8 @@
 	heavyfootstep = FOOTSTEP_GENERIC_HEAVY
 	landsound = 'sound/foley/jumpland/grassland.wav'
 	slowdown = 0
-	smoothing_groups = SMOOTH_GROUP_FLOOR_SNOW 
+	liquid_absorption = 1
+	smoothing_groups = SMOOTH_GROUP_FLOOR_SNOW
 	neighborlay = "snowedge"
 	spread_chance = 0
 	prettifyturf = TRUE
@@ -250,7 +251,8 @@
 	heavyfootstep = FOOTSTEP_GENERIC_HEAVY
 	landsound = 'sound/foley/jumpland/grassland.wav'
 	slowdown = 0
-	smoothing_groups = SMOOTH_GROUP_FLOOR_SNOW 
+	liquid_absorption = 1
+	smoothing_groups = SMOOTH_GROUP_FLOOR_SNOW
 	neighborlay = "snowroughedge"
 	spread_chance = 0
 	prettifyturf = TRUE
@@ -266,7 +268,8 @@
 	heavyfootstep = FOOTSTEP_GENERIC_HEAVY
 	landsound = 'sound/foley/jumpland/grassland.wav'
 	slowdown = 0
-	smoothing_groups = SMOOTH_GROUP_FLOOR_SNOW 
+	liquid_absorption = 1
+	smoothing_groups = SMOOTH_GROUP_FLOOR_SNOW
 	neighborlay = "snowpatchy_grassedge"
 
 
@@ -280,7 +283,8 @@
 	heavyfootstep = FOOTSTEP_GENERIC_HEAVY
 	landsound = 'sound/foley/jumpland/grassland.wav'
 	slowdown = 0
-	smoothing_groups = SMOOTH_GROUP_FLOOR_GRASS 
+	liquid_absorption = 1
+	smoothing_groups = SMOOTH_GROUP_FLOOR_GRASS
 	neighborlay = "grass_coldedge"
 	prettifyturf = TRUE
 
@@ -294,7 +298,8 @@
 	heavyfootstep = FOOTSTEP_GENERIC_HEAVY
 	landsound = 'sound/foley/jumpland/grassland.wav'
 	slowdown = 0
-	smoothing_groups = SMOOTH_GROUP_FLOOR_GRASS 
+	liquid_absorption = 1
+	smoothing_groups = SMOOTH_GROUP_FLOOR_GRASS
 	prettifyturf = TRUE
 
 
@@ -308,7 +313,8 @@
 	heavyfootstep = FOOTSTEP_GENERIC_HEAVY
 	landsound = 'sound/foley/jumpland/grassland.wav'
 	slowdown = 0
-	smoothing_groups = SMOOTH_GROUP_FLOOR_GRASS 
+	liquid_absorption = 1
+	smoothing_groups = SMOOTH_GROUP_FLOOR_GRASS
 	prettifyturf = TRUE
 
 /turf/open/floor/rogue/grass
@@ -322,6 +328,7 @@
 	heavyfootstep = FOOTSTEP_GENERIC_HEAVY
 	landsound = 'sound/foley/jumpland/grassland.wav'
 	slowdown = 0
+	liquid_absorption = 1
 	smoothing_flags = SMOOTH_EDGE
 	smoothing_groups = SMOOTH_GROUP_OPEN_FLOOR + SMOOTH_GROUP_FLOOR_GRASS
 	smoothing_list = SMOOTH_GROUP_FLOOR_DIRT_ROAD
@@ -357,7 +364,8 @@
 	heavyfootstep = FOOTSTEP_GENERIC_HEAVY
 	landsound = 'sound/foley/jumpland/dirtland.wav'
 	slowdown = 2
-	smoothing_groups = SMOOTH_GROUP_FLOOR_DIRT 
+	liquid_absorption = 2
+	smoothing_groups = SMOOTH_GROUP_FLOOR_DIRT
 	neighborlay = "dirtedge"
 	var/muddy = FALSE
 	var/bloodiness = 20
@@ -420,7 +428,7 @@
 			update_icon()
 			H.update_inv_shoes()
 		if(water_level)
-			START_PROCESSING(SSwaterlevel, src)
+			GLOB.pool_manager.queue_wet_update(src)
 
 
 /turf/open/floor/rogue/dirt/update_water()
@@ -501,6 +509,7 @@
 	landsound = 'sound/foley/jumpland/dirtland.wav'
 	baseturfs = /turf/open/floor/rogue/sand
 	slowdown = 0
+	liquid_absorption = 3
 
 /turf/open/floor/rogue/sand/Initialize(mapload)
 	. = ..()
@@ -518,6 +527,7 @@
 	heavyfootstep = FOOTSTEP_GENERIC_HEAVY
 	landsound = 'sound/foley/jumpland/dirtland.wav'
 	slowdown = 0
+	liquid_absorption = 2
 
 /turf/proc/roguesmooth(adjacencies, use_old_behavior)
 /*	if(!use_old_behavior)
@@ -1106,3 +1116,16 @@
 	clawfootstep = FOOTSTEP_HARD_CLAW
 	heavyfootstep = FOOTSTEP_GENERIC_HEAVY
 	landsound = 'sound/foley/jumpland/grassland.wav'
+
+/turf/open/floor/rogue/naturalstone/aquifer
+	name = "damp stone floor"
+	desc = "Water trickles up steadily from cracks in the rock."
+
+/turf/open/floor/rogue/naturalstone/aquifer/Initialize()
+	. = ..()
+	if(!cell)
+		cell = new /cell(src)
+		cell.InitLiquids()
+	cell.make_liquid_source(2)
+	SSliquid.update_fluidsum(src)
+	SSliquid.cell_index[src] = TRUE
