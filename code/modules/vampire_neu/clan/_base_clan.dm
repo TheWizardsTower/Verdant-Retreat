@@ -435,7 +435,7 @@ And it also helps for the character set panel
 	return FALSE
 
 /datum/clan/proc/return_fear_list()
-	return GLOB.fires_list + SShotspots.hotspots
+	return GLOB.fires_list + SSfire.hotspots
 
 /datum/clan/proc/return_fear(mob/vampire)
 	var/list/fears = return_fear_list()

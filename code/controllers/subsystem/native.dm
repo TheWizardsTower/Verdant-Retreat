@@ -121,72 +121,11 @@ SUBSYSTEM_DEF(native)
 			for(var/datum/light_source/L as anything in GLOB.all_light_sources)
 				L.force_update()
 			log_world("verdant_native: native corner lighting enabled ([length(GLOB.all_light_sources)] sources)")
-	if(world.params["vn_fluids_native"] || world.GetConfig("env", "VN_FLUIDS_NATIVE"))
-		log_world("verdant_native: fluid test pump enabled via environment")
-		// Headless test worlds never leave the lobby, where SSliquid doesn't
-		// fire (and the MC's runlevel lists are fixed at loop start) - drive
-		// the native tick from a pump instead. Live servers just enable
-		// SSliquid and the MC runs it normally.
-		spawn(60)
-			while(VN_OK)
-				if(!SSliquid.vn_native_fluids_ready)
-					SSliquid.NativeInit()
-				else
-					SSliquid.NativeFire()
-				sleep(1)
-		// exercise the full writer path once the engine is live: a spill plus
-		// a spring, injected through the normal DM mutation surface
-		spawn(80)
-			var/waited = 0
-			while(!SSliquid.vn_native_fluids_ready && waited++ < 100)
-				sleep(5)
-			if(!SSliquid.vn_native_fluids_ready)
-				return
-			var/turf/T
-			for(var/i in 1 to 300)
-				var/turf/candidate = locate(rand(2, world.maxx - 1), rand(2, world.maxy - 1), 1)
-				if(candidate && !candidate.density && !isopenspace(candidate))
-					T = candidate
-					break
-			if(!T)
-				log_world("verdant_native: fluid test spill found no open turf")
-				return
-			if(!T.cell)
-				T.cell = new /cell(T)
-				T.cell.InitLiquids()
-			var/datum/liquid/W = T.cell.get_fluid_datum(WATER)
-			GLOB.liquid_manager.add_fluid(T, W, 100)
-			T.cell.make_liquid_source(10, WATER)
-			log_world("verdant_native: fluid test spill + source at ([T.x],[T.y],[T.z])")
-		spawn(100)
-			for(var/i in 1 to 10)
-				log_world("verdant_native: fluids [vn_fluid_status()] deltas=[SSliquid.vn_deltas_applied] events=[SSliquid.vn_events_applied]")
-				sleep(100)
-	
 #ifdef VN_SELFTEST
 	if(world.params["vn_test"] || world.GetConfig("env", "VN_TEST"))
 		spawn(100)
 			RunSelfTests()
 #endif
-
-	if(world.GetConfig("env", "VN_FLUID_DIAG"))
-		spawn(100)
-			var/cycle = 0
-			while(VN_OK)
-				log_world("verdant_native: diag [vn_fluid_status()] deltas=[SSliquid.vn_deltas_applied] events=[SSliquid.vn_events_applied] sources=[length(SSliquid.liquid_sources)] sinks=[length(SSliquid.liquid_sinks)] wet=[length(GLOB.pool_manager.liquid_turfs)]")
-				if(++cycle % 3 == 0)
-					var/list/by_type = list()
-					var/list/by_z = list()
-					for(var/turf/T as anything in GLOB.pool_manager.liquid_turfs)
-						by_type["[T.type]"]++
-						by_z["z[T.z]"]++
-					var/list/big = list()
-					for(var/k in by_type)
-						if(by_type[k] >= 300)
-							big += "[k]:[by_type[k]]"
-					log_world("verdant_native: diagtypes [jointext(big, " ")]")
-					log_world("verdant_native: diagz [json_encode(by_z)]")
-				sleep(100)
 
 /// Appends one row's cell string and edge string to the output lists.
 /// out_annots (optional): also collects door-integrity annotations, used

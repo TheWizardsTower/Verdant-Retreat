@@ -201,10 +201,9 @@
 		if(reac_volume >= 5)
 			OT.add_water(reac_volume * 3) //nuprocet)
 
-		var/obj/effect/hotspot/hotspot = (locate(/obj/effect/hotspot) in T)
-		if(hotspot)
+		if(locate(/obj/effect/hotspot) in T)
 			new /obj/effect/temp_visual/small_smoke(T)
-			qdel(hotspot)
+		vn_fire_queue(VN_FIRE_OP_EXTINGUISH, T)
 
 	if(iswallturf(T))
 		if(!T.color)

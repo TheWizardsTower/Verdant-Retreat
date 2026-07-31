@@ -177,6 +177,9 @@ GLOBAL_DATUM_INIT(acid_overlay, /mutable_appearance, mutable_appearance('icons/e
 	if(!(resistance_flags & ON_FIRE) && (resistance_flags & FLAMMABLE) && !(resistance_flags & FIRE_PROOF))
 		resistance_flags |= ON_FIRE
 		SSfire_burning.processing[src] = src
+		if(isturf(loc))
+			// integrity stands in for burnable mass
+			vn_fire_queue(VN_FIRE_OP_ADD_FUEL, loc, clamp(round(max_integrity / 10), 2, 30))
 		add_overlay(GLOB.fire_overlay, TRUE)
 		playsound(src, 'sound/misc/enflame.ogg', 100, TRUE)
 		return 1

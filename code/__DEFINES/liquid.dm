@@ -9,7 +9,8 @@
 #define RAIN_INJECT_INTERVAL (2 SECONDS)
 #define RAIN_INJECT_DENSITY 0.027 // Chance per exposed outdoor turf per interval at full severity
 #define RAIN_INJECT_AMOUNT 3
-#define LIQUID_DOUSE_THRESHOLD 10 // Standing fluid depth at which ground-level fires are snuffed
+#define LIQUID_DOUSE_THRESHOLD 5 // fluid depth at which ground-level fires are snuffed
+#define LIQUID_DOUSE_STANDING_THRESHOLD 50 // fluid depth at which waist and chest-level fires are snuffed
 
 // Fluid level defines for use by the fluid subsystem, these are pretty arbitrary and the actual fluidsum is checked by SSliquid. Use the macro: GET_FLUID_LEVEL(turf)
 #define FLUID_EMPTY 0
@@ -51,9 +52,6 @@
 
 // Priority defines for liquid subsystem
 #define SS_PRIORITY_LIQUID FIRE_PRIORITY_LIQUID
-
-#define SMOKE_TYPE_FIRE 1
-#define DEFAULT_OXYGEN_LEVEL 100
 
 
 #define log_debug(msg) world.log << msg

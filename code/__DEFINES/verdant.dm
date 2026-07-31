@@ -156,6 +156,44 @@ GLOBAL_VAR_INIT(vn_liquid_edge_drain, TRUE)
 /// U-bend vertical surface equalization, applied the same way
 GLOBAL_VAR_INIT(vn_liquid_ubend, TRUE)
 
+// --- fire spread ---
+
+// edit ops (must match RTFireEngine::EditOp)
+#define VN_FIRE_OP_IGNITE 1			// a=level 1..3 (0 -> 1); no-op on fuel 0 or an already hotter cell
+#define VN_FIRE_OP_EXTINGUISH 2		// level -> 0, fuel kept
+#define VN_FIRE_OP_SET_FUEL 3		// a=fuel 0..255 (turf-change reseed)
+#define VN_FIRE_OP_SET_SPREAD 4		// a=spread 0..100
+#define VN_FIRE_OP_SET_EXPOSED 5	// a=0/1 (outdoor and not weatherproof)
+#define VN_FIRE_OP_ADD_FUEL 6		// a=amount; fuel clamped to 255
+
+/// Sizes itself from the grid mirror, which must be loaded first.
+#define vn_fire_init call_ext(VERDANT_NATIVE, "byond:vn_fire_init")
+/// props: 4 nibbles per cell, row-major x ascending — fuel-hi, fuel-lo, spread, flags(bit0 exposed)
+#define vn_fire_load_rows(z, y0, y1, props) call_ext(VERDANT_NATIVE, "byond:vn_fire_load_rows")(z, y0, y1, props)
+/// edits: flat [op,x,y,z,a ...]; returns applied count
+#define vn_fire_edit(edits) call_ext(VERDANT_NATIVE, "byond:vn_fire_edit")(edits)
+/// keys: douse_threshold, rain, seed
+#define vn_fire_config(key, value) call_ext(VERDANT_NATIVE, "byond:vn_fire_config")(key, value)
+#define vn_fire_tick_begin call_ext(VERDANT_NATIVE, "byond:vn_fire_tick_begin")
+/// -> [n_delta, (x,y,z,level)..., n_burnt, (x,y,z)...]
+/// or an empty list while the tick is still running
+#define vn_fire_tick_collect call_ext(VERDANT_NATIVE, "byond:vn_fire_tick_collect")
+/// -> [level, fuel, spread, flags]
+#define vn_fire_get(x, y, z) call_ext(VERDANT_NATIVE, "byond:vn_fire_get")(x, y, z)
+#define vn_fire_status call_ext(VERDANT_NATIVE, "byond:vn_fire_status")
+
+/// Queues an edit for the native fire engine; flushed by SSfire's fire.
+/// No-op until the engine is seeded, so writers can call unconditionally.
+/proc/vn_fire_queue(op, turf/T, a = 0)
+	if(!SSfire?.fire_ready || !istype(T))
+		return
+	var/list/q = SSfire.vn_edit_queue
+	q += op
+	q += T.x
+	q += T.y
+	q += T.z
+	q += a
+
 // --- behavior trees ---
 
 // node types (must match RTBtVM's NodeType)

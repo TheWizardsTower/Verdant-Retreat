@@ -26,20 +26,6 @@ GLOBAL_LIST_EMPTY(liquid_types)
 	var/coords/coords
 	var/pool_id = 0 // A numeric reference to the generic datum that is used as a wrapper to store a list of cells that form a pool. 0 means no pool.
 
-	// Fire and smoke system variables
-	var/fire_level = 0 // Intensity of fire (0-100)
-	var/fire_fuel = 0 // Available combustible material (0-100)
-	var/fire_temperature = T20C // Heat level in Celsius
-	var/smoke_density = 0 // Smoke concentration (0-100)
-	var/smoke_type = SMOKE_TYPE_FIRE // Type of smoke
-	var/oxygen_level = DEFAULT_OXYGEN_LEVEL // Local oxygen availability (0-100)
-	var/has_air = TRUE // Whether this cell has breathable atmosphere
-	var/vector/air_flow_vector // Direction/strength of local air movement
-	var/backdraft_potential = 0 // Accumulated unburned fuel from oxygen-starved fires
-	var/is_enclosed = FALSE // Whether this cell is in an enclosed space
-	var/fire_flags = 0 // Bitflags for fire states
-	var/last_fire_level = 0 // Previous fire level for optimization (following liquid pattern)
-
 /cell/New(turf/target_turf)
 	..()
 	coords = new(target_turf.x, target_turf.y, target_turf.z) // This way we can avoid circular references.
@@ -52,21 +38,6 @@ GLOBAL_LIST_EMPTY(liquid_types)
 		if(newfluid.reagent)
 			newfluid.color = initial(newfluid.reagent:color)
 		fluid_volume[newfluid] = 0
-
-/cell/proc/InitFireSmoke()
-	// Initialize fire and smoke variables with default values
-	fire_level = 0
-	fire_fuel = 0
-	fire_temperature = T20C
-	smoke_density = 0
-	smoke_type = SMOKE_TYPE_FIRE
-	oxygen_level = DEFAULT_OXYGEN_LEVEL
-	has_air = TRUE
-	air_flow_vector = null
-	backdraft_potential = 0
-	is_enclosed = FALSE
-	fire_flags = 0
-	last_fire_level = 0
 
 	// Note: InitExtraLiquids() was removed as it was not intended for production use
 
