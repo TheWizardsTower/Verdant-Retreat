@@ -831,6 +831,7 @@
 	blade_dulling = DULLING_BASH
 	max_integrity = 300
 	dir = SOUTH
+	blocks_emissive = EMISSIVE_BLOCK_GENERIC
 
 /obj/structure/fluff/statue/OnCrafted(dirin, user)
 	dirin = turn(dirin, 180)

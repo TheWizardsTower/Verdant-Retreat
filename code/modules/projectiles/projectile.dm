@@ -133,6 +133,9 @@
 	var/falloff_accuracy_per_turf = 0 // Accuracy reduction per turf after falloff_start_distance
 	var/firer_skill_level = 0 // Skill level of the firer (for falloff reduction)
 
+/obj/projectile/energy/
+	plane =  ABOVE_LIGHTING_PLANE
+	layer = ABOVE_LIGHTING_LAYER
 /obj/projectile/proc/handle_drop()
 	return
 

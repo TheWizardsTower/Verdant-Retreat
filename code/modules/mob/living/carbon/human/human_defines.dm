@@ -11,7 +11,7 @@
 	can_buckle = TRUE
 	buckle_lying = FALSE
 	mob_biotypes = MOB_ORGANIC|MOB_HUMANOID
-
+	blocks_emissive = EMISSIVE_BLOCK_UNIQUE
 	ambushable = 1
 
 	voice_pitch = 1

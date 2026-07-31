@@ -18,6 +18,7 @@ GLOBAL_VAR_INIT(rpg_loot_items, FALSE)
 	///Icon file for mob worn overlays.
 	///no var for state because it should *always* be the same as icon_state
 	var/icon/mob_overlay_icon
+	blocks_emissive = EMISSIVE_BLOCK_GENERIC
 	//Forced mob worn layer instead of the standard preferred ssize.
 	var/alternate_worn_layer
 

@@ -352,11 +352,11 @@
 	desc = "The dirt is pocked with the scars of countless wars."
 	icon_state = "dirt"
 	layer = MID_TURF_LAYER
-	footstep = FOOTSTEP_MUD
+	footstep = FOOTSTEP_SAND
 	barefootstep = FOOTSTEP_SOFT_BAREFOOT
 	heavyfootstep = FOOTSTEP_GENERIC_HEAVY
 	landsound = 'sound/foley/jumpland/dirtland.wav'
-	slowdown = 2
+	slowdown = 1
 	smoothing_groups = SMOOTH_GROUP_FLOOR_DIRT 
 	neighborlay = "dirtedge"
 	var/muddy = FALSE
@@ -472,6 +472,19 @@
 		track_prob = 20 //Hearthstone port.
 		bloodiness = 20
 
+/turf/open/floor/rogue/dirt/mud
+	icon_state = "mud1"
+	name = "mud"
+	slowdown = 2
+	footstep = FOOTSTEP_MUD
+	barefootstep = FOOTSTEP_MUD
+	heavyfootstep = FOOTSTEP_MUD
+	prettifyturf = TRUE
+	slowdown = 2
+/turf/open/floor/rogue/dirt/mud/Initialize()
+	. = ..()
+	icon_state = "mud[rand (1,3)]"
+	
 /turf/open/floor/rogue/dirt/road
 	name = "dirt"
 	desc = "The dirt is pocked with the scars of countless steps."

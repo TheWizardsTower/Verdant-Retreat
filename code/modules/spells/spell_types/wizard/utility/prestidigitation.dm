@@ -185,6 +185,7 @@
 	light_system = MOVABLE_LIGHT
 	icon = 'icons/roguetown/items/lighting.dmi'
 	icon_state = "wisp"
+	plane = ABOVE_LIGHTING_PLANE
 
 #undef PRESTI_CLEAN
 #undef PRESTI_SPARK

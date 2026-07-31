@@ -33,8 +33,11 @@
 	update_icon()
 
 /obj/machinery/light/roguestreet/update_icon()
+	SSvis_overlays.remove_vis_overlay(src, managed_vis_overlays)
+	
 	if(on)
 		icon_state = "[base_state]1"
+		SSvis_overlays.add_vis_overlay(src, overlayicon, base_state, ABOVE_LIGHTING_LAYER, ABOVE_LIGHTING_PLANE, dir, set_vis_flags = VIS_INHERIT_DIR|VIS_INHERIT_ID)
 	else
 		icon_state = "[base_state]0"
 

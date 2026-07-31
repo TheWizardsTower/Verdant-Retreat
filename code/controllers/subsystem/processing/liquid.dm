@@ -518,11 +518,18 @@ PROCESSING_SUBSYSTEM_DEF(liquid)
 	var/list/trims
 	var/list/current_trim_dirs
 
+/obj/effect/liquid/Initialize(mapload, direction)
+	. = ..()
+	var/mutable_appearance/I = mutable_appearance('icons/turf/newwater.dmi', "overlay") 
+	I.blend_mode = BLEND_ADD
+	add_overlay(I)
+
 /obj/effect/water/trim
 	icon = 'icons/turf/newwater.dmi'
 	plane = FLOOR_PLANE
 	layer = BELOW_MOB_LAYER
 	mouse_opacity = 0
+
 
 /obj/effect/water/trim/Initialize(mapload, direction)
 	. = ..()

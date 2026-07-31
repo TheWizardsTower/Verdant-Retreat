@@ -69,12 +69,14 @@
 	update_icon()
 
 /obj/machinery/light/rogue/update_icon()
-	cut_overlays()
+	overlays.Cut()
+	
 	if(on)
 		icon_state = "[base_state]1"
-		var/mutable_appearance/glowybit = mutable_appearance(overlayicon, base_state, plane = EMISSIVE_PLANE)
+		var/mutable_appearance/glowybit = mutable_appearance(overlayicon, base_state, plane = ABOVE_LIGHTING_PLANE)
 		glowybit.alpha = CLAMP(light_power*250, 30, 200)
-		add_overlay(glowybit)
+		glowybit.vis_flags = VIS_HIDE //make this generic later. This is fine for now.
+		overlays += glowybit
 	else
 		icon_state = "[base_state]0"
 
