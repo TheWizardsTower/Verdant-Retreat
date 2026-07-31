@@ -11,8 +11,16 @@
 #define RAIN_INJECT_AMOUNT 3
 #define LIQUID_DOUSE_THRESHOLD 5 // fluid depth at which ground-level fires are snuffed
 #define LIQUID_DOUSE_STANDING_THRESHOLD 50 // fluid depth at which waist and chest-level fires are snuffed
+#define LIQUID_VIS_HOLD_TICKS 4 // A fluid-level band change must persist this many engine ticks before the overlay shows it
 
 // Fluid level defines for use by the fluid subsystem, these are pretty arbitrary and the actual fluidsum is checked by SSliquid. Use the macro: GET_FLUID_LEVEL(turf)
+// Band edges are shared with the native engine (pushed as band1..band6 config at init) - fluidsum <= edge N is band N
+#define FLUID_BAND_EDGE_1 20
+#define FLUID_BAND_EDGE_2 30
+#define FLUID_BAND_EDGE_3 40
+#define FLUID_BAND_EDGE_4 55
+#define FLUID_BAND_EDGE_5 60
+#define FLUID_BAND_EDGE_6 95
 #define FLUID_EMPTY 0
 #define FLUID_VERY_LOW 1
 #define FLUID_LOW 2

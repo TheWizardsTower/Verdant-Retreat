@@ -19,6 +19,7 @@ GLOBAL_LIST_EMPTY(liquid_types)
 	var/is_liquid_sink = FALSE // Make this TRUE to make a turf despawn fluid.
 	var/absorption_rate = 0 // Amount of fluid deleted per processing loop by the sink.
 	var/last_fluid_level = 0 // Tracks the amount of fluid in the last processing loop. So we know if we need to update the icon or not.
+	var/vis_fluid_level = -1 // Fluid band the overlay currently shows, set by native band commits; -1 until the first commit
 	var/last_fluid_time = 0 // When this turf last had significant fluid (for pool persistence)
 	var/doused = FALSE // Whether the standing-fluid douse event already fired for the current wetting
 

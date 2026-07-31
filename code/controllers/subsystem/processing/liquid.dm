@@ -204,17 +204,17 @@ PROCESSING_SUBSYSTEM_DEF(liquid)
 	switch(fluidsum)
 		if(0)
 			return FLUID_EMPTY
-		if(1 to 20)
+		if(1 to FLUID_BAND_EDGE_1)
 			return FLUID_VERY_LOW
-		if(21 to 30)
+		if(FLUID_BAND_EDGE_1 + 1 to FLUID_BAND_EDGE_2)
 			return FLUID_LOW
-		if(31 to 40)
+		if(FLUID_BAND_EDGE_2 + 1 to FLUID_BAND_EDGE_3)
 			return FLUID_MEDIUM
-		if(41 to 55)
+		if(FLUID_BAND_EDGE_3 + 1 to FLUID_BAND_EDGE_4)
 			return FLUID_HIGH
-		if(56 to 60)
+		if(FLUID_BAND_EDGE_4 + 1 to FLUID_BAND_EDGE_5)
 			return FLUID_VERY_HIGH
-		if(61 to 95)
+		if(FLUID_BAND_EDGE_5 + 1 to FLUID_BAND_EDGE_6)
 			return FLUID_FULL
 		else
 			return FLUID_OVERFLOW
@@ -245,6 +245,18 @@ PROCESSING_SUBSYSTEM_DEF(liquid)
 	SSliquid.liquid_sinks -= src
 	return ..()
 
+/// Band the overlay shows: the native-committed band (engine-side hysteresis),
+/// falling back to the live band before the first commit or when a dry cell wets.
+/datum/controller/subsystem/processing/liquid/proc/get_vis_fluid_level(turf/T, live)
+	if(isnull(live))
+		live = get_fluid_level(T)
+	var/cell/C = T?.cell
+	if(!C || C.vis_fluid_level < 0)
+		return live
+	if(C.vis_fluid_level == FLUID_EMPTY && live != FLUID_EMPTY)
+		return live
+	return C.vis_fluid_level
+
 /datum/controller/subsystem/processing/liquid/proc/update_cell_image(turf/T)
 	T.ensure_liquid_overlay()
 	var/datum/liquid/mostfluid = T.get_highest_fluid_by_volume()
@@ -252,11 +264,12 @@ PROCESSING_SUBSYSTEM_DEF(liquid)
 	if(mostfluid)
 		T.liquid_overlay.color = mostfluid.color
 
-	var/fluid_level = get_fluid_level(T)
+	var/live_level = get_fluid_level(T)
+	var/fluid_level = get_vis_fluid_level(T, live_level)
 
 	if(isopenspace(T))
 		var/turf/below = GetBelow(T)
-		if(below?.cell && get_fluid_level(below) >= FLUID_FULL)
+		if(below?.cell && get_vis_fluid_level(below) >= FLUID_FULL)
 			var/datum/liquid/below_fluid = below.get_highest_fluid_by_volume()
 			if(below_fluid)
 				T.liquid_overlay.color = below_fluid.color
@@ -299,7 +312,7 @@ PROCESSING_SUBSYSTEM_DEF(liquid)
 		if(FLUID_OVERFLOW)
 			T.liquid_overlay.alpha = 235
 
-	if((T.cell.last_fluid_level < fluid_level) && (fluid_level >= FLUID_FULL) || (T.cell.last_fluid_level > fluid_level) && (fluid_level < FLUID_FULL))
+	if((T.cell.last_fluid_level < live_level) && (live_level >= FLUID_FULL) || (T.cell.last_fluid_level > live_level) && (live_level < FLUID_FULL))
 		var/list/queue = list()
 		var/list/pool = get_pool(T)
 		var/pool_avg = get_pool_avg(pool)
@@ -339,6 +352,13 @@ PROCESSING_SUBSYSTEM_DEF(liquid)
 	vn_check_result(vn_fluid_config("evap_rate", 1), "fluid_config_evap_rate")
 	vn_check_result(vn_fluid_config("ubend", GLOB.vn_liquid_ubend ? 1 : 0), "fluid_config_ubend")
 	vn_check_result(vn_fluid_config("ubend_rate", 10), "fluid_config_ubend_rate")
+	vn_check_result(vn_fluid_config("band1", FLUID_BAND_EDGE_1), "fluid_config_band1")
+	vn_check_result(vn_fluid_config("band2", FLUID_BAND_EDGE_2), "fluid_config_band2")
+	vn_check_result(vn_fluid_config("band3", FLUID_BAND_EDGE_3), "fluid_config_band3")
+	vn_check_result(vn_fluid_config("band4", FLUID_BAND_EDGE_4), "fluid_config_band4")
+	vn_check_result(vn_fluid_config("band5", FLUID_BAND_EDGE_5), "fluid_config_band5")
+	vn_check_result(vn_fluid_config("band6", FLUID_BAND_EDGE_6), "fluid_config_band6")
+	vn_check_result(vn_fluid_config("vis_hold_ticks", LIQUID_VIS_HOLD_TICKS), "fluid_config_vis_hold")
 
 	// bulk sync: everything with fluid plus sources/sinks/flow overrides
 	var/list/edits = list()
@@ -499,6 +519,18 @@ PROCESSING_SUBSYSTEM_DEF(liquid)
 			L.liquid_fall_landed(f_amt)
 			vn_falls_applied++
 
+	var/n_band = res[cur++]
+	for(var/i in 1 to n_band)
+		var/turf/B = locate(res[cur], res[cur + 1], res[cur + 2])
+		var/band = res[cur + 3]
+		cur += 4
+		if(B?.cell && B.cell.vis_fluid_level != band)
+			B.cell.vis_fluid_level = band
+			update_cell_image(B)
+			var/turf/above = GetAbove(B)
+			if(above && isopenspace(above))
+				update_cell_image(above)
+
 /datum/controller/subsystem/processing/liquid/proc/convert_fluid_to_reagent(datum/liquid/fluid, amount, atom/container, turf/T)
 	return GLOB.liquid_manager.convert_fluid_to_reagent(fluid, amount, container, T)
 
@@ -586,7 +618,7 @@ PROCESSING_SUBSYSTEM_DEF(liquid)
 	var/is_lake_surface = FALSE
 	if(isopenspace(here))
 		var/turf/below = GetBelow(here)
-		if(below?.cell && GET_FLUID_LEVEL(below) >= FLUID_FULL)
+		if(below?.cell && SSliquid.get_vis_fluid_level(below) >= FLUID_FULL)
 			is_lake_surface = TRUE
 
 	var/list/needed_trim_dirs = list()
@@ -601,7 +633,7 @@ PROCESSING_SUBSYSTEM_DEF(liquid)
 
 		if(isopenspace(turf_to_check) || istype(turf_to_check, /turf/open/water))
 			continue
-		if(turf_to_check.cell && GET_FLUID_LEVEL(turf_to_check) >= FLUID_FULL)
+		if(turf_to_check.cell && SSliquid.get_vis_fluid_level(turf_to_check) >= FLUID_FULL)
 			continue
 
 		needed_trim_dirs["[direction]"] = TRUE
