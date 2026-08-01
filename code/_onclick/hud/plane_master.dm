@@ -103,16 +103,41 @@
 
 /atom/movable/screen/plane_master/lighting/Initialize()
 	. = ..()
-	filters += filter(type="alpha", render_source = EMISSIVE_RENDER_TARGET, flags = MASK_INVERSE)
 	filters += filter(type="alpha", render_source = EMISSIVE_UNBLOCKABLE_RENDER_TARGET, flags = MASK_INVERSE)
 	filters += filter(type="alpha", render_source = O_LIGHTING_VISUAL_RENDER_TARGET, flags = MASK_INVERSE)
 
-/atom/movable/screen/plane_master/emissive
-	name = "emissive plane master"
-	render_target = EMISSIVE_RENDER_TARGET
-	plane = EMISSIVE_PLANE
+
+/atom/movable/screen/plane_master/bloom
+	name = "above lighting plane master"
+	plane = ABOVE_LIGHTING_PLANE
+//	blend_mode = BLEND_MULTIPLY
+	mouse_opacity = MOUSE_OPACITY_TRANSPARENT
+	render_target = ABOVE_LIGHTING_RENDER_TARGET
 
 
+/atom/movable/screen/plane_master/bloom/Initialize()
+	. = ..()
+	filters += filter(type="alpha", render_source = EMISSIVE_BLOCKER_RENDER_TARGET, flags = MASK_INVERSE)
+	filters += filter(type="bloom", size=4, offset=2, alpha=150, threshold= rgb(100,100,100)) 
+	
+/atom/movable/screen/plane_master/emissive_unblockable
+	name = "unblockable emissive plane master"
+	plane = EMISSIVE_UNBLOCKABLE_PLANE
+	mouse_opacity = MOUSE_OPACITY_TRANSPARENT
+	render_target = EMISSIVE_UNBLOCKABLE_RENDER_TARGET
+
+/**
+  * Things placed on this layer mask the emissive layer. Doesn't render directly
+  *
+  * You really shouldn't be directly using this, use atom helpers instead
+  */
+/atom/movable/screen/plane_master/emissive_blocker // USED TO BE /obj/screen/plane_master/emissive_unblockable HOW THE FUCK DID TG MERGE THIS FUCK UP
+	name = "emissive mob plane master"
+	plane = EMISSIVE_BLOCKER_PLANE
+	mouse_opacity = MOUSE_OPACITY_TRANSPARENT
+	render_target = EMISSIVE_BLOCKER_RENDER_TARGET
+	
+///Contains space parallax
 /atom/movable/screen/plane_master/parallax
 	name = "parallax plane master"
 //	screen_loc = "CENTER-2"

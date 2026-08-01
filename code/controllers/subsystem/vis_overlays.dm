@@ -29,20 +29,20 @@ SUBSYSTEM_DEF(vis_overlays)
 			qdel(overlay)
 		if(MC_TICK_CHECK)
 			return
-
+#define NOTHING "value representing NOTHING"
 //the "thing" var can be anything with vis_contents which includes images
-/datum/controller/subsystem/vis_overlays/proc/add_vis_overlay(atom/movable/thing, icon, iconstate, layer, plane, dir, alpha = 255, add_appearance_flags = NONE, unique = FALSE)
+/datum/controller/subsystem/vis_overlays/proc/add_vis_overlay(atom/movable/thing, icon, iconstate, layer, plane, dir, alpha = 255, add_appearance_flags = NONE, unique = FALSE, set_vis_flags= NOTHING, render_target = NOTHING)
 	var/obj/effect/overlay/vis/overlay
 	if(!unique)
 		. = "[icon]|[iconstate]|[layer]|[plane]|[dir]|[alpha]|[add_appearance_flags]"
 		overlay = vis_overlay_cache[.]
 		if(!overlay)
-			overlay = _create_new_vis_overlay(icon, iconstate, layer, plane, dir, alpha, add_appearance_flags)
+			overlay = _create_new_vis_overlay(icon, iconstate, layer, plane, dir, alpha, add_appearance_flags, set_vis_flags, render_target)
 			vis_overlay_cache[.] = overlay
 		else
 			overlay.unused = 0
 	else
-		overlay = _create_new_vis_overlay(icon, iconstate, layer, plane, dir, alpha, add_appearance_flags)
+		overlay = _create_new_vis_overlay(icon, iconstate, layer, plane, dir, alpha, add_appearance_flags, set_vis_flags, render_target)
 		overlay.cache_expiration = -1
 		var/cache_id = "\ref[overlay]@{[world.time]}"
 		unique_vis_overlays += overlay
@@ -59,7 +59,7 @@ SUBSYSTEM_DEF(vis_overlays)
 	else
 		thing.managed_vis_overlays += overlay
 
-/datum/controller/subsystem/vis_overlays/proc/_create_new_vis_overlay(icon, iconstate, layer, plane, dir, alpha, add_appearance_flags)
+/datum/controller/subsystem/vis_overlays/proc/_create_new_vis_overlay(icon, iconstate, layer, plane, dir, alpha, add_appearance_flags, set_vis_flags= NOTHING, render_target = NOTHING)
 	var/obj/effect/overlay/vis/overlay = new
 	overlay.icon = icon
 	overlay.icon_state = iconstate
@@ -68,8 +68,12 @@ SUBSYSTEM_DEF(vis_overlays)
 	overlay.dir = dir
 	overlay.alpha = alpha
 	overlay.appearance_flags |= add_appearance_flags
+	if(set_vis_flags != NOTHING)
+		overlay.vis_flags = set_vis_flags
+	if(render_target != NOTHING)
+		overlay.render_target = render_target
 	return overlay
-
+#undef NOTHING
 
 /datum/controller/subsystem/vis_overlays/proc/remove_vis_overlay(atom/movable/thing, list/overlays)
 	thing.vis_contents -= overlays

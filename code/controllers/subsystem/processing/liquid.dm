@@ -247,10 +247,7 @@ PROCESSING_SUBSYSTEM_DEF(liquid)
 
 /datum/controller/subsystem/processing/liquid/proc/update_cell_image(turf/T)
 	T.ensure_liquid_overlay()
-	var/datum/liquid/mostfluid = T.get_highest_fluid_by_volume()
 
-	if(mostfluid)
-		T.liquid_overlay.color = mostfluid.color
 
 	var/fluid_level = get_fluid_level(T)
 
@@ -278,7 +275,7 @@ PROCESSING_SUBSYSTEM_DEF(liquid)
 		T.liquid_overlay.icon_state = "rivermove"
 		T.liquid_overlay.dir = T.cell.flow_dir
 	else
-		T.liquid_overlay.icon_state = "together"
+		T.liquid_overlay.icon_state = "together-NEW"
 
 	if((fluid_level >= FLUID_FULL && isopenspace(GetAbove(T))) || istype(T, /turf/open/floor/rogue/riverbot) || istype(T, /turf/open/floor/rogue/lakebed))
 		T.liquid_overlay.layer = ABOVE_MOB_LAYER
@@ -287,17 +284,31 @@ PROCESSING_SUBSYSTEM_DEF(liquid)
 		T.liquid_overlay.layer = BELOW_MOB_LAYER
 		T.liquid_overlay.plane = FLOOR_PLANE
 
+	//take the color and darken it in bands of 10% per depth. 0% alteration at the lowest visible level.
+	var/datum/liquid/mostfluid = T.get_highest_fluid_by_volume()
+
+	if(mostfluid)
+		T.liquid_overlay.color = color_matrix_multiply(color_hex2color_matrix(mostfluid.color), color_matrix_lightness_mult(max(1- (0.07 * fluid_level), 0))) 
 	switch(fluid_level)
-		if(FLUID_EMPTY) T.liquid_overlay.alpha = 0
-		if(FLUID_VERY_LOW) T.liquid_overlay.alpha = 80
-		if(FLUID_LOW) T.liquid_overlay.alpha = 100
-		if(FLUID_MEDIUM) T.liquid_overlay.alpha = 115
-		if(FLUID_HIGH) T.liquid_overlay.alpha = 145
-		if(FLUID_VERY_HIGH) T.liquid_overlay.alpha = 185
+		if(FLUID_EMPTY) 
+			T.liquid_overlay.alpha = 0
+			
+		if(FLUID_VERY_LOW) 
+			T.liquid_overlay.alpha = 200
+			//Do not add any extra color, we're fine.
+		if(FLUID_LOW) 
+			T.liquid_overlay.alpha = 211 
+		if(FLUID_MEDIUM) 
+			T.liquid_overlay.alpha = 222
+		if(FLUID_HIGH) 
+			T.liquid_overlay.alpha = 233
+		if(FLUID_VERY_HIGH) 
+			T.liquid_overlay.alpha = 244
 		if(FLUID_FULL)
-			T.liquid_overlay.alpha = 205
+			T.liquid_overlay.alpha = 255
 		if(FLUID_OVERFLOW)
-			T.liquid_overlay.alpha = 235
+			T.liquid_overlay.alpha = 255
+	
 
 	if((T.cell.last_fluid_level < fluid_level) && (fluid_level >= FLUID_FULL) || (T.cell.last_fluid_level > fluid_level) && (fluid_level < FLUID_FULL))
 		var/list/queue = list()
@@ -544,18 +555,20 @@ PROCESSING_SUBSYSTEM_DEF(liquid)
 
 /obj/effect/liquid
 	icon = 'icons/turf/newwater.dmi'
-	icon_state = "together"
+	icon_state = "together-NEW"
 	plane = FLOOR_PLANE
 	layer = BELOW_MOB_LAYER
 	mouse_opacity = 0
 	var/list/trims
 	var/list/current_trim_dirs
 
+	
 /obj/effect/water/trim
 	icon = 'icons/turf/newwater.dmi'
 	plane = FLOOR_PLANE
 	layer = BELOW_MOB_LAYER
 	mouse_opacity = 0
+
 
 /obj/effect/water/trim/Initialize(mapload, direction)
 	. = ..()

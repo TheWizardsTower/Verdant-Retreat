@@ -1474,7 +1474,7 @@ GLOBAL_LIST_INIT(freon_color_matrix, list("#2E5E69", "#60A2A8", "#A1AFB1", rgb(0
 	return filtered_list
 
 /proc/is_emissive_blocker(mutable_appearance/MA)
-	if(MA.plane == EMISSIVE_PLANE)
+	if(MA.plane == EMISSIVE_BLOCKER_PLANE)
 		return TRUE
 	return FALSE
 
