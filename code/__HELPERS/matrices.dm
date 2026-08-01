@@ -102,6 +102,10 @@ list(0.393,0.349,0.272,0, 0.769,0.686,0.534,0, 0.189,0.168,0.131,0, 0,0,0,1, 0,0
 //0 is identity, 1 makes everything white, -1 makes everything black
 /proc/color_matrix_lightness(power)
 	return list(1,0,0,0, 0,1,0,0, 0,0,1,0, 0,0,0,1, power,power,power,0)
+//Expects a positive value from 0 towhateverthefuck
+/proc/color_matrix_lightness_mult(power)
+	return list(power,0,0,0, 0,power,0,0, 0,0,power,0, 0,0,0,1, 0,0,0,0)
+
 
 //Changes distance hues have from grey while maintaining the overall lightness. Greys are unaffected.
 //1 is identity, 0 is greyscale, >1 oversaturates colors
