@@ -66,6 +66,7 @@ GLOBAL_LIST_INIT(available_ui_styles, sortList(list(
 	var/atom/movable/screen/stamina/stamina
 	var/atom/movable/screen/energy/energy
 	var/atom/movable/screen/bloodpool/bloodpool
+	var/atom/movable/screen/bloodpool/breath/breath_meter
 
 	var/image/object_overlay
 	var/atom/movable/screen/overlay_curloc
@@ -123,6 +124,7 @@ GLOBAL_LIST_INIT(available_ui_styles, sortList(list(
 		mymob.hud_used = null
 
 	QDEL_NULL(bloodpool)
+	QDEL_NULL(breath_meter)
 	QDEL_NULL(vis_holder)
 	QDEL_NULL(module_store_icon)
 	QDEL_LIST(static_inventory)
@@ -338,3 +340,20 @@ GLOBAL_LIST_INIT(available_ui_styles, sortList(list(
 /datum/hud/proc/shutdown_bloodpool()
 	infodisplay -= bloodpool
 	QDEL_NULL(bloodpool)
+
+/datum/hud/proc/initialize_breath_meter()
+	if(breath_meter)
+		return
+	breath_meter = new /atom/movable/screen/bloodpool/breath(null, src)
+	if(bloodpool)
+		infodisplay -= bloodpool
+	infodisplay += breath_meter
+	show_hud(HUD_STYLE_STANDARD)
+
+/datum/hud/proc/shutdown_breath_meter()
+	if(!breath_meter)
+		return
+	infodisplay -= breath_meter
+	QDEL_NULL(breath_meter)
+	if(bloodpool)
+		infodisplay += bloodpool

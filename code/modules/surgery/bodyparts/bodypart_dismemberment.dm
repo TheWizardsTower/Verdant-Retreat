@@ -321,7 +321,6 @@
 		C.emote("painscream")
 	if(!(NOBLOOD in C.dna?.species?.species_traits))
 		src.add_mob_blood(C)
-	SEND_SIGNAL(C, COMSIG_ADD_MOOD_EVENT, "dismembered", /datum/mood_event/dismembered)
 	C.add_stress(/datum/stressevent/dismembered)
 
 	if(stress2give && C.mind) //Shouldn't be freaking out over a boglin getting their shit rocked.

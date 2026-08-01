@@ -1,5 +1,6 @@
 /datum/status_effect/mood
 	id = "mood"
+	exclusion_group = "mood"
 
 /datum/status_effect/mood/bad
 	id = "mood"

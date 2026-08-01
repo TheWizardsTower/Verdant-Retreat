@@ -332,7 +332,7 @@
 			else
 				creampie.refresh_cum()
 		if(top.sexcon.knotted_part_partner&SEX_PART_JAWS)
-			var/datum/status_effect/facial/facial = btm.has_status_effect(/datum/status_effect/facial)
+			var/datum/status_effect/facial/facial = btm.get_status_effect_exact(/datum/status_effect/facial)
 			if(!facial)
 				btm.apply_status_effect(/datum/status_effect/facial)
 			else

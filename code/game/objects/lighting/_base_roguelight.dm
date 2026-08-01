@@ -15,6 +15,7 @@
 	var/cookonme = FALSE
 	var/crossfire = TRUE
 	var/can_damage = FALSE
+	var/water_douse_depth = FLUID_THRESHOLD // Standing fluid needed to snuff this fire; ground-bed fires lower it
 
 /obj/machinery/light/rogue/Initialize()
 	if(soundloop)
@@ -67,6 +68,10 @@
 		playsound(src.loc, 'sound/items/firesnuff.ogg', 100)
 	..()
 	update_icon()
+
+/obj/machinery/light/rogue/water_douse(depth)
+	if(depth >= water_douse_depth)
+		extinguish()
 
 /obj/machinery/light/rogue/update_icon()
 	overlays.Cut()

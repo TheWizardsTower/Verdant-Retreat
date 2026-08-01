@@ -103,8 +103,12 @@ GLOBAL_VAR(restart_counter)
 
 	Master.Initialize(10, FALSE, TRUE)
 
+#ifdef UNIT_TESTS
+	HandleTestRun()
+#else
 	if(TEST_RUN_PARAMETER in params)
 		HandleTestRun()
+#endif
 
 	update_status()
 

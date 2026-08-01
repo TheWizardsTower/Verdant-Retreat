@@ -124,7 +124,7 @@
 
 				mobsbehind |= cone(target_human, list(turn(target_human.dir, 180)), list(user))
 
-				if(mobsbehind.Find(user) || target_human.IsUnconscious() || target_human.eyesclosed || target_human.eye_blind || target_human.eye_blurry || !(target_human.mobility_flags & MOBILITY_STAND))
+				if(mobsbehind.Find(user) || target_human.IsUnconscious() || target_human.eyesclosed || target_human.is_blind() || target_human.get_eye_blur_units() || !(target_human.mobility_flags & MOBILITY_STAND))
 					switch(user_human.zone_selected)
 						if("chest")
 							if (can_steal(target_human.get_item_by_slot(SLOT_BACK_L), target))

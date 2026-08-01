@@ -137,14 +137,14 @@
 	var/sleep_chance = 1
 	if(owner.m_intent == MOVE_INTENT_RUN)
 		sleep_chance += 2
-	if(owner.drowsyness)
+	if(owner.has_status_effect(/datum/status_effect/life_counter/drowsiness))
 		sleep_chance += 3
 	if(prob(sleep_chance))
 		to_chat(owner, span_warning("I fall asleep."))
 		owner.Sleeping(60)
-	else if(!owner.drowsyness && prob(sleep_chance * 2))
+	else if(!owner.has_status_effect(/datum/status_effect/life_counter/drowsiness) && prob(sleep_chance * 2))
 		to_chat(owner, span_warning("I feel tired..."))
-		owner.drowsyness += 10
+		owner.adjust_drowsyness(10)
 
 /datum/brain_trauma/severe/monophobia
 	name = "Monophobia"
@@ -195,13 +195,13 @@
 		if(2)
 			if(!high_stress)
 				to_chat(owner, span_warning("I can't stop shaking..."))
-				owner.dizziness += 20
-				owner.confused += 20
+				owner.adjust_timed_status_effect(20 * STATUS_COUNTER_UNIT, /datum/status_effect/life_counter/dizziness)
+				owner.adjust_timed_status_effect(20 * STATUS_COUNTER_UNIT, /datum/status_effect/life_counter/confusion)
 				owner.Jitter(20)
 			else
 				to_chat(owner, span_warning("I feel weak and scared! If only you weren't alone..."))
-				owner.dizziness += 20
-				owner.confused += 20
+				owner.adjust_timed_status_effect(20 * STATUS_COUNTER_UNIT, /datum/status_effect/life_counter/dizziness)
+				owner.adjust_timed_status_effect(20 * STATUS_COUNTER_UNIT, /datum/status_effect/life_counter/confusion)
 				owner.Jitter(20)
 				owner.adjustStaminaLoss(50)
 
@@ -210,7 +210,7 @@
 				to_chat(owner, span_warning("I feel really lonely..."))
 			else
 				to_chat(owner, span_warning("You're going mad with loneliness!"))
-				owner.hallucination += 30
+				owner.adjust_timed_status_effect(30 * STATUS_COUNTER_UNIT, /datum/status_effect/life_counter/hallucinating)
 
 		if(5)
 			if(!high_stress)

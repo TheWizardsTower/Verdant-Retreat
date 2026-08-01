@@ -77,6 +77,23 @@
 		liquid_overlay = new(src)
 	return liquid_overlay
 
+/turf/proc/liquid_fall_landed(amt)
+	SEND_SIGNAL(src, COMSIG_TURF_LIQUID_FALL_LANDED, amt)
+	if(amt >= LIQUID_FALL_MIST_THRESHOLD)
+		new /obj/effect/temp_visual/liquid_splash_mist(src)
+
+/turf/proc/douse_contents()
+	var/depth = cell ? cell.fluidsum : 0
+	if(depth < LIQUID_DOUSE_THRESHOLD)
+		return
+	for(var/atom/movable/AM as anything in contents)
+		if(isobj(AM))
+			var/obj/O = AM
+			O.water_douse(depth)
+		else if(isliving(AM))
+			var/mob/living/L = AM
+			L.extinguish_mob()
+
 /turf/vv_edit_var(var_name, new_value)
 	var/static/list/banned_edits = list("x", "y", "z")
 	if(var_name in banned_edits)

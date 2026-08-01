@@ -194,6 +194,7 @@
 
 /datum/status_effect/buff/infestation
 	id = "infestation"
+	tick_interval = 10
 	alert_type = /atom/movable/screen/alert/status_effect/buff/infestation
 	duration = 10 SECONDS
 	effectedstats = list("constitution" = -2)

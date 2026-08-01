@@ -24,7 +24,7 @@
 		SSai.Unregister(src)
 	surgeries = null
 	if(LAZYLEN(status_effects))
-		for(var/s in status_effects)
+		for(var/s in status_effects.Copy())
 			var/datum/status_effect/S = s
 			if(S.on_remove_on_mob_delete) //the status effect calls on_remove when its mob is deleted
 				qdel(S)
@@ -623,7 +623,7 @@
 	if (InCritical() || health <= 0 || (blood_volume < BLOOD_VOLUME_SURVIVE))
 		log_message("Has [whispered ? "whispered his final words" : "succumbed to death"] while in [InFullCritical() ? "hard":"soft"] critical with [round(health, 0.1)] points of health!", LOG_ATTACK)
 
-		if(istype(src.loc, /turf/open/water) && !HAS_TRAIT(src, TRAIT_NOBREATH) && lying && client)
+		if((istype(src.loc, /turf/open/water) || is_submerged()) && !HAS_TRAIT(src, TRAIT_NOBREATH) && lying && client)
 			record_round_statistic(STATS_PEOPLE_DROWNED)
 
 		adjustOxyLoss(201)
@@ -869,7 +869,7 @@
 	cure_husk()
 	cure_holdbreath()
 	cure_paralysis()
-	hallucination = 0
+	remove_status_effect(/datum/status_effect/life_counter/hallucinating)
 	heal_overall_damage(INFINITY, INFINITY, INFINITY, null, TRUE) //heal brute and burn dmg on both organic and robotic limbs, and update health right away.
 	for(var/datum/wound/wound as anything in get_wounds())
 		if(admin_revive)
@@ -880,13 +880,12 @@
 		var/mob/living/carbon/C = src
 		C.invalidate_bleed_cache()
 	extinguish_mob()
-	confused = 0
-	dizziness = 0
-	drowsyness = 0
-	stuttering = 0
-	slurring = 0
-	jitteriness = 0
-	slowdown = 0
+	remove_status_effect(/datum/status_effect/life_counter/confusion)
+	remove_status_effect(/datum/status_effect/life_counter/drowsiness)
+	remove_status_effect(/datum/status_effect/life_counter/stutter)
+	remove_status_effect(/datum/status_effect/life_counter/slur)
+	remove_status_effect(/datum/status_effect/life_counter/jitter)
+	remove_status_effect(/datum/status_effect/life_counter/slowed)
 	update_mobility()
 	stop_sound_channel(CHANNEL_HEARTBEAT)
 
@@ -1518,8 +1517,8 @@
 	if(fire_stacks <= 0)
 		return FALSE
 
-	var/datum/status_effect/fire_handler/fire_stacks/fire_status = has_status_effect(/datum/status_effect/fire_handler/fire_stacks)
-	var/datum/status_effect/fire_handler/fire_stacks/sunder/sunder_status = has_status_effect(/datum/status_effect/fire_handler/fire_stacks/sunder)
+	var/datum/status_effect/fire_handler/fire_stacks/fire_status = get_status_effect_exact(/datum/status_effect/fire_handler/fire_stacks)
+	var/datum/status_effect/fire_handler/fire_stacks/sunder/sunder_status = get_status_effect_exact(/datum/status_effect/fire_handler/fire_stacks/sunder)
 	var/datum/status_effect/fire_handler/fire_stacks/divine/divine_status = has_status_effect(/datum/status_effect/fire_handler/fire_stacks/divine)
 	var/datum/status_effect/fire_handler/fire_stacks/sunder/blessed/blessed_sunder = has_status_effect(/datum/status_effect/fire_handler/fire_stacks/sunder/blessed)
 
@@ -1560,25 +1559,16 @@
 	underwater_bobbing = FALSE
 	animate(src, pixel_z = 0, time = 0.5 SECONDS)
 
-/mob/living/proc/can_underwater_float(atom/newloc)
-	var/turf/open/water/W = newloc
-	if(!istype(W) || W.water_level < 2)
-		return FALSE
-	for(var/obj/structure/S in W)
-		if(S.obj_flags & BLOCK_Z_OUT_DOWN)
-			return FALSE
-	return TRUE
-
 /mob/living/proc/extinguish_mob()
 	if(HAS_TRAIT(src, TRAIT_NO_EXTINGUISH)) //The everlasting flames will not be extinguished
 		return
 
-	var/datum/status_effect/fire_handler/fire_stacks/fire_status = has_status_effect(/datum/status_effect/fire_handler/fire_stacks)
+	var/datum/status_effect/fire_handler/fire_stacks/fire_status = get_status_effect_exact(/datum/status_effect/fire_handler/fire_stacks)
 	if(fire_status?.on_fire)
-		remove_status_effect(/datum/status_effect/fire_handler/fire_stacks)
-	var/datum/status_effect/fire_handler/fire_stacks/sunder/sunder_status = has_status_effect(/datum/status_effect/fire_handler/fire_stacks/sunder)
+		remove_status_effect_exact(/datum/status_effect/fire_handler/fire_stacks)
+	var/datum/status_effect/fire_handler/fire_stacks/sunder/sunder_status = get_status_effect_exact(/datum/status_effect/fire_handler/fire_stacks/sunder)
 	if(sunder_status?.on_fire)
-		remove_status_effect(/datum/status_effect/fire_handler/fire_stacks/sunder)
+		remove_status_effect_exact(/datum/status_effect/fire_handler/fire_stacks/sunder)
 	var/datum/status_effect/fire_handler/fire_stacks/divine/divine_status = has_status_effect(/datum/status_effect/fire_handler/fire_stacks/divine)
 	if(divine_status?.on_fire)
 		remove_status_effect(/datum/status_effect/fire_handler/fire_stacks/divine)
@@ -1647,8 +1637,8 @@
 	if(HAS_TRAIT(spread_to, TRAIT_NOFIRE) || HAS_TRAIT(src, TRAIT_NOFIRE))
 		return
 
-	var/datum/status_effect/fire_handler/fire_stacks/fire_status = has_status_effect(/datum/status_effect/fire_handler/fire_stacks)
-	var/datum/status_effect/fire_handler/fire_stacks/their_fire_status = spread_to.has_status_effect(/datum/status_effect/fire_handler/fire_stacks)
+	var/datum/status_effect/fire_handler/fire_stacks/fire_status = get_status_effect_exact(/datum/status_effect/fire_handler/fire_stacks)
+	var/datum/status_effect/fire_handler/fire_stacks/their_fire_status = spread_to.get_status_effect_exact(/datum/status_effect/fire_handler/fire_stacks)
 	if(fire_status && fire_status.on_fire)
 		if(their_fire_status && their_fire_status.on_fire)
 			var/firesplit = (fire_stacks + spread_to.fire_stacks) / 2
@@ -1799,6 +1789,8 @@
 			add_movespeed_modifier(MOVESPEED_ID_LIVING_LIMBLESS, update=TRUE, priority=100, override=TRUE, multiplicative_slowdown=limbless_slowdown, movetypes=GROUND)
 		else
 			remove_movespeed_modifier(MOVESPEED_ID_LIVING_LIMBLESS, update=TRUE)
+
+	update_submersion()
 
 /mob/living/proc/fall(forced)
 	if(!(mobility_flags & MOBILITY_USE))

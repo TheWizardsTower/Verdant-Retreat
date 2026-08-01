@@ -159,7 +159,7 @@
 	playsound(user, "smallslash", 100, FALSE, -1)
 	user.next_attack_msg.Cut()
 	if(stat == DEAD)
-		if(user.has_status_effect(/datum/status_effect/fire_handler/fire_stacks/sunder))
+		if(user.get_status_effect_exact(/datum/status_effect/fire_handler/fire_stacks/sunder))
 			to_chat(user, span_notice("My power is weakened, I cannot heal!"))
 			return
 		if(user.mind && istype(user, /mob/living/carbon/human/species/werewolf))

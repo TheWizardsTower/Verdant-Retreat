@@ -12,11 +12,11 @@
 	lose_text = span_notice("I feel more grounded.")
 
 /datum/brain_trauma/mild/hallucinations/on_life()
-	owner.hallucination = min(owner.hallucination + 10, 50)
+	owner.adjust_timed_status_effect(10 * STATUS_COUNTER_UNIT, /datum/status_effect/life_counter/hallucinating, max_duration = 50 * STATUS_COUNTER_UNIT)
 	..()
 
 /datum/brain_trauma/mild/hallucinations/on_lose()
-	owner.hallucination = 0
+	owner.remove_status_effect(/datum/status_effect/life_counter/hallucinating)
 	..()
 
 /datum/brain_trauma/mild/stuttering
@@ -27,11 +27,11 @@
 	lose_text = span_notice("I feel in control of my speech.")
 
 /datum/brain_trauma/mild/stuttering/on_life()
-	owner.stuttering = min(owner.stuttering + 5, 25)
+	owner.adjust_timed_status_effect(5 * STATUS_COUNTER_UNIT, /datum/status_effect/life_counter/stutter, max_duration = 25 * STATUS_COUNTER_UNIT)
 	..()
 
 /datum/brain_trauma/mild/stuttering/on_lose()
-	owner.stuttering = 0
+	owner.remove_status_effect(/datum/status_effect/life_counter/stutter)
 	..()
 
 /datum/brain_trauma/mild/dumbness
@@ -43,7 +43,6 @@
 
 /datum/brain_trauma/mild/dumbness/on_gain()
 	ADD_TRAIT(owner, TRAIT_DUMB, TRAUMA_TRAIT)
-	SEND_SIGNAL(owner, COMSIG_ADD_MOOD_EVENT, "dumb", /datum/mood_event/oblivious)
 	..()
 
 /datum/brain_trauma/mild/dumbness/on_life()
@@ -57,7 +56,6 @@
 /datum/brain_trauma/mild/dumbness/on_lose()
 	REMOVE_TRAIT(owner, TRAIT_DUMB, TRAUMA_TRAIT)
 	owner.derpspeech = 0
-	SEND_SIGNAL(owner, COMSIG_CLEAR_MOOD_EVENT, "dumb")
 	..()
 
 /datum/brain_trauma/mild/speech_impediment
@@ -88,12 +86,12 @@
 			if(1)
 				owner.vomit()
 			if(2,3)
-				owner.dizziness += 10
+				owner.adjust_timed_status_effect(10 * STATUS_COUNTER_UNIT, /datum/status_effect/life_counter/dizziness)
 			if(4,5)
-				owner.confused += 10
+				owner.adjust_timed_status_effect(10 * STATUS_COUNTER_UNIT, /datum/status_effect/life_counter/confusion)
 				owner.blur_eyes(10)
 			if(6 to 9)
-				owner.slurring += 30
+				owner.adjust_timed_status_effect(30 * STATUS_COUNTER_UNIT, /datum/status_effect/life_counter/slur)
 			if(10)
 				to_chat(owner, span_notice("I forget for a moment what you were doing."))
 				owner.Stun(20)

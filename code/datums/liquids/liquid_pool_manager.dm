@@ -19,6 +19,18 @@ GLOBAL_DATUM_INIT(pool_manager, /datum/pool_manager, new)
     /// Timer for floor chemical reaction processing
     var/reaction_timer = 0
 
+    /// Timer for turf liquid absorption processing
+    var/absorption_timer = 0
+
+    /// Timer for rain injection processing
+    var/rain_inject_timer = 0
+
+    /// Timer for deferred turf wetness updates
+    var/wet_update_timer = 0
+
+    /// Turfs awaiting a deferred update_water() pass
+    var/list/wet_update_queue = list()
+
 /datum/pool_manager/New()
     ..()
     liquid_turfs = list()
@@ -116,7 +128,8 @@ GLOBAL_DATUM_INIT(pool_manager, /datum/pool_manager, new)
     return pools
 
 /**
- * Processes continuous liquid behaviors for all mobs standing in liquid pools.
+ * Processes continuous liquid behaviors for all mobs standing in liquid pools,
+ * and douses burnables on flooded turfs.
  * Should be called periodically from the liquid subsystem.
  */
 /datum/pool_manager/proc/process_continuous_behaviors()
@@ -130,6 +143,9 @@ GLOBAL_DATUM_INIT(pool_manager, /datum/pool_manager, new)
     for(var/turf/T as anything in liquid_turfs)
         if(!T?.cell || T.cell.fluidsum < MIN_FLUID_VOLUME)
             continue
+
+        if(!istype(T, /turf/open/water))
+            T.douse_contents()
 
         // Find all mobs on this liquid turf
         for(var/mob/living/M in T)
@@ -189,3 +205,95 @@ GLOBAL_DATUM_INIT(pool_manager, /datum/pool_manager, new)
     var/list/stats = list()
     stats["total_liquid_turfs"] = length(liquid_turfs)
     return stats
+
+/**
+ * Absorbs fluid from liquid-bearing turfs into their tracked wetness, bridging
+ * into the existing water_level/mud system. Should be called periodically from
+ * the liquid subsystem.
+ */
+/datum/pool_manager/proc/process_absorption()
+    if(world.time < absorption_timer)
+        return
+
+    absorption_timer = world.time + 2 SECONDS
+
+    for(var/turf/open/T as anything in liquid_turfs)
+        if(!istype(T) || istype(T, /turf/open/water))
+            continue
+        if(!T.liquid_absorption || !T.cell || T.cell.fluidsum < MIN_FLUID_VOLUME)
+            continue
+
+        var/datum/liquid/fluid = T.get_highest_fluid_by_volume()
+        if(!fluid)
+            continue
+
+        var/absorbed = GLOB.liquid_manager.remove_fluid(T, fluid, T.liquid_absorption)
+        if(absorbed > 0)
+            T.add_water(absorbed * LIQUID_ABSORPTION_WETNESS_MULT)
+
+/**
+ * Queues a turf for a deferred update_water() pass.
+ */
+/datum/pool_manager/proc/queue_wet_update(turf/open/T)
+    wet_update_queue[T] = TRUE
+
+/**
+ * Runs deferred update_water() on queued turfs; a turf that returns TRUE is done.
+ * Replaces the old SSwaterlevel subsystem. Should be called periodically from
+ * the liquid subsystem.
+ */
+/datum/pool_manager/proc/process_wet_updates()
+    if(world.time < wet_update_timer)
+        return
+
+    wet_update_timer = world.time + 3 SECONDS
+
+    for(var/turf/open/T as anything in wet_update_queue.Copy())
+        if(!istype(T) || QDELETED(T) || T.update_water())
+            wet_update_queue -= T
+
+/**
+ * Stochastically rains onto exposed outdoor turfs across the whole map, scaled by
+ * weather severity. Should be called periodically from the liquid subsystem.
+ */
+/datum/pool_manager/proc/process_rain_injection()
+    if(world.time < rain_inject_timer)
+        return
+
+    rain_inject_timer = world.time + RAIN_INJECT_INTERVAL
+
+    var/datum/particle_weather/W = SSParticleWeather.runningWeather
+    if(!W || !W.running || W.target_trait != PARTICLEWEATHER_RAIN)
+        return
+
+    var/list/exposed = SSoutdoor_effects.outdoor_effect_registry
+    if(!length(exposed))
+        return
+
+    var/n = round(length(exposed) * RAIN_INJECT_DENSITY * W.severityMod())
+    for(var/i in 1 to n)
+        var/atom/movable/outdoor_effect/E = pick(exposed)
+        rain_hit(E?.source_turf)
+
+/**
+ * Applies one rain sample to a turf. Absorbent ground takes the post-absorption
+ * wetness directly with no fluid-sim involvement; anything else gets real fluid.
+ */
+/datum/pool_manager/proc/rain_hit(turf/open/T)
+    if(!istype(T) || istype(T, /turf/open/water))
+        return
+    if(!T.outdoor_effect || T.outdoor_effect.weatherproof)
+        return
+
+    if(T.liquid_absorption)
+        T.add_water(RAIN_INJECT_AMOUNT * LIQUID_ABSORPTION_WETNESS_MULT)
+        return
+
+    if(!T.cell)
+        T.cell = new /cell(T)
+        T.cell.InitLiquids()
+
+    var/datum/liquid/water_fluid = T.cell.get_fluid_datum(WATER)
+    if(water_fluid)
+        GLOB.liquid_manager.add_fluid(T, water_fluid, RAIN_INJECT_AMOUNT)
+    T.add_water(RAIN_INJECT_AMOUNT)

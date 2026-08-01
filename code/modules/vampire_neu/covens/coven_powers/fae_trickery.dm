@@ -33,9 +33,9 @@
 		if(2) // dizzy
 			target.visible_message(span_suicide("[target]'s eyes begin to rapidly dart around!"))
 			playsound(target, 'sound/magic/faerie.ogg', 40, FALSE)
-			target.confused += 10
-			target.dizziness += 10
-			target.jitteriness += 10
+			target.adjust_timed_status_effect(10 * STATUS_COUNTER_UNIT, /datum/status_effect/life_counter/confusion)
+			target.adjust_timed_status_effect(10 * STATUS_COUNTER_UNIT, /datum/status_effect/life_counter/dizziness)
+			target.adjust_timed_status_effect(10 * STATUS_COUNTER_UNIT, /datum/status_effect/life_counter/jitter)
 		if(3) // sorry
 			target.visible_message(span_suicide("[target]'s eyes go wide for a moment."))
 			playsound(target, 'sound/magic/faerie.ogg', 40, FALSE)

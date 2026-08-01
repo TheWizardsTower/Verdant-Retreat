@@ -428,7 +428,7 @@ GLOBAL_PROTECT(admin_verbs_burn_tests)
 	// Test 1: Fire stacks create burn wounds
 	tests_total++
 	H.adjust_fire_stacks(5)
-	var/datum/status_effect/fire_handler/fire_stacks/fire_effect = H.has_status_effect(/datum/status_effect/fire_handler/fire_stacks)
+	var/datum/status_effect/fire_handler/fire_stacks/fire_effect = H.get_status_effect_exact(/datum/status_effect/fire_handler/fire_stacks)
 	if(fire_effect)
 		fire_effect.ignite()
 		sleep(30)
@@ -496,7 +496,7 @@ GLOBAL_PROTECT(admin_verbs_burn_tests)
 	// Test 1: Water turf extinguishes fire
 	tests_total++
 	H.adjust_fire_stacks(5)
-	var/datum/status_effect/fire_handler/fire_stacks/fire_effect = H.has_status_effect(/datum/status_effect/fire_handler/fire_stacks)
+	var/datum/status_effect/fire_handler/fire_stacks/fire_effect = H.get_status_effect_exact(/datum/status_effect/fire_handler/fire_stacks)
 	if(fire_effect)
 		fire_effect.ignite()
 		var/turf/open/water/W = new(test_loc)
@@ -513,7 +513,7 @@ GLOBAL_PROTECT(admin_verbs_burn_tests)
 	// Test 2: Water reagent (15u+) extinguishes fire
 	tests_total++
 	H.adjust_fire_stacks(5)
-	fire_effect = H.has_status_effect(/datum/status_effect/fire_handler/fire_stacks)
+	fire_effect = H.get_status_effect_exact(/datum/status_effect/fire_handler/fire_stacks)
 	if(fire_effect)
 		fire_effect.ignite()
 		var/datum/reagent/water/water_reagent = new()
@@ -529,7 +529,7 @@ GLOBAL_PROTECT(admin_verbs_burn_tests)
 	// Test 3: Less than 15u water doesn't extinguish
 	tests_total++
 	H.adjust_fire_stacks(5)
-	fire_effect = H.has_status_effect(/datum/status_effect/fire_handler/fire_stacks)
+	fire_effect = H.get_status_effect_exact(/datum/status_effect/fire_handler/fire_stacks)
 	if(fire_effect)
 		fire_effect.ignite()
 		var/datum/reagent/water/water_reagent = new()

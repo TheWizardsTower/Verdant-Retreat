@@ -6,6 +6,7 @@
 
 /datum/status_effect/buff/ashen_aril
 	id = "ashen"
+	tick_interval = 10
 	alert_type = /atom/movable/screen/alert/status_effect/buff/ashen_aril
 	duration = 6 MINUTES
 	var/prevent_reapply = FALSE
@@ -129,6 +130,7 @@
 
 /datum/status_effect/buff/eoran_balm_effect
 	id = "eoran_balm"
+	tick_interval = 10
 	alert_type = /atom/movable/screen/alert/status_effect/buff/healing
 	duration = -1
 	var/healing_power = 1.5
@@ -196,6 +198,7 @@
 
 /datum/status_effect/debuff/pomegranate_aura
 	id = "pomegranate_aura"
+	tick_interval = 10
 	duration = -1
 	alert_type = /atom/movable/screen/alert/status_effect/pomegranate_aura
 	var/outline_colour ="#42001f"
@@ -290,6 +293,7 @@
 
 /datum/status_effect/debuff/eoran_wilting
 	id = "wilting"
+	tick_interval = 10
 	duration = 10 SECONDS
 	alert_type = /atom/movable/screen/alert/status_effect/eoran_wilting
 	var/outline_colour ="#2c2828"

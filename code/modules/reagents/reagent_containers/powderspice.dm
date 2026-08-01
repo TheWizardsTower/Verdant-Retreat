@@ -182,7 +182,7 @@
 
 /datum/reagent/floure/on_mob_life(mob/living/carbon/M)
 	if(prob(30))
-		M.confused = max(M.confused+3,0)
+		M.adjust_timed_status_effect(3 * STATUS_COUNTER_UNIT, /datum/status_effect/life_counter/confusion)
 	M.emote(pick("cough"))
 	..()
 
@@ -451,8 +451,8 @@
 
 
 /datum/reagent/herozium/on_mob_life(mob/living/carbon/M)
-	M.jitteriness = 0
-	M.confused = 0
+	M.remove_status_effect(/datum/status_effect/life_counter/jitter)
+	M.remove_status_effect(/datum/status_effect/life_counter/confusion)
 	M.disgust = 0
 	M.set_drugginess(30)
 	M.overlay_fullscreen("herozium", /atom/movable/screen/fullscreen/herozium)

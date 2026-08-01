@@ -283,7 +283,7 @@
 	playsound(target, 'sound/misc/mat/endout.ogg', 50, TRUE, ignore_walls = FALSE)
 	add_cum_floor(get_turf(target))
 	if(splashed_user)
-		var/datum/status_effect/facial/facial = splashed_user.has_status_effect(/datum/status_effect/facial)
+		var/datum/status_effect/facial/facial = splashed_user.get_status_effect_exact(/datum/status_effect/facial)
 		if(!facial)
 			splashed_user.apply_status_effect(/datum/status_effect/facial)
 		else
@@ -300,7 +300,7 @@
 		knot_try()
 	if(splashed_user && !splashed_user.sexcon.knotted_status)
 		var/status_type = !oral ? /datum/status_effect/facial/internal : /datum/status_effect/facial
-		var/datum/status_effect/facial/splashed_type = splashed_user.has_status_effect(status_type)
+		var/datum/status_effect/facial/splashed_type = splashed_user.get_status_effect_exact(status_type)
 		if(!splashed_type)
 			splashed_user.apply_status_effect(status_type)
 		else
@@ -363,7 +363,7 @@
 
 /datum/status_effect/facial/proc/refresh_cum()
 	has_dried_up = FALSE
-	tick_interval = world.time + initial(tick_interval)
+	next_tick = world.time + initial(tick_interval)
 
 ///Callback to remove pearl necklace
 /datum/status_effect/facial/proc/clean_up(datum/source, strength)
@@ -609,7 +609,7 @@
 				if(prob(3))
 					ejaculate()
 					if(splashed_user)
-						var/datum/status_effect/facial/facial = splashed_user.has_status_effect(/datum/status_effect/facial)
+						var/datum/status_effect/facial/facial = splashed_user.get_status_effect_exact(/datum/status_effect/facial)
 						if(!facial)
 							splashed_user.apply_status_effect(/datum/status_effect/facial)
 						else
@@ -622,7 +622,7 @@
 		return FALSE
 	ejaculate()
 	if(splashed_user)
-		var/datum/status_effect/facial/facial = splashed_user.has_status_effect(/datum/status_effect/facial)
+		var/datum/status_effect/facial/facial = splashed_user.get_status_effect_exact(/datum/status_effect/facial)
 		if(!facial)
 			splashed_user.apply_status_effect(/datum/status_effect/facial)
 		else

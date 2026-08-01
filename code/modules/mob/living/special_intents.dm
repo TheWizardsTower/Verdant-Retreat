@@ -293,11 +293,9 @@ This allows the devs to draw whatever shape they want at the cost of it feeling 
 /// If you dynamically tweak the cooldown remember that it will /stay/ that way on this datum without
 /// refreshing it with Initial() somewhere.
 /datum/special_intent/proc/apply_cooldown(cd, override = FALSE)
-	if(override)
-		howner.remove_status_effect(/datum/status_effect/debuff/specialcd)
-		howner.apply_status_effect(/datum/status_effect/debuff/specialcd, cd)
+	if(!override && howner.combat_cooldown_active("specialcd"))
 		return
-	howner.apply_status_effect(/datum/status_effect/debuff/specialcd, cd)
+	howner.set_combat_cooldown("specialcd", cd, /atom/movable/screen/alert/status_effect/debuff/specialcd)
 
 ///A proc that attempts to deal damage to the target, simple mob or carbon. 
 ///Does /not/ crit. Respects armor, but CAN pen unless "no_pen" is set to TRUE. Each Special can have its own way of scaling damage.
@@ -713,7 +711,7 @@ SPECIALS START HERE
 	if(!self_debuffed)
 		howner.Immobilize(self_immob) //we're committing
 		howner.apply_status_effect(/datum/status_effect/debuff/exposed, self_expose)
-		howner.apply_status_effect(/datum/status_effect/debuff/clickcd, self_clickcd)
+		howner.apply_click_cooldown(self_clickcd)
 		self_debuffed = TRUE
 	hitcount++
 	. = ..()

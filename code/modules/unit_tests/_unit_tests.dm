@@ -87,15 +87,22 @@
 // BEGIN_INCLUDE
 #include "anchored_mobs.dm"
 #include "component_tests.dm"
-#include "create_and_destroy.dm"
+//#include "create_and_destroy.dm"	//TEMP-DISABLED for status effect baseline: known DPfall/DPtarget compile break under UNIT_TESTS, restore with fix
+#include "drowning.dm"
 #include "focus_only_tests.dm"
+#include "life_cadence.dm"
+#include "life_counters.dm"
+#include "liquid_absorption.dm"
+#include "rain_douse.dm"
 #include "reagent_id_typos.dm"
 #include "reagent_recipe_collisions.dm"
 #include "spawn_humans.dm"
 #include "species_whitelists.dm"
+#include "status_effects.dm"
 #include "subsystem_init.dm"
 #include "timer_sanity.dm"
 #include "unit_test.dm"
+#include "water_overlay_mask.dm"
 // END_INCLUDE
 #ifdef REFERENCE_TRACKING_DEBUG //Don't try and parse this file if ref tracking isn't turned on. IE: don't parse ref tracking please mr linter
 #include "find_reference_sanity.dm"

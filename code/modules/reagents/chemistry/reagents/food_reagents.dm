@@ -51,18 +51,6 @@
 					if(HM.add_stress(/datum/stressevent/hated_drink))
 						to_chat(HM, span_red("Yuck! My hated drink!"))
 
-		if (quality)
-			switch(quality)
-				if (DRINK_NICE)
-					SEND_SIGNAL(M, COMSIG_ADD_MOOD_EVENT, "quality_drink", /datum/mood_event/quality_nice)
-				if (DRINK_GOOD)
-					SEND_SIGNAL(M, COMSIG_ADD_MOOD_EVENT, "quality_drink", /datum/mood_event/quality_good)
-				if (DRINK_VERYGOOD)
-					SEND_SIGNAL(M, COMSIG_ADD_MOOD_EVENT, "quality_drink", /datum/mood_event/quality_verygood)
-				if (DRINK_FANTASTIC)
-					SEND_SIGNAL(M, COMSIG_ADD_MOOD_EVENT, "quality_drink", /datum/mood_event/quality_fantastic)
-				if (FOOD_AMAZING)
-					SEND_SIGNAL(M, COMSIG_ADD_MOOD_EVENT, "quality_food", /datum/mood_event/amazingtaste)
 	return ..()
 
 /datum/reagent/consumable/nutriment
@@ -181,8 +169,8 @@
 	taste_description = "mushroom"
 
 /datum/reagent/drug/mushroomhallucinogen/on_mob_life(mob/living/carbon/M)
-	if(!M.slurring)
-		M.slurring = 1
+	if(!M.has_status_effect(/datum/status_effect/life_counter/slur))
+		M.set_timed_status_effect(1 * STATUS_COUNTER_UNIT, /datum/status_effect/life_counter/slur)
 	switch(current_cycle)
 		if(1 to 5)
 			M.Dizzy(5)

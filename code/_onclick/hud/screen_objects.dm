@@ -1386,11 +1386,6 @@
 		var/mob/living/carbon/human/H = usr
 		H.check_for_injuries(H)
 
-/atom/movable/screen/mood
-	name = "mood"
-	icon_state = "mood5"
-	screen_loc = null
-
 /atom/movable/screen/healths/blood
 	name = "life"
 	icon_state = "blood100"
@@ -2044,6 +2039,40 @@
 		fill.pixel_z = epy
 
 	animate(fill, time = duration)
+
+/atom/movable/screen/bloodpool/breath
+	name = "Breath"
+	desc = "Click to hold your breath, or click again to release it."
+	var/color_state = BREATH_METER_HOLDING
+
+/atom/movable/screen/bloodpool/breath/Initialize(mapload, ...)
+	. = ..()
+	set_fill_color("#3CC7E0")
+	overlays += image('icons/mob/roguebreath.dmi', "breath_marker")
+
+/atom/movable/screen/bloodpool/breath/Click(location, control, params)
+	var/mob/user = hud?.mymob
+	if(!user || user != usr)
+		return
+	if(!iscarbon(user))
+		return
+	if(user.stat != CONSCIOUS)
+		return
+	var/mob/living/carbon/C = user
+	if(C.holding_breath)
+		C.holding_breath = FALSE
+		C.visible_message(
+			span_notice("[C] stops holding [C.p_their()] breath."),
+			span_notice("You stop holding your breath.")
+		)
+	else
+		if(C.breath_remaining < 0)
+			C.breath_remaining = C.get_breath_max()
+		C.holding_breath = TRUE
+		C.visible_message(
+			span_notice("[C] begins to hold [C.p_their()] breath."),
+			span_notice("You begin to hold your breath.")
+		)
 
 /atom/movable/screen/bloodpool_maskpart
 	layer = FLOAT_LAYER

@@ -5,6 +5,9 @@
 // This list is what the code that assigns corners listens to, the order in this list is the order in which corners are added to the /turf/corners list.
 GLOBAL_LIST_INIT(LIGHTING_CORNER_DIAGONAL, list(NORTHEAST, SOUTHEAST, SOUTHWEST, NORTHWEST))
 
+// Index of turn(D, 180) in LIGHTING_CORNER_DIAGONAL; must match that list's order.
+#define LIGHTING_OPPOSITE_CORNER_INDEX(D) (D == NORTHEAST ? 3 : (D == SOUTHEAST ? 4 : (D == SOUTHWEST ? 1 : 2)))
+
 /datum/lighting_corner
 	var/list/turf/masters
 	var/list/datum/light_source/affecting // Light sources affecting us.
@@ -40,7 +43,8 @@ GLOBAL_LIST_INIT(LIGHTING_CORNER_DIAGONAL, list(NORTHEAST, SOUTHEAST, SOUTHWEST,
 	y = new_turf.y + (vertical   == NORTH ? 0.5 : -0.5)
 
 	vn_corner_id = VN_LIGHT_CORNER_ID(src)
-	GLOB.vn_light_corners["[vn_corner_id]"] = src
+	GLOB.vn_light_corners[vn_corner_id] = src
+	SSlighting.all_corners += src
 
 	// My initial plan was to make this loop through a list of all the dirs (horizontal, vertical, diagonal).
 	// Issue being that the only way I could think of doing it was very messy, slow and honestly overengineered.
@@ -55,7 +59,7 @@ GLOBAL_LIST_INIT(LIGHTING_CORNER_DIAGONAL, list(NORTHEAST, SOUTHEAST, SOUTHWEST,
 			T.corners = list(null, null, null, null)
 
 		masters[T]   = diagonal
-		i            = GLOB.LIGHTING_CORNER_DIAGONAL.Find(turn(diagonal, 180))
+		i            = LIGHTING_OPPOSITE_CORNER_INDEX(diagonal)
 		T.corners[i] = src
 
 	// Now the horizontal one.
@@ -65,7 +69,7 @@ GLOBAL_LIST_INIT(LIGHTING_CORNER_DIAGONAL, list(NORTHEAST, SOUTHEAST, SOUTHWEST,
 			T.corners = list(null, null, null, null)
 
 		masters[T]   = ((T.x > x) ? EAST : WEST) | ((T.y > y) ? NORTH : SOUTH) // Get the dir based on coordinates.
-		i            = GLOB.LIGHTING_CORNER_DIAGONAL.Find(turn(masters[T], 180))
+		i            = LIGHTING_OPPOSITE_CORNER_INDEX(masters[T])
 		T.corners[i] = src
 
 	// And finally the vertical one.
@@ -75,7 +79,7 @@ GLOBAL_LIST_INIT(LIGHTING_CORNER_DIAGONAL, list(NORTHEAST, SOUTHEAST, SOUTHWEST,
 			T.corners = list(null, null, null, null)
 
 		masters[T]   = ((T.x > x) ? EAST : WEST) | ((T.y > y) ? NORTH : SOUTH) // Get the dir based on coordinates.
-		i            = GLOB.LIGHTING_CORNER_DIAGONAL.Find(turn(masters[T], 180))
+		i            = LIGHTING_OPPOSITE_CORNER_INDEX(masters[T])
 		T.corners[i] = src
 
 	update_active()
@@ -146,3 +150,5 @@ GLOBAL_LIST_INIT(LIGHTING_CORNER_DIAGONAL, list(NORTHEAST, SOUTHEAST, SOUTHWEST,
 	stack_trace("Something called qdel on a lighting corner, please fix.")
 
 	return ..()
+
+#undef LIGHTING_OPPOSITE_CORNER_INDEX

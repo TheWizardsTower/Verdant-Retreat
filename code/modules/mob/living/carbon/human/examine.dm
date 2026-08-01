@@ -150,7 +150,7 @@
 			. += span_warning("A knot is locked inside [p_them()]. [m1] being pulled around like a pet.")
 
 		// Facial/Creampie effect message
-		var/datum/status_effect/facial/facial = has_status_effect(/datum/status_effect/facial)
+		var/datum/status_effect/facial/facial = get_status_effect_exact(/datum/status_effect/facial)
 		var/datum/status_effect/facial/internal/creampie = null
 		if(observer_privilege || get_location_accessible(src, BODY_ZONE_PRECISE_GROIN, skipundies = TRUE))
 			creampie = has_status_effect(/datum/status_effect/facial/internal)
@@ -695,7 +695,7 @@
 				msg += "[m1] looking parched."
 
 	//Fire/water stacks
-	if(has_status_effect(/datum/status_effect/fire_handler))
+	if(has_status_effect(/datum/status_effect/fire_handler/fire_stacks))
 		msg += "[m1] covered in something flammable."
 	if(has_status_effect(/datum/status_effect/fire_handler/wet_stacks))
 		msg += "[m1] soaked."
@@ -725,7 +725,7 @@
 					msg += "<B>[m1] extremely disgusted.</B>"
 
 			//Drunkenness
-			switch(drunkenness)
+			switch(get_inebriation())
 				if(11 to 21)
 					msg += "[m1] slightly flushed."
 				if(21.01 to 41) //.01s are used in case drunkenness ends up to be a small decimal
@@ -763,7 +763,7 @@
 				msg += "[m3] stress all over [m2] face."
 
 		//Jitters
-		switch(jitteriness)
+		switch(get_counter_units(/datum/status_effect/life_counter/jitter))
 			if(300 to INFINITY)
 				msg += "<B>[m1] convulsing violently!</B>"
 			if(200 to 300)

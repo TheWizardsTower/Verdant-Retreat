@@ -10,10 +10,3 @@
 	desc = ""
 	icon_state = "debuff"
 	alert_group = ALERT_DEBUFF
-
-/*
-/atom/movable/screen/alert/status_effect
-	name = "Status"
-	desc = ""
-	icon_state = "status"
-	alert_group = ALERT_DEBUFF*/

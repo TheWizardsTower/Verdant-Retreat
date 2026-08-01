@@ -569,7 +569,7 @@
     STALUC = 6
     summoning_emote = "A faint rustle as a brown mouse darts out from a shadow."
     speak = list("Squeak!", "Skrit.", "Chrr.")
-    speak_emote = "squeaks"
+    speak_emote = list("squeaks")
     emote_hear = list("squeaks softly.", "nibbles on something unseen.", "scratches at the floor.")
     emote_see = list("washes its face.", "scurries in a small circle.", "stands up on its hind legs.")
 
@@ -590,7 +590,7 @@
     STALUC = 6
     summoning_emote = "A soft squeak as a white mouse peeks out from behind an object."
     speak = list("Squeak!", "Skrit.", "Chrr.")
-    speak_emote = "squeaks"
+    speak_emote = list("squeaks")
     emote_hear = list("squeaks quietly.", "sniffs the air.", "scratches at a corner.")
     emote_see = list("grooms its fur.", "scampers quickly.", "pauses to listen.")
 
@@ -611,7 +611,7 @@
     STALUC = 6
     summoning_emote = "A grey mouse slips quietly from a crack in the wall."
     speak = list("Squeak!", "Skrit.", "Chrr.")
-    speak_emote = "squeaks"
+    speak_emote = list("squeaks")
     emote_hear = list("squeaks.", "chews on something.", "scratches at the ground.")
     emote_see = list("darts under a nearby object.", "sits up and looks around.", "twitches its tail.")
 
@@ -632,7 +632,7 @@
     STALUC = 7
     summoning_emote = "A black feather flutters down as a zad lands nearby with a caw."
     speak = list("Caw!", "Kraa.", "Crrk.")
-    speak_emote = "caws"
+    speak_emote = list("caws")
     emote_hear = list("caws.", "clicks its beak.", "ruffles its feathers.")
     emote_see = list("tilts its head.", "hops in a circle.", "spreads its wings briefly.")
 
@@ -674,7 +674,7 @@
     STALUC = 5
     summoning_emote = "A brown chicken bustles in, pecking at the floor."
     speak = list("Cluck.", "Bawk.", "Buk-buk.")
-    speak_emote = "clucks"
+    speak_emote = list("clucks")
     emote_hear = list("clucks.", "bawks loudly.", "scratches at the floor.")
     emote_see = list("struts proudly.", "flaps its wings.", "pecks at a seed.")
 
@@ -695,7 +695,7 @@
     STALUC = 5
     summoning_emote = "A white chicken quietly settles down."
     speak = list("Cluck.", "Bawk.", "Buk-buk.")
-    speak_emote = "clucks"
+    speak_emote = list("clucks")
     emote_hear = list("clucks quietly.", "bawks.", "scratches at the ground.")
     emote_see = list("walks in a slow circle.", "fluffs up.", "pecks gently at the floor.")
 
@@ -716,7 +716,7 @@
     STALUC = 5
     summoning_emote = "A black chicken struts in, head held high."
     speak = list("Cluck.", "Bawk.", "Buk-buk.")
-    speak_emote = "clucks"
+    speak_emote = list("clucks")
     emote_hear = list("clucks.", "bawks.", "ruffles its feathers.")
     emote_see = list("spins in place.", "struts with its head high.", "flaps its wings.")
 
@@ -737,7 +737,7 @@
     STALUC = 6
     summoning_emote = "A rat scurries out from a dark corner, nose twitching."
     speak = list("Squeak!", "Chrr.", "Tik-tik.")
-    speak_emote = "squeaks"
+    speak_emote = list("squeaks")
     emote_hear = list("squeaks.", "gnaws on something.", "scratches at the floor.")
     emote_see = list("washes its face.", "runs in a quick circle.", "sniffs the air.")
 
@@ -758,7 +758,7 @@
     STALUC = 6
     summoning_emote = "A flutter of wings as a bat swoops down from above."
     speak = list("Screech!", "Eek!", "Chirp.")
-    speak_emote = "screeches"
+    speak_emote = list("screeches")
     emote_hear = list("screeches.", "chirps.", "flaps its wings.")
     emote_see = list("hangs upside down.", "circles overhead.", "lands briefly before taking off again.")
 
@@ -779,7 +779,7 @@
     STALUC = 5
     summoning_emote = "A green frog hops into view with a wet plop."
     speak = list("Ribbit.", "Croak.", "Brrrp.")
-    speak_emote = "croaks"
+    speak_emote = list("croaks")
     emote_hear = list("croaks.", "ribbits.", "chirps softly.")
     emote_see = list("hops in place.", "blinks slowly.", "wriggles its toes.")
 
@@ -800,7 +800,7 @@
     STALUC = 5
     summoning_emote = "A purple frog appears with a soft splash."
     speak = list("Ribbit.", "Croak.", "Brrrp.")
-    speak_emote = "croaks"
+    speak_emote = list("croaks")
     emote_hear = list("croaks.", "ribbits.", "makes a soft brrrp.")
     emote_see = list("leaps to a new spot.", "sits very still.", "wriggles its toes.")
 
@@ -821,7 +821,7 @@
     STALUC = 7
     summoning_emote = "A flash of color as a parrot swoops down, squawking."
     speak = list("Squawk!", "Hello!", "Pretty bird!")
-    speak_emote = "squawks"
+    speak_emote = list("squawks")
     emote_hear = list("squawks.", "chatters.", "clicks its beak.")
     emote_see = list("preens its feathers.", "bobs its head.", "flaps its wings.")
 
@@ -842,7 +842,7 @@
     STALUC = 6
     summoning_emote = "A snake slithers into view, tongue flicking."
     speak = list("Hiss.", "Sss.", "Tssst.")
-    speak_emote = "hisses"
+    speak_emote = list("hisses")
     emote_hear = list("hisses.", "flicks its tongue.", "slides quietly.")
     emote_see = list("coils up.", "raises its head.", "slithers in a slow circle.")
 
@@ -863,7 +863,7 @@
     STALUC = 5
     summoning_emote = "A mudcrab emerges from a patch of damp earth."
     speak = list("Click.", "Clack.", "Snap.")
-    speak_emote = "clicks"
+    speak_emote = list("clicks")
     emote_hear = list("clicks.", "clacks.", "scrapes its claws together.")
     emote_see = list("scuttles sideways.", "raises its claws.", "digs at the ground.")
 
@@ -884,7 +884,7 @@
     STALUC = 7
     summoning_emote = "A pink, hairless cat stretches and yawns as it appears."
     speak = list("Mrrp.", "Mew.", "Prrt.")
-    speak_emote = "meows"
+    speak_emote = list("meows")
     emote_hear = list("purrs.", "meows softly.", "chirps quietly.")
     emote_see = list("arches its back.", "rolls over and stretches.", "kneads a soft spot.")
 
@@ -905,7 +905,7 @@
     STALUC = 7
     summoning_emote = "A black cat pads silently into view, tail flicking."
     speak = list("Mrrp.", "Mew.", "Prrt.")
-    speak_emote = "meows"
+    speak_emote = list("meows")
     emote_hear = list("purrs.", "meows.", "makes a soft prrt.")
     emote_see = list("flicks its tail.", "blinks slowly.", "circles in place.")
 
@@ -927,7 +927,7 @@
     mob_biotypes = MOB_ROBOTIC
     summoning_emote = "A metallic clatter as a brass spider-like automaton unfolds itself."
     speak = list("Whirr.", "Click.", "Thrum.")
-    speak_emote = "whirrs"
+    speak_emote = list("whirrs")
     emote_hear = list("whirrs.", "clicks.", "hums softly.")
     emote_see = list("rotates its body.", "taps its legs on the ground.", "spins in place.")
 
@@ -949,6 +949,6 @@
     mob_biotypes = MOB_ROBOTIC
     summoning_emote = "A faint chime as a gem-encrusted mechanical beetle scuttles into view."
     speak = list("Tick.", "Chime.", "Clack.")
-    speak_emote = "chimes"
+    speak_emote = list("chimes")
     emote_hear = list("chimes.", "clicks.", "makes a faint ticking sound.")
     emote_see = list("glints in the light.", "shifts its crystalline spires.", "spins in a small circle.")

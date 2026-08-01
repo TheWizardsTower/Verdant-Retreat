@@ -52,8 +52,8 @@
 		if(M.blood_volume < BLOOD_VOLUME_NORMAL)
 			M.blood_volume = min(M.blood_volume+10, BLOOD_VOLUME_NORMAL)
 	M.energy_add(8)
-	M.dizziness = max(0, M.dizziness - 5)
-	M.drowsyness = max(0, M.drowsyness - 3)
+	M.adjust_timed_status_effect(-5 * STATUS_COUNTER_UNIT, /datum/status_effect/life_counter/dizziness)
+	M.adjust_drowsyness(-3)
 	M.SetSleeping(0, FALSE)
 
 	// Remove the sleepytime status effect after 12u of Acorn Coffee has metabolized

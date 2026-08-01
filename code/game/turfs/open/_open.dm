@@ -1,6 +1,7 @@
 /turf/open
 	plane = FLOOR_PLANE
 	var/slowdown = 0 //negative for faster, positive for slower
+	var/liquid_absorption = 0
 
 	var/postdig_icon_change = FALSE
 	var/postdig_icon
@@ -96,7 +97,6 @@
 			to_chat(C, "<span class='notice'>I slipped[ O ? " on the [O.name]" : ""]!</span>")
 			playsound(C, 'sound/blank.ogg', 50, TRUE, -3)
 
-		SEND_SIGNAL(C, COMSIG_ADD_MOOD_EVENT, "slipped", /datum/mood_event/slipped)
 		if(force_drop)
 			for(var/obj/item/I in C.held_items)
 				C.accident(I)

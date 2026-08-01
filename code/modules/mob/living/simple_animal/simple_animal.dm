@@ -305,11 +305,6 @@ GLOBAL_VAR_INIT(farm_animals, FALSE)
 		if(!QDELING(src))
 			AddComponent(/datum/component/footstep, footstep_type)
 
-/mob/living/simple_animal/handle_status_effects()
-	..()
-	if(stuttering)
-		stuttering = 0
-
 /mob/living/simple_animal/proc/environment_is_safe(check_temp = FALSE)
 	. = TRUE
 

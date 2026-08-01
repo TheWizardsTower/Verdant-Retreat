@@ -106,7 +106,7 @@
 
 /datum/wound/fracture/head/on_life()
 	. = ..()
-	owner.stuttering = max(owner.stuttering, 5)
+	owner.set_timed_status_effect(5 * STATUS_COUNTER_UNIT, /datum/status_effect/life_counter/stutter, only_if_higher = TRUE)
 
 /datum/wound/fracture/head/brain
 	name = "depressed cranial fracture"

@@ -1327,8 +1327,7 @@
 	if(generic_message && M != user)
 		to_chat(M, span_danger("[src] emits a blinding light!"))
 	if(M.flash_act())
-		var/diff = power - M.confused
-		M.confused += min(power, diff)
+		M.set_timed_status_effect(power * STATUS_COUNTER_UNIT, /datum/status_effect/life_counter/confusion)
 
 /obj/structure/fluff/psycross/proc/summon_martyr_weapon_tgui(mob/user)
 	if(!user.mind)

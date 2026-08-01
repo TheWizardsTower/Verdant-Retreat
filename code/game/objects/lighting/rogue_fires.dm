@@ -246,6 +246,7 @@
 	pixel_y = 0
 	layer = TABLE_LAYER
 	cookonme = FALSE
+	water_douse_depth = LIQUID_DOUSE_THRESHOLD
 
 /obj/machinery/light/rogue/wallfire/candle/floorcandle/alt
 	icon_state = "floorcandlee1"
@@ -301,6 +302,7 @@
 	on = FALSE
 	cookonme = TRUE
 	soundloop = /datum/looping_sound/fireloop
+	water_douse_depth = LIQUID_DOUSE_THRESHOLD
 	var/obj/item/attachment = null
 	var/obj/item/reagent_containers/food/snacks/food = null
 	var/mob/living/carbon/human/lastuser
@@ -647,6 +649,7 @@
 	cookonme = TRUE
 	max_integrity = 30
 	soundloop = /datum/looping_sound/fireloop
+	water_douse_depth = LIQUID_DOUSE_THRESHOLD
 
 /obj/machinery/light/rogue/campfire/process()
 	..()

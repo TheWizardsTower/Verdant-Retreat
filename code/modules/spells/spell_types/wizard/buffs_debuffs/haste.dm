@@ -50,6 +50,7 @@
 /datum/status_effect/buff/haste
 	var/outline_colour ="#F0E68C" // Hopefully not TOO yellow
 	id = "haste"
+	exclusion_group = "haste"
 	alert_type = /atom/movable/screen/alert/status_effect/buff/haste
 	effectedstats = list("speed" = 5)
 	duration = 1 MINUTES

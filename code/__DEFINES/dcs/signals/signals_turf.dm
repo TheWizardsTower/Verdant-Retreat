@@ -6,3 +6,4 @@
 	#define COMPONENT_TURF_DENY_MOVEMENT  (1<<1)
 #define COMSIG_TURF_ENTERED "turf_entered"
 #define COMSIG_TURF_EXITED "turf_exited"
+#define COMSIG_TURF_LIQUID_FALL_LANDED "turf_liquid_fall_landed"

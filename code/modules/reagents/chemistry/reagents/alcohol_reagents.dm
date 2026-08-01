@@ -36,9 +36,9 @@ All effects don't start immediately, but rather get worse over time; the rate is
 */
 
 /datum/reagent/consumable/ethanol/on_mob_life(mob/living/carbon/C)
-	if(C.drunkenness < volume * boozepwr * ALCOHOL_THRESHOLD_MODIFIER || boozepwr < 0)
+	if(C.get_inebriation() < volume * boozepwr * ALCOHOL_THRESHOLD_MODIFIER || boozepwr < 0)
 		var/booze_power = boozepwr
-		C.drunkenness = max((C.drunkenness + (sqrt(volume) * booze_power * ALCOHOL_RATE)), 0) //Volume, power, and server alcohol rate effect how quickly one gets drunk
+		C.adjust_inebriation(sqrt(volume) * booze_power * ALCOHOL_RATE) //Volume, power, and server alcohol rate effect how quickly one gets drunk
 //		if(boozepwr > 0)
 //			var/obj/item/organ/liver/L = C.getorganslot(ORGAN_SLOT_LIVER)
 //			if (istype(L))
