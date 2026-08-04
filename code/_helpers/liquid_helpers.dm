@@ -86,6 +86,30 @@
 
 	return highest_fluid
 
+// Volume-weighted blend of every present fluid's color, mixed the same way
+// as /proc/mix_color_from_reagents. A single-fluid cell returns its color
+// string untouched.
+/turf/proc/get_blended_fluid_color()
+	var/list/vols = cell?.fluid_volume
+	if(!vols)
+		return null
+
+	var/mixcolor
+	var/total = 0
+
+	for(var/datum/liquid/fluid as anything in vols)
+		var/amt = vols[fluid]
+		if(amt <= 0 || !fluid.color)
+			continue
+		if(!mixcolor)
+			mixcolor = fluid.color
+			total = amt
+			continue
+		total += amt
+		mixcolor = BlendRGB(mixcolor, fluid.color, amt / total)
+
+	return mixcolor
+
 // Get fluid datum by type or instance. A dynamic /datum/liquid instance
 // (bare type, .reagent set) is matched by reagent, since locate-by-type
 // would alias every dynamic reagent liquid to whichever is first.

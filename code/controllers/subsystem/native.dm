@@ -297,7 +297,13 @@ SUBSYSTEM_DEF(native)
 		else if(istype(A, /obj/structure/table) || istype(A, /obj/structure/fluff/railing) || istype(A, /obj/structure/chair))
 			has_climb = TRUE
 		else if(istype(A, /obj/structure/roguewindow))
-			has_window = TRUE
+			// open/broken windows are climb-through; only an intact closed one
+			// is VN_CLS_WINDOW (which the fluid engine treats as sealed)
+			var/obj/structure/roguewindow/W = A
+			if(W.climbable)
+				has_climb = TRUE
+			else
+				has_window = TRUE
 		else
 			has_dense = TRUE
 
@@ -316,14 +322,21 @@ SUBSYSTEM_DEF(native)
 		code |= VN_CELL_LOS_SOFT
 	return code
 
-/// Directional edge-block mask, replicating LinkBlocked() exactly: a dense
-/// obj blocks the edge its dir faces — including objects whose dir is just
-/// the default SOUTH. Cardinals only (LinkBlocked compares dir with ==).
+/// Directional edge-block mask, replicating LinkBlocked(): a dense obj blocks
+/// the edge its dir faces — including objects whose dir is just the default
+/// SOUTH. Cardinals only (LinkBlocked compares dir with ==). Open/broken
+/// windows are skipped — the mask's only native consumer is fluid flow, and
+/// they must let liquid through.
 /turf/proc/vn_edge_mask()
 	var/mask = 0
 	for(var/obj/O in contents)
-		if(O.density && (O.dir == NORTH || O.dir == SOUTH || O.dir == EAST || O.dir == WEST))
-			mask |= O.dir
+		if(!O.density || !(O.dir == NORTH || O.dir == SOUTH || O.dir == EAST || O.dir == WEST))
+			continue
+		if(istype(O, /obj/structure/roguewindow))
+			var/obj/structure/roguewindow/W = O
+			if(W.climbable)
+				continue
+		mask |= O.dir
 	return mask
 
 // ==============================================================================

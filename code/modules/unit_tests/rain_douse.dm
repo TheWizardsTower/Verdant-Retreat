@@ -2,20 +2,20 @@
 	var/turf/open/floor/rogue/sand/S = run_loc_bottom_left.ChangeTurf(/turf/open/floor/rogue/sand, null, CHANGETURF_IGNORE_AIR)
 	new /atom/movable/outdoor_effect(S)
 	var/pre_wet = S.water_level
-	GLOB.pool_manager.rain_hit(S)
+	SSliquid.pool_manager.rain_hit(S)
 	TEST_ASSERT_EQUAL(S.water_level, pre_wet + (RAIN_INJECT_AMOUNT * LIQUID_ABSORPTION_WETNESS_MULT), "rain on absorbent ground must convert directly to wetness")
 	TEST_ASSERT(!S.cell?.fluidsum, "rain on absorbent ground must not inject standing fluid")
 
 	var/turf/open/floor/rogue/cobble/C = run_loc_top_right.ChangeTurf(/turf/open/floor/rogue/cobble, null, CHANGETURF_IGNORE_AIR)
 	new /atom/movable/outdoor_effect(C)
 	var/pre_cobble_wet = C.water_level
-	GLOB.pool_manager.rain_hit(C)
+	SSliquid.pool_manager.rain_hit(C)
 	TEST_ASSERT_NOTNULL(C.cell, "rain on non-absorbent ground must create a liquid cell")
 	TEST_ASSERT_EQUAL(C.cell.fluidsum, RAIN_INJECT_AMOUNT, "rain on non-absorbent ground must inject fluid")
 	TEST_ASSERT_EQUAL(C.water_level, pre_cobble_wet + RAIN_INJECT_AMOUNT, "rain on non-absorbent ground must also wet the surface")
 
 	C.outdoor_effect.weatherproof = TRUE
-	GLOB.pool_manager.rain_hit(C)
+	SSliquid.pool_manager.rain_hit(C)
 	TEST_ASSERT_EQUAL(C.cell.fluidsum, RAIN_INJECT_AMOUNT, "weatherproof turfs must not receive rain")
 
 /datum/unit_test/liquid_douse/Run()

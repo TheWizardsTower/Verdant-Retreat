@@ -235,7 +235,6 @@
 	heavyfootstep = FOOTSTEP_GENERIC_HEAVY
 	landsound = 'sound/foley/jumpland/grassland.wav'
 	slowdown = 0
-	liquid_absorption = 1
 	smoothing_groups = SMOOTH_GROUP_FLOOR_SNOW
 	neighborlay = "snowedge"
 	spread_chance = 0
@@ -251,7 +250,6 @@
 	heavyfootstep = FOOTSTEP_GENERIC_HEAVY
 	landsound = 'sound/foley/jumpland/grassland.wav'
 	slowdown = 0
-	liquid_absorption = 1
 	smoothing_groups = SMOOTH_GROUP_FLOOR_SNOW
 	neighborlay = "snowroughedge"
 	spread_chance = 0
@@ -268,7 +266,6 @@
 	heavyfootstep = FOOTSTEP_GENERIC_HEAVY
 	landsound = 'sound/foley/jumpland/grassland.wav'
 	slowdown = 0
-	liquid_absorption = 1
 	smoothing_groups = SMOOTH_GROUP_FLOOR_SNOW
 	neighborlay = "snowpatchy_grassedge"
 
@@ -428,7 +425,7 @@
 			update_icon()
 			H.update_inv_shoes()
 		if(water_level)
-			GLOB.pool_manager.queue_wet_update(src)
+			SSliquid.pool_manager.queue_wet_update(src)
 
 
 /turf/open/floor/rogue/dirt/update_water()
@@ -527,7 +524,6 @@
 	heavyfootstep = FOOTSTEP_GENERIC_HEAVY
 	landsound = 'sound/foley/jumpland/dirtland.wav'
 	slowdown = 0
-	liquid_absorption = 2
 
 /turf/proc/roguesmooth(adjacencies, use_old_behavior)
 /*	if(!use_old_behavior)

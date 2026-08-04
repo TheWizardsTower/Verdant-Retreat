@@ -397,6 +397,8 @@
 		selected_target[2] = params
 	if(active_mousedown_item)
 		active_mousedown_item.onMouseDrag(src_object, over_object, src_location, over_location, params, mob)
+	if(click_intercept && hascall(click_intercept, "InterceptMouseDrag"))
+		call(click_intercept, "InterceptMouseDrag")(over_object)
 
 
 /obj/item/proc/onMouseDrag(src_object, over_object, src_location, over_location, params, mob)

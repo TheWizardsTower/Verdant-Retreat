@@ -39,8 +39,8 @@ GLOBAL_VAR_INIT(vn_safe_mode, FALSE)
 #define VN_CLS_NONE 0
 #define VN_CLS_DOOR 1			// unlocked mineral door
 #define VN_CLS_DOOR_LOCKED 2	// locked mineral door (bash cost via integrity annot)
-#define VN_CLS_CLIMB 3			// table / railing / chair / ladder body
-#define VN_CLS_WINDOW 4			// roguewindow, smashable
+#define VN_CLS_CLIMB 3			// table / railing / chair / ladder body / open or broken window
+#define VN_CLS_WINDOW 4			// intact closed roguewindow, smashable; seals fluid flow
 #define VN_CLS_DENSE_OBJ 5		// any other dense obj: impassable
 #define VN_CLS_UNSAFE 6			// can_traverse_safely() == FALSE (lava); never entered laterally
 #define VN_CLS_MASK 7			// bits 0-2 of a cell code hold the obstacle class
@@ -310,8 +310,10 @@ GLOBAL_LIST_EMPTY(all_light_sources)
 // (it ships with can_fire = FALSE).
 /// static fluid typepath string, or dynamic reagent typepath string -> native mat id
 GLOBAL_LIST_EMPTY(vn_liquid_mats)
-/// "[mat id]" -> static fluid typepath, or dynamic reagent typepath
-GLOBAL_LIST_EMPTY(vn_liquid_mat_paths)
+/// mat id (numeric key) -> resolved static fluid typepath, or dynamic reagent
+/// typepath. An alist: numeric keys are legal and fast, but it cannot be
+/// for-looped or indexed positionally.
+GLOBAL_VAR_INIT(vn_liquid_mat_path_by_id, alist())
 /// dynamic reagent typepath string -> TRUE once on-demand registration has
 /// failed for it (budget exhausted, etc.) - stops repeat attempts.
 GLOBAL_LIST_EMPTY(vn_liquid_mat_failed)
@@ -350,7 +352,7 @@ GLOBAL_LIST_EMPTY(vn_liquid_mat_failed)
 		return 0
 
 	GLOB.vn_liquid_mats[key] = result
-	GLOB.vn_liquid_mat_paths["[result]"] = key
+	GLOB.vn_liquid_mat_path_by_id[result] = reagent_path
 	return result
 
 /// Queues an edit for the native fluid engine; flushed by SSliquid's fire.

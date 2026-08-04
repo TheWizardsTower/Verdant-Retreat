@@ -12,8 +12,6 @@
  * - Debugging and monitoring tools
  */
 
-GLOBAL_DATUM_INIT(liquid_manager, /datum/liquid_manager, new)
-
 /datum/liquid_manager
 	var/name = "Liquid Manager"
 
@@ -101,7 +99,7 @@ GLOBAL_DATUM_INIT(liquid_manager, /datum/liquid_manager, new)
 	if(!reagent_type || !container || !target_turf?.cell || !isnum(amount) || amount <= 0)
 		return 0
 
-	var/fluid_type = GLOB.liquid_registry.get_liquid_from_reagent(reagent_type)
+	var/fluid_type = SSliquid.registry.get_liquid_from_reagent(reagent_type)
 	var/datum/liquid/fluid_instance = get_liquid_instance(target_turf, fluid_type, TRUE)
 	if(!fluid_instance)
 		log_debug("Liquid Manager: Failed to get liquid instance for [fluid_type]")

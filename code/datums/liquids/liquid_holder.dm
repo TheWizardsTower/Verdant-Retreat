@@ -1,4 +1,3 @@
-GLOBAL_LIST_EMPTY(liquid_types)
 /cell
 	parent_type = /datum
 
@@ -20,6 +19,8 @@ GLOBAL_LIST_EMPTY(liquid_types)
 	var/absorption_rate = 0 // Amount of fluid deleted per processing loop by the sink.
 	var/last_fluid_level = 0 // Tracks the amount of fluid in the last processing loop. So we know if we need to update the icon or not.
 	var/vis_fluid_level = -1 // Fluid band the overlay currently shows, set by native band commits; -1 until the first commit
+	var/datum/liquid/shown_fluid // Dominant fluid the overlay last showed; delta application skips redraws while band and dominant fluid are both unchanged
+	var/shown_mix = 10 // Dominant fluid's share of the last-shown blend in tenths (10 = pure); redraws fire when a mixed cell's ratio bucket shifts
 	var/last_fluid_time = 0 // When this turf last had significant fluid (for pool persistence)
 	var/doused = FALSE // Whether the standing-fluid douse event already fired for the current wetting
 
@@ -34,20 +35,18 @@ GLOBAL_LIST_EMPTY(liquid_types)
 /cell/proc/InitLiquids()
 	fluid_volume = list()
 	fluid_flags = 0
-	for(var/fluid in GLOB.liquid_types)
+	for(var/fluid in SSliquid.registry.registered_liquids)
 		var/datum/liquid/newfluid = new fluid
 		if(newfluid.reagent)
 			newfluid.color = initial(newfluid.reagent:color)
 		fluid_volume[newfluid] = 0
 
-	// Note: InitExtraLiquids() was removed as it was not intended for production use
-
 	// Cell API methods for safe fluid manipulation
 /cell/proc/add_fluid_safe(datum/liquid/fluid_type, amount)
-	return GLOB.liquid_manager.add_fluid(get_turf_from_cell(), fluid_type, amount)
+	return SSliquid.manager.add_fluid(get_turf_from_cell(), fluid_type, amount)
 
 /cell/proc/remove_fluid_safe(datum/liquid/fluid_type, amount)
-	return GLOB.liquid_manager.remove_fluid(get_turf_from_cell(), fluid_type, amount)
+	return SSliquid.manager.remove_fluid(get_turf_from_cell(), fluid_type, amount)
 
 /cell/proc/get_fluid_amount_safe(datum/liquid/fluid_type)
 	return GET_FLUID_AMOUNT(get_turf_from_cell(), fluid_type)
@@ -119,6 +118,14 @@ GLOBAL_LIST_EMPTY(liquid_types)
 
 /cell/proc/has_flow_modification()
 	return flow_dir != 0
+
+	// Must be used instead of writing contain_max directly: the subsystem
+	// counter lets the per-delta containment check short-circuit when no
+	// contained cells exist anywhere
+/cell/proc/set_contain_max(value)
+	if(!contain_max != !value)
+		SSliquid.contained_cells += value ? 1 : -1
+	contain_max = value
 
 	// Source/sink management
 /cell/proc/make_liquid_source(rate = 1, fluid_type = WATER)

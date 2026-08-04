@@ -5,8 +5,6 @@
  * efficiently checking if two turfs are part of the same pool, etc.
  */
 
-GLOBAL_DATUM_INIT(pool_manager, /datum/pool_manager, new)
-
 /datum/pool_manager
     var/name = "Pool Manager"
 
@@ -22,6 +20,9 @@ GLOBAL_DATUM_INIT(pool_manager, /datum/pool_manager, new)
     /// Timer for turf liquid absorption processing
     var/absorption_timer = 0
 
+    /// Timer for shallow-puddle evaporation processing
+    var/evap_timer = 0
+
     /// Timer for rain injection processing
     var/rain_inject_timer = 0
 
@@ -30,6 +31,12 @@ GLOBAL_DATUM_INIT(pool_manager, /datum/pool_manager, new)
 
     /// Turfs awaiting a deferred update_water() pass
     var/list/wet_update_queue = list()
+
+    /// Rotation cursor into liquid_turfs for sliced absorption sweeps
+    var/absorption_cursor = 1
+
+    /// Rotation cursor into liquid_turfs for sliced reaction sweeps
+    var/reaction_cursor = 1
 
 /datum/pool_manager/New()
     ..()
@@ -139,41 +146,44 @@ GLOBAL_DATUM_INIT(pool_manager, /datum/pool_manager, new)
 
     continuous_behavior_timer = world.time + 5 SECONDS
 
-    // Process all mobs standing in liquid pools
-    for(var/turf/T as anything in liquid_turfs)
-        if(!T?.cell || T.cell.fluidsum < MIN_FLUID_VOLUME)
+    // Douse safety net for things lit after the water arrived: driven by the
+    // fire registries so the sweep scales with fires, not with wet turfs
+    for(var/turf/T as anything in get_fire_turfs())
+        if(!T?.cell || T.cell.fluidsum < LIQUID_DOUSE_THRESHOLD)
             continue
-
         if(!istype(T, /turf/open/water))
             T.douse_contents()
 
-        // Find all mobs on this liquid turf
-        for(var/mob/living/M in T)
-            if(!M || M.stat == DEAD)
+    // Continuous behaviors scale with living mobs, not with wet turfs
+    for(var/mob/living/M as anything in GLOB.alive_mob_list)
+        if(M.stat == DEAD)
+            continue
+        var/turf/T = M.loc
+        if(!isturf(T) || !T.cell || T.cell.fluidsum < MIN_FLUID_VOLUME)
+            continue
+
+        // Apply continuous behaviors for each liquid type
+        for(var/datum/liquid/fluid as anything in T.cell.fluid_volume)
+            if(T.cell.fluid_volume[fluid] < MIN_FLUID_VOLUME)
                 continue
 
-            // Apply continuous behaviors for each liquid type
-            for(var/datum/liquid/fluid as anything in T.cell.fluid_volume)
-                if(T.cell.fluid_volume[fluid] < MIN_FLUID_VOLUME)
-                    continue
+            // Execute continuous flag-based behaviors with sophisticated exposure
+            if(fluid.fluid_flags & FLUID_PERMEATING)
+                // Use the sophisticated exposure system that checks is_drowning
+                SSliquid.registry.apply_liquid_chemical_effects(M, T, fluid)
 
-                // Execute continuous flag-based behaviors with sophisticated exposure
-                if(fluid.fluid_flags & FLUID_PERMEATING)
-                    // Use the sophisticated exposure system that checks is_drowning
-                    GLOB.liquid_registry.apply_liquid_chemical_effects(M, T, fluid)
+            if(fluid.fluid_flags & FLUID_CORROSIVE)
+                SSliquid.registry.execute_flag_behavior(FLUID_CORROSIVE, "corrode_mob", M, T, fluid)
 
-                if(fluid.fluid_flags & FLUID_CORROSIVE)
-                    GLOB.liquid_registry.execute_flag_behavior(FLUID_CORROSIVE, "corrode_mob", M, T, fluid)
-
-                // Execute continuous liquid-specific behaviors
-                GLOB.liquid_registry.execute_liquid_behavior(fluid.type, "continuous_effect", M, T)
+            // Execute continuous liquid-specific behaviors
+            SSliquid.registry.execute_liquid_behavior(fluid.type, "continuous_effect", M, T)
 
 /**
  * Processes chemical reactions on liquid turfs when dynamic liquids are enabled.
  * Should be called periodically from the liquid subsystem.
  */
 /datum/pool_manager/proc/process_floor_reactions()
-    if(!GLOB.liquid_registry.allow_dynamic_liquids)
+    if(!SSliquid.registry.allow_dynamic_liquids)
         return
 
     // Process floor reactions every 10 seconds - slower than behaviors
@@ -182,8 +192,16 @@ GLOBAL_DATUM_INIT(pool_manager, /datum/pool_manager, new)
 
     reaction_timer = world.time + 10 SECONDS
 
-    // Process reactions on liquid turfs that have multiple reagent types
-    for(var/turf/T as anything in liquid_turfs)
+    // Process reactions on liquid turfs that have multiple reagent types,
+    // rotating through the wet list in bounded slices
+    var/total = length(liquid_turfs)
+    if(!total)
+        return
+    if(reaction_cursor > total)
+        reaction_cursor = 1
+    var/end_i = min(reaction_cursor + LIQUID_SWEEP_SLICE - 1, total)
+    for(var/i in reaction_cursor to end_i)
+        var/turf/T = liquid_turfs[i]
         if(!T?.cell || T.cell.fluidsum < MIN_FLUID_VOLUME)
             continue
 
@@ -196,7 +214,10 @@ GLOBAL_DATUM_INIT(pool_manager, /datum/pool_manager, new)
                     break
 
         if(reagent_count >= 2)
-            GLOB.liquid_registry.process_floor_reactions(T)
+            SSliquid.registry.process_floor_reactions(T)
+    reaction_cursor = end_i + 1
+    if(end_i < total)
+        reaction_timer = world.time
 
 /**
  * Gets performance statistics for pool operations.
@@ -215,21 +236,91 @@ GLOBAL_DATUM_INIT(pool_manager, /datum/pool_manager, new)
     if(world.time < absorption_timer)
         return
 
-    absorption_timer = world.time + 2 SECONDS
+    absorption_timer = world.time + LIQUID_ABSORPTION_INTERVAL
 
-    for(var/turf/open/T as anything in liquid_turfs)
+    var/total = length(liquid_turfs)
+    if(!total)
+        return
+    if(absorption_cursor > total)
+        absorption_cursor = 1
+    var/end_i = min(absorption_cursor + LIQUID_SWEEP_SLICE - 1, total)
+    for(var/i in absorption_cursor to end_i)
+        var/turf/open/T = liquid_turfs[i]
         if(!istype(T) || istype(T, /turf/open/water))
             continue
         if(!T.liquid_absorption || !T.cell || T.cell.fluidsum < MIN_FLUID_VOLUME)
+            continue
+        if(T.cell.fluidsum > LIQUID_ABSORPTION_MAX_DEPTH)
             continue
 
         var/datum/liquid/fluid = T.get_highest_fluid_by_volume()
         if(!fluid)
             continue
 
-        var/absorbed = GLOB.liquid_manager.remove_fluid(T, fluid, T.liquid_absorption)
+        var/absorbed = SSliquid.manager.remove_fluid(T, fluid, T.liquid_absorption)
         if(absorbed > 0)
             T.add_water(absorbed * LIQUID_ABSORPTION_WETNESS_MULT)
+    absorption_cursor = end_i + 1
+    if(end_i < total)
+        absorption_timer = world.time
+
+/**
+ * Evaporates shallow puddles that are sun-exposed (outdoors during the day) or
+ * within a tile of an active fire. Should be called periodically from the
+ * liquid subsystem.
+ */
+/datum/pool_manager/proc/process_evaporation()
+    if(world.time < evap_timer)
+        return
+
+    evap_timer = world.time + LIQUID_EVAP_INTERVAL
+
+    var/is_day = (GLOB.tod == "day")
+    var/list/fire_turfs
+    for(var/turf/open/T as anything in liquid_turfs)
+        if(!istype(T) || istype(T, /turf/open/water))
+            continue
+        if(!T.cell || T.cell.sim_exempt)
+            continue
+        if(T.cell.fluidsum < MIN_FLUID_VOLUME || T.cell.fluidsum >= LIQUID_EVAP_THRESHOLD)
+            continue
+        if(!is_day || !T.outdoor_effect || T.outdoor_effect.weatherproof)
+            if(isnull(fire_turfs))
+                fire_turfs = get_fire_turfs()
+            if(!has_nearby_fire(T, fire_turfs))
+                continue
+        var/datum/liquid/fluid = T.get_highest_fluid_by_volume()
+        if(!fluid)
+            continue
+        SSliquid.manager.remove_fluid(T, fluid, LIQUID_EVAP_AMOUNT)
+
+/**
+ * Builds the set of turfs currently holding an active fire: engine fire cells,
+ * atmospheric hotspots, and lit fire fixtures.
+ */
+/datum/pool_manager/proc/get_fire_turfs()
+    var/list/fire_turfs = list()
+    for(var/turf/T as anything in SSfire.active_fire_turfs)
+        fire_turfs[T] = TRUE
+    for(var/obj/effect/hotspot/H as anything in SSfire.hotspots)
+        var/turf/HT = get_turf(H)
+        if(HT)
+            fire_turfs[HT] = TRUE
+    for(var/obj/machinery/light/F in GLOB.fires_list)
+        if(!F.on)
+            continue
+        var/turf/FT = get_turf(F)
+        if(FT)
+            fire_turfs[FT] = TRUE
+    return fire_turfs
+
+/datum/pool_manager/proc/has_nearby_fire(turf/T, list/fire_turfs)
+    if(!length(fire_turfs))
+        return FALSE
+    for(var/turf/N as anything in RANGE_TURFS(1, T))
+        if(fire_turfs[N])
+            return TRUE
+    return FALSE
 
 /**
  * Queues a turf for a deferred update_water() pass.
@@ -295,5 +386,5 @@ GLOBAL_DATUM_INIT(pool_manager, /datum/pool_manager, new)
 
     var/datum/liquid/water_fluid = T.cell.get_fluid_datum(WATER)
     if(water_fluid)
-        GLOB.liquid_manager.add_fluid(T, water_fluid, RAIN_INJECT_AMOUNT)
+        SSliquid.manager.add_fluid(T, water_fluid, RAIN_INJECT_AMOUNT)
     T.add_water(RAIN_INJECT_AMOUNT)
