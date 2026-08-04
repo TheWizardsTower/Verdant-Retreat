@@ -58,7 +58,8 @@ GLOBAL_VAR_INIT(vn_safe_mode, FALSE)
 
 // SSnative fire priority (just above SSquadtree's 68 so the mirror is fresh
 // before AI/pathfinding consumers run)
-#define SS_PRIORITY_NATIVE 69
+//nice - chaoko99
+#define SS_PRIORITY_NATIVE 69 
 
 // --- raw wrappers (one per DLL export) ---
 // Macros, not procs: a native call costs one call_ext with no wrapper proc

@@ -4,6 +4,7 @@
 	icon = 'icons/turf/roguefloor.dmi'
 	baseturfs = list(/turf/open/transparent/openspace)
 	neighborlay = null
+	var/fertility
 
 /turf/open/floor/rogue/break_tile()
 	return //unbreakable
@@ -14,6 +15,8 @@
 /turf/open/floor/rogue/Initialize()
 	if(prettifyturf)
 		dir = pick(GLOB.cardinals)
+	fertility = SSnoisemap.gradient_noise.get2(x/0.01,y/0.01)
+	maptext = fertility
 	. = ..()
 
 /turf/open/floor/rogue/twig
