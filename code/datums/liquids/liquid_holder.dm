@@ -19,8 +19,9 @@
 	var/absorption_rate = 0 // Amount of fluid deleted per processing loop by the sink.
 	var/last_fluid_level = 0 // Tracks the amount of fluid in the last processing loop. So we know if we need to update the icon or not.
 	var/vis_fluid_level = -1 // Fluid band the overlay currently shows, set by native band commits; -1 until the first commit
-	var/datum/liquid/shown_fluid // Dominant fluid the overlay last showed; delta application skips redraws while band and dominant fluid are both unchanged
-	var/shown_mix = 10 // Dominant fluid's share of the last-shown blend in tenths (10 = pure); redraws fire when a mixed cell's ratio bucket shifts
+	var/vis_mat = 0 // Dominant native mat id committed with the band
+	var/vis_rgb = 0 // Engine-blended 0xRRGGBB committed with the band; 0 = none
+	var/vis_color // "#RRGGBB" string built once per commit for redraws
 	var/last_fluid_time = 0 // When this turf last had significant fluid (for pool persistence)
 	var/doused = FALSE // Whether the standing-fluid douse event already fired for the current wetting
 

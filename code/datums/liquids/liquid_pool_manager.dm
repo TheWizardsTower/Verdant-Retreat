@@ -163,6 +163,7 @@
             continue
 
         // Apply continuous behaviors for each liquid type
+        SSliquid.refresh_cell_types(T)
         for(var/datum/liquid/fluid as anything in T.cell.fluid_volume)
             if(T.cell.fluid_volume[fluid] < MIN_FLUID_VOLUME)
                 continue
@@ -205,7 +206,9 @@
         if(!T?.cell || T.cell.fluidsum < MIN_FLUID_VOLUME)
             continue
 
-        // Only process if there are multiple liquids with reagents that could react
+        // Only process if there are multiple liquids with reagents that could
+        // react; the stale-vector prefilter finds candidates, engine truth
+        // confirms them
         var/reagent_count = 0
         for(var/datum/liquid/fluid as anything in T.cell.fluid_volume)
             if(fluid.reagent && T.cell.fluid_volume[fluid] >= MIN_FLUID_VOLUME)
@@ -214,6 +217,7 @@
                     break
 
         if(reagent_count >= 2)
+            SSliquid.refresh_cell_types(T)
             SSliquid.registry.process_floor_reactions(T)
     reaction_cursor = end_i + 1
     if(end_i < total)
@@ -289,6 +293,9 @@
                 fire_turfs = get_fire_turfs()
             if(!has_nearby_fire(T, fire_turfs))
                 continue
+        SSliquid.refresh_cell_types(T)
+        if(T.cell.fluidsum < MIN_FLUID_VOLUME || T.cell.fluidsum >= LIQUID_EVAP_THRESHOLD)
+            continue
         var/datum/liquid/fluid = T.get_highest_fluid_by_volume()
         if(!fluid)
             continue

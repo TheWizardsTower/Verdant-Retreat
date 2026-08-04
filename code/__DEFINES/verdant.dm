@@ -10,7 +10,7 @@
 // take over. NEVER assume a native call succeeded.
 
 // ABI compatibility number; must match kAbi in the DLL's Exports.cpp.
-#define VERDANT_ABI 5
+#define VERDANT_ABI 6
 
 #ifndef VERDANT_NATIVE
 /* This comment bypasses grep checks */ /var/__verdant_native
@@ -138,6 +138,7 @@ GLOBAL_VAR_INIT(vn_safe_mode, FALSE)
 
 #define vn_fluid_init call_ext(VERDANT_NATIVE, "byond:vn_fluid_init")
 #define vn_fluid_register_mat(name) call_ext(VERDANT_NATIVE, "byond:vn_fluid_register_mat")(name)
+#define vn_fluid_mat_color(id, rgb) call_ext(VERDANT_NATIVE, "byond:vn_fluid_mat_color")(id, rgb)
 /// edits: flat [op,x,y,z,a,b ...]; returns applied count
 #define vn_fluid_edit(edits) call_ext(VERDANT_NATIVE, "byond:vn_fluid_edit")(edits)
 #define vn_fluid_tick_begin call_ext(VERDANT_NATIVE, "byond:vn_fluid_tick_begin")
@@ -353,7 +354,17 @@ GLOBAL_LIST_EMPTY(vn_liquid_mat_failed)
 
 	GLOB.vn_liquid_mats[key] = result
 	GLOB.vn_liquid_mat_path_by_id[result] = reagent_path
+	var/rgb_int = vn_color_rgb(initial(reagent_path:color))
+	if(rgb_int)
+		vn_fluid_mat_color(result, rgb_int)
 	return result
+
+/// "#RRGGBB(AA)" color string -> 0xRRGGBB int for the engine's blend math;
+/// 0 for anything unparsable.
+/proc/vn_color_rgb(color)
+	if(!istext(color) || length(color) < 7 || copytext(color, 1, 2) != "#")
+		return 0
+	return hex2num(copytext(color, 2, 8))
 
 /// Queues an edit for the native fluid engine; flushed by SSliquid's fire.
 /// No-op unless native fluids are live, so writers can call unconditionally.

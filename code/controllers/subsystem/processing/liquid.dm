@@ -176,6 +176,67 @@ PROCESSING_SUBSYSTEM_DEF(liquid)
 	for(var/turf/T as anything in cell_index)
 		update_fluidsum(T)
 
+/// Test/debug helper: synchronously pushes a DM-authored fluid vector into
+/// the engine, retrying past any in-flight tick, so refresh_cell_types
+/// round-trips the same values.
+/datum/controller/subsystem/processing/liquid/proc/sync_cell_to_native(turf/T)
+	if(!vn_native_fluids_ready || !T?.cell)
+		return
+	var/list/edits = list(VN_FLUID_OP_CLEAR, T.x, T.y, T.z, 0, 0)
+	for(var/datum/liquid/fluid as anything in T.cell.fluid_volume)
+		var/amt = T.cell.fluid_volume[fluid]
+		if(amt <= 0)
+			continue
+		var/mat = vn_fluid_mat_id(fluid)
+		if(mat)
+			edits += list(VN_FLUID_OP_SET, T.x, T.y, T.z, mat, amt)
+	for(var/attempt in 1 to 10)
+		vn_check_result(vn_fluid_edit(edits), "fluid_test_sync")
+		if(vn_fluid_total(T.x, T.y, T.z) == T.cell.fluidsum)
+			return
+		sleep(1)
+
+/// Rewrites the cell's per-type cache and fluidsum from engine truth. The
+/// per-tick echo carries only fluidsums, so every reader that needs the type
+/// vector calls this first.
+/datum/controller/subsystem/processing/liquid/proc/refresh_cell_types(turf/T)
+	var/cell/C = T?.cell
+	if(!C || C.sim_exempt || !vn_native_fluids_ready)
+		return
+	var/list/pairs = vn_fluid_get(T.x, T.y, T.z)
+	if(!islist(pairs))
+		return
+	var/list/vols = C.fluid_volume
+	var/list/mat_paths = GLOB.vn_liquid_mat_path_by_id
+	for(var/datum/liquid/fluid as anything in vols)
+		if(fluid.type != /datum/liquid || vn_fluid_mat_id(fluid))
+			vols[fluid] = 0
+	for(var/i = 1, i < length(pairs), i += 2)
+		var/mat = pairs[i]
+		var/amt = pairs[i + 1]
+		var/fluid_path = mat_paths[mat]
+		if(!fluid_path)
+			continue
+		var/datum/liquid/instance
+		if(ispath(fluid_path, /datum/liquid))
+			instance = locate(fluid_path) in vols
+		else
+			for(var/datum/liquid/existing as anything in vols)
+				if(existing.type == /datum/liquid && existing.reagent == fluid_path)
+					instance = existing
+					break
+			if(!instance)
+				instance = SSliquid.registry.create_liquid_from_reagent(fluid_path)
+				if(instance)
+					vols[instance] = 0
+		if(instance)
+			vols[instance] = amt
+	var/sum = 0
+	for(var/datum/liquid/fluid as anything in vols)
+		sum += vols[fluid]
+	C.fluidsum = sum
+	C.last_fluid_level = FLUID_LEVEL_FROM_SUM(sum)
+
 /datum/controller/subsystem/processing/liquid/proc/has_contained_neighbor(turf/T)
 	if(istype(T, /turf/open/water) || istype(T, /turf/open/floor/rogue/riverbot) || istype(T, /turf/open/floor/rogue/lakebed))
 		return FALSE
@@ -276,16 +337,32 @@ PROCESSING_SUBSYSTEM_DEF(liquid)
 		overlay_appearance_cache[key] = MA
 	OV.appearance = MA
 
+/// Registry singleton for a static native mat id; null for dynamics (their
+/// display color always arrives via the committed vis_rgb).
+/datum/controller/subsystem/processing/liquid/proc/mat_singleton(mat)
+	var/fluid_path = GLOB.vn_liquid_mat_path_by_id[mat]
+	if(ispath(fluid_path, /datum/liquid))
+		return registry.registered_liquids[fluid_path]
+	return null
+
+/// Display color committed with the cell's band, as a "#RRGGBB" string;
+/// null before any commit carries one.
+/datum/controller/subsystem/processing/liquid/proc/cell_vis_color(cell/C)
+	if(!C)
+		return null
+	if(C.vis_color)
+		return C.vis_color
+	if(C.vis_mat)
+		var/datum/liquid/L = mat_singleton(C.vis_mat)
+		if(L?.color)
+			return L.color
+	return null
+
 /datum/controller/subsystem/processing/liquid/proc/update_cell_image(turf/T)
 	T.ensure_liquid_overlay()
 	var/obj/effect/liquid/OV = T.liquid_overlay
-	var/datum/liquid/mostfluid = T.get_highest_fluid_by_volume()
-	if(T.cell)
-		T.cell.shown_fluid = mostfluid
 
-	var/ncolor = OV.color
-	if(mostfluid)
-		ncolor = T.get_blended_fluid_color() || mostfluid.color
+	var/ncolor = cell_vis_color(T.cell) || OV.color
 
 	var/live_level = get_fluid_level(T)
 	var/fluid_level = get_vis_fluid_level(T, live_level)
@@ -293,9 +370,7 @@ PROCESSING_SUBSYSTEM_DEF(liquid)
 	if(isopenspace(T))
 		var/turf/below = GetBelow(T)
 		if(below?.cell && get_vis_fluid_level(below) >= FLUID_FULL)
-			var/datum/liquid/below_fluid = below.get_highest_fluid_by_volume()
-			if(below_fluid)
-				ncolor = below.get_blended_fluid_color() || below_fluid.color
+			ncolor = cell_vis_color(below.cell) || ncolor
 			var/state = "together"
 			var/ndir = OV.dir
 			if(below.cell.flow_dir && (istype(below, /turf/open/floor/rogue/riverbot) || istype(below, /turf/open/floor/rogue/lakebed)))
@@ -376,6 +451,12 @@ PROCESSING_SUBSYSTEM_DEF(liquid)
 			return FALSE
 		GLOB.vn_liquid_mats["[fluid_path]"] = id
 		GLOB.vn_liquid_mat_path_by_id[id] = fluid_path
+		var/datum/liquid/registered = SSliquid.registry.registered_liquids[fluid_path]
+		var/rgb_int = vn_color_rgb(registered?.color)
+		if(!rgb_int && registered?.reagent)
+			rgb_int = vn_color_rgb(initial(registered.reagent:color))
+		if(rgb_int)
+			vn_check_result(vn_fluid_mat_color(id, rgb_int), "fluid_mat_color")
 
 	// vn_fluid_init() wipes engine config, so this must run on every successful init
 	vn_check_result(vn_fluid_config("edge_drain", GLOB.vn_liquid_edge_drain ? 1 : 0), "fluid_config_edge_drain")
@@ -484,68 +565,27 @@ PROCESSING_SUBSYSTEM_DEF(liquid)
 		vn_pending_deltas_left = -1
 		vn_pending_cursor = 0
 
-/// Applies one delta record starting at `cur`; returns the next cursor.
+/// Applies one fluidsum record starting at `cur`; returns the next cursor.
+/// The type vector is NOT mirrored per tick — readers that need it call
+/// refresh_cell_types for engine truth on demand.
 /datum/controller/subsystem/processing/liquid/proc/NativeApplyDelta(list/res, cur)
-	var/list/mat_paths = GLOB.vn_liquid_mat_path_by_id
 	var/list/wet_turfs = pool_manager.liquid_turfs
 	var/x = res[cur++]
 	var/y = res[cur++]
 	var/z = res[cur++]
-	var/ntypes = res[cur++]
+	var/sum = res[cur++]
 	var/turf/T = locate(x, y, z)
 	if(!T)
-		return cur + ntypes * 2
+		return cur
 	var/cell/C = T.cell
 	if(C?.sim_exempt)
-		return cur + ntypes * 2
+		return cur
 	if(!C) // fluid reached a turf created after init (e.g. construction)
 		C = new /cell(T)
 		T.cell = C
 		C.InitLiquids()
-	var/list/vols = C.fluid_volume
 	var/old_level = C.last_fluid_level
 	var/old_sum = C.fluidsum
-	// zero every native-mapped type (static or registered dynamic), then
-	// apply the reported vector; still-unmapped dynamic types are
-	// DM-only and left alone
-	for(var/datum/liquid/fluid as anything in vols)
-		if(fluid.type != /datum/liquid || vn_fluid_mat_id(fluid))
-			vols[fluid] = 0
-	for(var/t in 1 to ntypes)
-		var/mat = res[cur++]
-		var/amt = res[cur++]
-		var/fluid_path = mat_paths[mat]
-		if(!fluid_path)
-			continue
-		var/datum/liquid/instance
-		if(ispath(fluid_path, /datum/liquid))
-			instance = locate(fluid_path) in vols
-		else
-			// mat id maps to a reagent typepath (dynamic liquid): match
-			// the cell's existing same-reagent instance, or create one
-			for(var/datum/liquid/existing as anything in vols)
-				if(existing.type == /datum/liquid && existing.reagent == fluid_path)
-					instance = existing
-					break
-			if(!instance)
-				instance = SSliquid.registry.create_liquid_from_reagent(fluid_path)
-				if(instance)
-					vols[instance] = 0
-		if(instance)
-			vols[instance] = amt
-	var/sum = 0
-	var/nfluids = 0
-	var/dom_amt = 0
-	var/datum/liquid/dominant
-	for(var/datum/liquid/fluid as anything in vols)
-		var/amt = vols[fluid]
-		if(amt <= 0)
-			continue
-		sum += amt
-		nfluids++
-		if(amt > dom_amt)
-			dom_amt = amt
-			dominant = fluid
 	C.fluidsum = sum
 	var/level = FLUID_LEVEL_FROM_SUM(sum)
 	C.last_fluid_level = level
@@ -569,12 +609,10 @@ PROCESSING_SUBSYSTEM_DEF(liquid)
 			T.douse_contents()
 	else
 		C.doused = FALSE
-	var/mix_bucket = (nfluids > 1 && sum) ? round(dom_amt * 10 / sum) : 10
 	// live-band changes only redraw while the live band actually drives the
 	// display (no committed vis band yet); otherwise the band-commit section
 	// owns the redraw and this one would produce an identical appearance
-	if(dominant != C.shown_fluid || mix_bucket != C.shown_mix || (level != old_level && C.vis_fluid_level <= FLUID_EMPTY))
-		C.shown_mix = mix_bucket
+	if(level != old_level && C.vis_fluid_level <= FLUID_EMPTY)
 		update_cell_image(T)
 	if((old_sum >= SUBMERSION_FLUID_THRESHOLD) != (sum >= SUBMERSION_FLUID_THRESHOLD) && (istype(T, /turf/open/floor/rogue/riverbot) || istype(T, /turf/open/floor/rogue/lakebed)))
 		for(var/mob/living/L in T)
@@ -611,13 +649,23 @@ PROCESSING_SUBSYSTEM_DEF(liquid)
 	for(var/i in 1 to n_band)
 		var/turf/B = locate(res[cur], res[cur + 1], res[cur + 2])
 		var/band = res[cur + 3]
-		cur += 4
-		if(B?.cell && B.cell.vis_fluid_level != band)
-			B.cell.vis_fluid_level = band
+		var/mat = res[cur + 4]
+		var/rgb_int = res[cur + 5]
+		cur += 6
+		var/cell/BC = B?.cell
+		if(BC && (BC.vis_fluid_level != band || BC.vis_mat != mat || BC.vis_rgb != rgb_int))
+			var/was_surface = BC.vis_fluid_level >= FLUID_FULL
+			var/old_rgb = BC.vis_rgb
+			BC.vis_fluid_level = band
+			BC.vis_mat = mat
+			BC.vis_rgb = rgb_int
+			BC.vis_color = rgb_int ? "#[num2hex(rgb_int, 6)]" : null
 			update_cell_image(B)
-			var/turf/above = GetAbove(B)
-			if(above && isopenspace(above))
-				update_cell_image(above)
+			var/is_surface = band >= FLUID_FULL
+			if(was_surface != is_surface || (is_surface && old_rgb != rgb_int))
+				var/turf/above = GetAbove(B)
+				if(above && isopenspace(above))
+					update_cell_image(above)
 
 /datum/controller/subsystem/processing/liquid/proc/convert_fluid_to_reagent(datum/liquid/fluid, amount, atom/container, turf/T)
 	return SSliquid.manager.convert_fluid_to_reagent(fluid, amount, container, T)

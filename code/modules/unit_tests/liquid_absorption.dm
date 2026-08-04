@@ -5,6 +5,7 @@
 		S.cell.InitLiquids()
 	var/datum/liquid/sand_water = S.cell.get_fluid_datum(WATER)
 	TEST_ASSERT_NOTNULL(sand_water, "sand turf must have a water fluid datum")
+	S.cell.sim_exempt = TRUE
 	S.cell.fluid_volume[sand_water] = LIQUID_ABSORPTION_MAX_DEPTH
 	SSliquid.update_fluidsum(S)
 	SSliquid.pool_manager.liquid_turfs[S] = TRUE
@@ -37,6 +38,7 @@
 		W.cell = new /cell(W)
 		W.cell.InitLiquids()
 	var/datum/liquid/deep_water = W.cell.get_fluid_datum(WATER)
+	W.cell.sim_exempt = TRUE
 	if(deep_water)
 		W.cell.fluid_volume[deep_water] = MIN_FLUID_VOLUME + 50
 	SSliquid.update_fluidsum(W)
@@ -51,3 +53,5 @@
 
 	SSliquid.clear_cell_fluid(S)
 	SSliquid.clear_cell_fluid(W)
+	S.cell.sim_exempt = FALSE
+	W.cell.sim_exempt = FALSE

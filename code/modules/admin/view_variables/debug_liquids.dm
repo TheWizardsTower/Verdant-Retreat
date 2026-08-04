@@ -145,6 +145,7 @@
 	data["flow_capped"] = flow_selection_capped
 
 	if(istype(selected) && selected.cell)
+		SSliquid.refresh_cell_types(selected)
 		var/cell/C = selected.cell
 		var/list/cdata = list()
 		cdata["x"] = selected.x

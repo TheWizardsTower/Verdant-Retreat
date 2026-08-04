@@ -11,6 +11,7 @@
 
 	C.cell.fluid_volume[water_fluid] = LIQUID_EVAP_THRESHOLD - 1
 	SSliquid.update_fluidsum(C)
+	SSliquid.sync_cell_to_native(C)
 	SSliquid.pool_manager.liquid_turfs[C] = TRUE
 
 	GLOB.tod = "night"
@@ -34,6 +35,7 @@
 	C.outdoor_effect.weatherproof = FALSE
 	C.cell.fluid_volume[water_fluid] = LIQUID_EVAP_THRESHOLD
 	SSliquid.update_fluidsum(C)
+	SSliquid.sync_cell_to_native(C)
 	SSliquid.pool_manager.evap_timer = 0
 	SSliquid.pool_manager.process_evaporation()
 	TEST_ASSERT_EQUAL(C.cell.fluidsum, LIQUID_EVAP_THRESHOLD, "fluid at or above the evaporation threshold must not evaporate")
@@ -41,6 +43,7 @@
 	GLOB.tod = "night"
 	C.cell.fluid_volume[water_fluid] = LIQUID_EVAP_THRESHOLD - 2
 	SSliquid.update_fluidsum(C)
+	SSliquid.sync_cell_to_native(C)
 	var/obj/machinery/light/rogue/campfire/fire = allocate(/obj/machinery/light/rogue/campfire)
 	if(!fire.on)
 		fire.fire_act()
