@@ -153,6 +153,13 @@ GLOBAL_LIST_INIT(blacklisted_automated_baseturfs, typecacheof(list(
 			else
 				lighting_clear_overlay()
 
+	// Fire props are reseeded on a real turf change only; a generic dirty mark
+	// (door toggle, furniture move) must never refill a half-burned tile's
+	// fuel. Runs last so the restored outdoor_effect is what gets read.
+	vn_fire_queue(VN_FIRE_OP_SET_FUEL, W, clamp(W.burn_power, 0, 255))
+	vn_fire_queue(VN_FIRE_OP_SET_SPREAD, W, clamp(W.spread_chance, 0, 15))
+	vn_fire_queue(VN_FIRE_OP_SET_EXPOSED, W, (W.outdoor_effect && !W.outdoor_effect.weatherproof) ? 1 : 0)
+
 	return W
 
 /turf/open/ChangeTurf(path, list/new_baseturfs, flags) //Resist the temptation to make this default to keeping air.

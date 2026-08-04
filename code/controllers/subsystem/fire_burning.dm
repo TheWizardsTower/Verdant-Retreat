@@ -34,6 +34,9 @@ SUBSYSTEM_DEF(fire_burning)
 				O.take_damage(15, BURN, "fire", 0)
 			else
 				O.extinguish()
+			var/turf/T = O.loc
+			if(isturf(T))
+				T.hotspot_expose()
 			if(!O.fire_burn_start)
 				O.fire_burn_start = world.time
 			if(world.time > O.fire_burn_start + 30 SECONDS)

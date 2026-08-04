@@ -74,6 +74,7 @@
 				opacity = initial(opacity)
 				obj_integrity = max_integrity
 				repair_started = FALSE
+				vn_mark_dirty(loc)
 				user.visible_message(span_notice("[user] repaired [src]."), \
 				span_notice("I repaired [src]."))
 	else if(obj_integrity < max_integrity && istype(I, repair_costs[1]))
@@ -293,6 +294,7 @@
 					climbable = TRUE
 					opacity = FALSE
 					update_icon()
+					vn_mark_dirty(loc)
 					var/obj/effect/track/structure/new_track = new(get_turf(src))
 					new_track.handle_creation(user)
 					user.visible_message(
@@ -322,12 +324,14 @@
 	climbable = TRUE
 	opacity = FALSE
 	update_icon()
+	vn_mark_dirty(loc)
 
 /obj/structure/roguewindow/proc/force_open()
 	playsound(src, 'sound/foley/doors/windowup.ogg', 100, FALSE)
 	climbable = TRUE
 	opacity = FALSE
 	update_icon()
+	vn_mark_dirty(loc)
 
 /obj/structure/roguewindow/proc/close_up(mob/user)
 	visible_message(span_info("[user] closes [src]."))
@@ -335,6 +339,7 @@
 	climbable = FALSE
 	opacity = TRUE
 	update_icon()
+	vn_mark_dirty(loc)
 
 
 /obj/structure/roguewindow/CanAStarPass(ID, to_dir, caller)
@@ -410,6 +415,7 @@
 		climbable = TRUE
 		brokenstate = TRUE
 		opacity = FALSE
+		vn_mark_dirty(loc)
 	update_icon()
 	..()
 

@@ -61,11 +61,6 @@
 	. = ..()
 	if(!isliving(AM))
 		return
-	if(water_overlay)
-		spawn(6)
-			if(!locate(/mob/living) in src)
-				water_overlay.layer = BELOW_MOB_LAYER
-				water_overlay.plane = GAME_PLANE
 	if(AM.throwing)
 		return
 	var/mob/living/user = AM
@@ -178,14 +173,6 @@
 					playsound(AM, 'sound/foley/waterenter.ogg', 100, FALSE)
 				else
 					playsound(AM, pick('sound/foley/watermove (1).ogg','sound/foley/watermove (2).ogg'), 100, FALSE)
-				if(istype(oldLoc, /turf/open/water))
-					water_overlay.layer = ABOVE_MOB_LAYER
-					water_overlay.plane = GAME_PLANE
-				else
-					spawn(6)
-						if(AM.loc == src)
-							water_overlay.layer = ABOVE_MOB_LAYER
-							water_overlay.plane = GAME_PLANE
 		if(!istype(L, /mob/living/carbon/human/species/skeleton))
 			return
 		if(!istype(src, /turf/open/water/sewer))

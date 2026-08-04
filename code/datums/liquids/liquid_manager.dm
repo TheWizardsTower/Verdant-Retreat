@@ -12,8 +12,6 @@
  * - Debugging and monitoring tools
  */
 
-GLOBAL_DATUM_INIT(liquid_manager, /datum/liquid_manager, new)
-
 /datum/liquid_manager
 	var/name = "Liquid Manager"
 
@@ -27,6 +25,8 @@ GLOBAL_DATUM_INIT(liquid_manager, /datum/liquid_manager, new)
 	if(!target_turf?.cell || !fluid_type || !isnum(amount) || amount <= 0)
 		return 0
 
+	if(target_turf.cell.fluidsum > 0) // a mirror-dry cell has nothing to reconcile; the engine clamps its own arithmetic
+		SSliquid.refresh_cell_types(target_turf)
 	var/datum/liquid/fluid_instance = get_liquid_instance(target_turf, fluid_type, TRUE)
 	if(!fluid_instance)
 		log_debug("Liquid Manager: Failed to get liquid instance for [fluid_type]")
@@ -36,10 +36,11 @@ GLOBAL_DATUM_INIT(liquid_manager, /datum/liquid_manager, new)
 	var/clamped_amount = clamp(int_amount, 0, MAX_FLUID_VOLUME - target_turf.cell.fluidsum)
 	target_turf.cell.fluid_volume[fluid_instance] += clamped_amount
 
-	// Update subsystem tracking
+	// Update subsystem tracking; the engine does its own arithmetic so a
+	// stale local total can never overwrite spread the engine already did
 	SSliquid.cell_index[target_turf] = TRUE
 	SSliquid.update_fluidsum(target_turf)
-	vn_fluid_queue(VN_FLUID_OP_SET, target_turf, vn_fluid_mat_id(fluid_instance), target_turf.cell.fluid_volume[fluid_instance])
+	vn_fluid_queue(VN_FLUID_OP_ADD, target_turf, vn_fluid_mat_id(fluid_instance), clamped_amount)
 
 	return clamped_amount
 
@@ -47,6 +48,7 @@ GLOBAL_DATUM_INIT(liquid_manager, /datum/liquid_manager, new)
 	if(!target_turf?.cell || !fluid_type || !isnum(amount) || amount <= 0)
 		return 0
 
+	SSliquid.refresh_cell_types(target_turf)
 	var/datum/liquid/fluid_instance = get_liquid_instance(target_turf, fluid_type)
 	if(!fluid_instance)
 		log_debug("Liquid Manager: Cannot remove fluid - no instance found for [fluid_type]")
@@ -58,9 +60,9 @@ GLOBAL_DATUM_INIT(liquid_manager, /datum/liquid_manager, new)
 
 	target_turf.cell.fluid_volume[fluid_instance] -= remove_amount
 
-	// Update subsystem tracking
+	// Update subsystem tracking; engine-side arithmetic, as in add_fluid
 	SSliquid.update_fluidsum(target_turf)
-	vn_fluid_queue(VN_FLUID_OP_SET, target_turf, vn_fluid_mat_id(fluid_instance), target_turf.cell.fluid_volume[fluid_instance])
+	vn_fluid_queue(VN_FLUID_OP_REMOVE, target_turf, vn_fluid_mat_id(fluid_instance), remove_amount)
 
 	return remove_amount
 
@@ -85,6 +87,7 @@ GLOBAL_DATUM_INIT(liquid_manager, /datum/liquid_manager, new)
 	if(!target_turf?.cell || !fluid_type)
 		return 0
 
+	SSliquid.refresh_cell_types(target_turf)
 	var/datum/liquid/fluid_instance = get_liquid_instance(target_turf, fluid_type)
 	if(!fluid_instance)
 		return 0
@@ -101,7 +104,8 @@ GLOBAL_DATUM_INIT(liquid_manager, /datum/liquid_manager, new)
 	if(!reagent_type || !container || !target_turf?.cell || !isnum(amount) || amount <= 0)
 		return 0
 
-	var/fluid_type = GLOB.liquid_registry.get_liquid_from_reagent(reagent_type)
+	var/fluid_type = SSliquid.registry.get_liquid_from_reagent(reagent_type)
+	SSliquid.refresh_cell_types(target_turf)
 	var/datum/liquid/fluid_instance = get_liquid_instance(target_turf, fluid_type, TRUE)
 	if(!fluid_instance)
 		log_debug("Liquid Manager: Failed to get liquid instance for [fluid_type]")
@@ -118,6 +122,7 @@ GLOBAL_DATUM_INIT(liquid_manager, /datum/liquid_manager, new)
 	container.reagents.remove_reagent(reagent_type, transfer_amount)
 
 	SSliquid.update_fluidsum(target_turf)
+	vn_fluid_queue(VN_FLUID_OP_ADD, target_turf, vn_fluid_mat_id(fluid_instance), transfer_amount)
 	SSliquid.update_cell_image(target_turf)
 	SSliquid.cell_index[target_turf] = TRUE
 
@@ -127,6 +132,7 @@ GLOBAL_DATUM_INIT(liquid_manager, /datum/liquid_manager, new)
 	if(!fluid_type || !container || !source_turf?.cell || !isnum(amount) || amount <= 0)
 		return 0
 
+	SSliquid.refresh_cell_types(source_turf)
 	var/datum/liquid/fluid_instance = get_liquid_instance(source_turf, fluid_type)
 	if(!fluid_instance)
 		log_debug("Liquid Manager: Failed to get liquid instance for [fluid_type] on [source_turf]")
@@ -149,6 +155,7 @@ GLOBAL_DATUM_INIT(liquid_manager, /datum/liquid_manager, new)
 	container.reagents.add_reagent(fluid_type.reagent, transfer_amount)
 
 	SSliquid.update_fluidsum(source_turf)
+	vn_fluid_queue(VN_FLUID_OP_REMOVE, source_turf, vn_fluid_mat_id(fluid_instance), transfer_amount)
 	SSliquid.update_cell_image(source_turf)
 
 	return transfer_amount

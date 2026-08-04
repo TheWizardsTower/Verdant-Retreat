@@ -10,7 +10,7 @@
 // take over. NEVER assume a native call succeeded.
 
 // ABI compatibility number; must match kAbi in the DLL's Exports.cpp.
-#define VERDANT_ABI 4
+#define VERDANT_ABI 6
 
 #ifndef VERDANT_NATIVE
 /* This comment bypasses grep checks */ /var/__verdant_native
@@ -39,8 +39,8 @@ GLOBAL_VAR_INIT(vn_safe_mode, FALSE)
 #define VN_CLS_NONE 0
 #define VN_CLS_DOOR 1			// unlocked mineral door
 #define VN_CLS_DOOR_LOCKED 2	// locked mineral door (bash cost via integrity annot)
-#define VN_CLS_CLIMB 3			// table / railing / chair / ladder body
-#define VN_CLS_WINDOW 4			// roguewindow, smashable
+#define VN_CLS_CLIMB 3			// table / railing / chair / ladder body / open or broken window
+#define VN_CLS_WINDOW 4			// intact closed roguewindow, smashable; seals fluid flow
 #define VN_CLS_DENSE_OBJ 5		// any other dense obj: impassable
 #define VN_CLS_UNSAFE 6			// can_traverse_safely() == FALSE (lava); never entered laterally
 #define VN_CLS_MASK 7			// bits 0-2 of a cell code hold the obstacle class
@@ -138,6 +138,7 @@ GLOBAL_VAR_INIT(vn_safe_mode, FALSE)
 
 #define vn_fluid_init call_ext(VERDANT_NATIVE, "byond:vn_fluid_init")
 #define vn_fluid_register_mat(name) call_ext(VERDANT_NATIVE, "byond:vn_fluid_register_mat")(name)
+#define vn_fluid_mat_color(id, rgb) call_ext(VERDANT_NATIVE, "byond:vn_fluid_mat_color")(id, rgb)
 /// edits: flat [op,x,y,z,a,b ...]; returns applied count
 #define vn_fluid_edit(edits) call_ext(VERDANT_NATIVE, "byond:vn_fluid_edit")(edits)
 #define vn_fluid_tick_begin call_ext(VERDANT_NATIVE, "byond:vn_fluid_tick_begin")
@@ -155,6 +156,44 @@ GLOBAL_VAR_INIT(vn_safe_mode, FALSE)
 GLOBAL_VAR_INIT(vn_liquid_edge_drain, TRUE)
 /// U-bend vertical surface equalization, applied the same way
 GLOBAL_VAR_INIT(vn_liquid_ubend, TRUE)
+
+// --- fire spread ---
+
+// edit ops (must match RTFireEngine::EditOp)
+#define VN_FIRE_OP_IGNITE 1			// a=level 1..3 (0 -> 1); no-op on fuel 0 or an already hotter cell
+#define VN_FIRE_OP_EXTINGUISH 2		// level -> 0, fuel kept
+#define VN_FIRE_OP_SET_FUEL 3		// a=fuel 0..255 (turf-change reseed)
+#define VN_FIRE_OP_SET_SPREAD 4		// a=spread 0..100
+#define VN_FIRE_OP_SET_EXPOSED 5	// a=0/1 (outdoor and not weatherproof)
+#define VN_FIRE_OP_ADD_FUEL 6		// a=amount; fuel clamped to 255
+
+/// Sizes itself from the grid mirror, which must be loaded first.
+#define vn_fire_init call_ext(VERDANT_NATIVE, "byond:vn_fire_init")
+/// props: 4 nibbles per cell, row-major x ascending — fuel-hi, fuel-lo, spread, flags(bit0 exposed)
+#define vn_fire_load_rows(z, y0, y1, props) call_ext(VERDANT_NATIVE, "byond:vn_fire_load_rows")(z, y0, y1, props)
+/// edits: flat [op,x,y,z,a ...]; returns applied count
+#define vn_fire_edit(edits) call_ext(VERDANT_NATIVE, "byond:vn_fire_edit")(edits)
+/// keys: douse_threshold, rain, seed
+#define vn_fire_config(key, value) call_ext(VERDANT_NATIVE, "byond:vn_fire_config")(key, value)
+#define vn_fire_tick_begin call_ext(VERDANT_NATIVE, "byond:vn_fire_tick_begin")
+/// -> [n_delta, (x,y,z,level)..., n_burnt, (x,y,z)...]
+/// or an empty list while the tick is still running
+#define vn_fire_tick_collect call_ext(VERDANT_NATIVE, "byond:vn_fire_tick_collect")
+/// -> [level, fuel, spread, flags]
+#define vn_fire_get(x, y, z) call_ext(VERDANT_NATIVE, "byond:vn_fire_get")(x, y, z)
+#define vn_fire_status call_ext(VERDANT_NATIVE, "byond:vn_fire_status")
+
+/// Queues an edit for the native fire engine; flushed by SSfire's fire.
+/// No-op until the engine is seeded, so writers can call unconditionally.
+/proc/vn_fire_queue(op, turf/T, a = 0)
+	if(!SSfire?.fire_ready || !istype(T))
+		return
+	var/list/q = SSfire.vn_edit_queue
+	q += op
+	q += T.x
+	q += T.y
+	q += T.z
+	q += a
 
 // --- behavior trees ---
 
@@ -272,8 +311,10 @@ GLOBAL_LIST_EMPTY(all_light_sources)
 // (it ships with can_fire = FALSE).
 /// static fluid typepath string, or dynamic reagent typepath string -> native mat id
 GLOBAL_LIST_EMPTY(vn_liquid_mats)
-/// "[mat id]" -> static fluid typepath, or dynamic reagent typepath
-GLOBAL_LIST_EMPTY(vn_liquid_mat_paths)
+/// mat id (numeric key) -> resolved static fluid typepath, or dynamic reagent
+/// typepath. An alist: numeric keys are legal and fast, but it cannot be
+/// for-looped or indexed positionally.
+GLOBAL_VAR_INIT(vn_liquid_mat_path_by_id, alist())
 /// dynamic reagent typepath string -> TRUE once on-demand registration has
 /// failed for it (budget exhausted, etc.) - stops repeat attempts.
 GLOBAL_LIST_EMPTY(vn_liquid_mat_failed)
@@ -312,8 +353,18 @@ GLOBAL_LIST_EMPTY(vn_liquid_mat_failed)
 		return 0
 
 	GLOB.vn_liquid_mats[key] = result
-	GLOB.vn_liquid_mat_paths["[result]"] = key
+	GLOB.vn_liquid_mat_path_by_id[result] = reagent_path
+	var/rgb_int = vn_color_rgb(initial(reagent_path:color))
+	if(rgb_int)
+		vn_fluid_mat_color(result, rgb_int)
 	return result
+
+/// "#RRGGBB(AA)" color string -> 0xRRGGBB int for the engine's blend math;
+/// 0 for anything unparsable.
+/proc/vn_color_rgb(color)
+	if(!istext(color) || length(color) < 7 || copytext(color, 1, 2) != "#")
+		return 0
+	return hex2num(copytext(color, 2, 8))
 
 /// Queues an edit for the native fluid engine; flushed by SSliquid's fire.
 /// No-op unless native fluids are live, so writers can call unconditionally.

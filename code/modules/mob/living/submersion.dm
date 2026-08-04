@@ -12,7 +12,7 @@
 				return SUBMERSION_NONE
 		return (prone || W.water_level == 3) ? SUBMERSION_FULL : SUBMERSION_PARTIAL
 	if(istype(T, /turf/open/floor/rogue/riverbot) || istype(T, /turf/open/floor/rogue/lakebed))
-		if(!T.cell || T.cell.fluidsum < 80)
+		if(!T.cell || T.cell.fluidsum < SUBMERSION_FLUID_THRESHOLD)
 			return SUBMERSION_NONE
 		return prone ? SUBMERSION_FULL : SUBMERSION_PARTIAL
 	if(isopenspace(T))
@@ -20,7 +20,7 @@
 			if(S.obj_flags & BLOCK_Z_OUT_DOWN)
 				return SUBMERSION_NONE
 		var/turf/below = GetBelow(T)
-		if(!below?.cell || below.cell.fluidsum < 80)
+		if(!below?.cell || below.cell.fluidsum < SUBMERSION_FLUID_THRESHOLD)
 			return SUBMERSION_NONE
 		return prone ? SUBMERSION_FULL : SUBMERSION_PARTIAL
 	return SUBMERSION_NONE

@@ -1,4 +1,3 @@
-GLOBAL_LIST_EMPTY(liquid_types)
 /cell
 	parent_type = /datum
 
@@ -19,26 +18,16 @@ GLOBAL_LIST_EMPTY(liquid_types)
 	var/is_liquid_sink = FALSE // Make this TRUE to make a turf despawn fluid.
 	var/absorption_rate = 0 // Amount of fluid deleted per processing loop by the sink.
 	var/last_fluid_level = 0 // Tracks the amount of fluid in the last processing loop. So we know if we need to update the icon or not.
+	var/vis_fluid_level = -1 // Fluid band the overlay currently shows, set by native band commits; -1 until the first commit
+	var/vis_mat = 0 // Dominant native mat id committed with the band
+	var/vis_rgb = 0 // Engine-blended 0xRRGGBB committed with the band; 0 = none
+	var/vis_color // "#RRGGBB" string built once per commit for redraws
 	var/last_fluid_time = 0 // When this turf last had significant fluid (for pool persistence)
 	var/doused = FALSE // Whether the standing-fluid douse event already fired for the current wetting
 
 	var/fluid_flags // A bitfield of flags for fluids. Look in code\__defines\liquid.dm for definitions.
 	var/coords/coords
 	var/pool_id = 0 // A numeric reference to the generic datum that is used as a wrapper to store a list of cells that form a pool. 0 means no pool.
-
-	// Fire and smoke system variables
-	var/fire_level = 0 // Intensity of fire (0-100)
-	var/fire_fuel = 0 // Available combustible material (0-100)
-	var/fire_temperature = T20C // Heat level in Celsius
-	var/smoke_density = 0 // Smoke concentration (0-100)
-	var/smoke_type = SMOKE_TYPE_FIRE // Type of smoke
-	var/oxygen_level = DEFAULT_OXYGEN_LEVEL // Local oxygen availability (0-100)
-	var/has_air = TRUE // Whether this cell has breathable atmosphere
-	var/vector/air_flow_vector // Direction/strength of local air movement
-	var/backdraft_potential = 0 // Accumulated unburned fuel from oxygen-starved fires
-	var/is_enclosed = FALSE // Whether this cell is in an enclosed space
-	var/fire_flags = 0 // Bitflags for fire states
-	var/last_fire_level = 0 // Previous fire level for optimization (following liquid pattern)
 
 /cell/New(turf/target_turf)
 	..()
@@ -47,35 +36,18 @@ GLOBAL_LIST_EMPTY(liquid_types)
 /cell/proc/InitLiquids()
 	fluid_volume = list()
 	fluid_flags = 0
-	for(var/fluid in GLOB.liquid_types)
+	for(var/fluid in SSliquid.registry.registered_liquids)
 		var/datum/liquid/newfluid = new fluid
 		if(newfluid.reagent)
 			newfluid.color = initial(newfluid.reagent:color)
 		fluid_volume[newfluid] = 0
 
-/cell/proc/InitFireSmoke()
-	// Initialize fire and smoke variables with default values
-	fire_level = 0
-	fire_fuel = 0
-	fire_temperature = T20C
-	smoke_density = 0
-	smoke_type = SMOKE_TYPE_FIRE
-	oxygen_level = DEFAULT_OXYGEN_LEVEL
-	has_air = TRUE
-	air_flow_vector = null
-	backdraft_potential = 0
-	is_enclosed = FALSE
-	fire_flags = 0
-	last_fire_level = 0
-
-	// Note: InitExtraLiquids() was removed as it was not intended for production use
-
 	// Cell API methods for safe fluid manipulation
 /cell/proc/add_fluid_safe(datum/liquid/fluid_type, amount)
-	return GLOB.liquid_manager.add_fluid(get_turf_from_cell(), fluid_type, amount)
+	return SSliquid.manager.add_fluid(get_turf_from_cell(), fluid_type, amount)
 
 /cell/proc/remove_fluid_safe(datum/liquid/fluid_type, amount)
-	return GLOB.liquid_manager.remove_fluid(get_turf_from_cell(), fluid_type, amount)
+	return SSliquid.manager.remove_fluid(get_turf_from_cell(), fluid_type, amount)
 
 /cell/proc/get_fluid_amount_safe(datum/liquid/fluid_type)
 	return GET_FLUID_AMOUNT(get_turf_from_cell(), fluid_type)
@@ -147,6 +119,14 @@ GLOBAL_LIST_EMPTY(liquid_types)
 
 /cell/proc/has_flow_modification()
 	return flow_dir != 0
+
+	// Must be used instead of writing contain_max directly: the subsystem
+	// counter lets the per-delta containment check short-circuit when no
+	// contained cells exist anywhere
+/cell/proc/set_contain_max(value)
+	if(!contain_max != !value)
+		SSliquid.contained_cells += value ? 1 : -1
+	contain_max = value
 
 	// Source/sink management
 /cell/proc/make_liquid_source(rate = 1, fluid_type = WATER)

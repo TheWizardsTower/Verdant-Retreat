@@ -67,6 +67,7 @@
 #define CLOSED_DOOR_LAYER 3.1
 #define CLOSED_FIREDOOR_LAYER 3.11
 #define SHUTTER_LAYER 3.12 // HERE BE DRAGONS
+#define WATER_OVER_ITEM_LAYER 3.05 // liquid overlay deep enough to swallow ground items (FLUID_LOW..FLUID_MEDIUM)
 #define ABOVE_OBJ_LAYER 3.2
 #define ABOVE_WINDOW_LAYER 3.3
 #define SIGN_LAYER 3.4

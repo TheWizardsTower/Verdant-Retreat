@@ -10,8 +10,6 @@ Main responsibilities include:
 - Acting as an extension for liquid behaviors
 */
 
-GLOBAL_DATUM_INIT(liquid_registry, /datum/liquid_registry, new)
-
 /datum/liquid_registry
 	var/name = "Liquid Registry"
 	var/list/registered_liquids
@@ -45,13 +43,8 @@ GLOBAL_DATUM_INIT(liquid_registry, /datum/liquid_registry, new)
 /datum/liquid_registry/proc/discover_liquid_types()
 	registered_liquids.Cut()
 
-	var/list/liquid_types = subtypesof(/datum/liquid)
-	for(var/liquid_type in liquid_types)
+	for(var/liquid_type in subtypesof(/datum/liquid))
 		register_liquid_type(liquid_type)
-
-	// Update global list for compatibility
-	if(length(GLOB.liquid_types) == 0)
-		GLOB.liquid_types = liquid_types.Copy()
 
 /datum/liquid_registry/proc/register_liquid_type(liquid_type)
 	if(!liquid_type)
@@ -289,7 +282,7 @@ GLOBAL_DATUM_INIT(liquid_registry, /datum/liquid_registry, new)
 	return stats
 
 // This helper function should be called in-game to validate the integrity of the liquid registry if there are any issues
-// It can be called by accessing GLOB.liquid_registry and calling the proc directly from the variable viewer.
+// It can be called by accessing SSliquid.registry and calling the proc directly from the variable viewer.
 /datum/liquid_registry/proc/validate_registry_integrity()
 	var/list/errors = list()
 
@@ -474,8 +467,8 @@ GLOBAL_DATUM_INIT(liquid_registry, /datum/liquid_registry, new)
 	if(!conductive_fluid || T[conductive_fluid] <= 0)
 		return FALSE
 
-	var/list/pool = GLOB.pool_manager.get_pool(T)
-	var/avg_fluid = GLOB.pool_manager.get_pool_avg_fluid(pool)
+	var/list/pool = SSliquid.pool_manager.get_pool(T)
+	var/avg_fluid = SSliquid.pool_manager.get_pool_avg_fluid(pool)
 
 	var/list/targets = list()
 	for(var/turf/P as anything in pool)
@@ -617,7 +610,7 @@ GLOBAL_DATUM_INIT(liquid_registry, /datum/liquid_registry, new)
 				continue
 
 			// Add the product liquid to the floor
-			var/datum/liquid/floor_liquid = GLOB.liquid_manager.get_liquid_instance(T, product_liquid.type, TRUE)
+			var/datum/liquid/floor_liquid = SSliquid.manager.get_liquid_instance(T, product_liquid.type, TRUE)
 			if(floor_liquid)
 				T.cell.fluid_volume[floor_liquid] = product.volume
 

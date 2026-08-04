@@ -1,0 +1,65 @@
+.theme-cellgame:root {
+  --color-base: #15151a;
+  --color-base-start: #15151a;
+  --color-base-end: #15151a;
+
+  --font-size: 12px;
+  --color-text: #e0e0e0;
+  --line-height: 150%;
+
+  --color-label: #b0b0b8;
+
+  .Layout__content {
+    background-image: none;
+  }
+
+  .TitleBar {
+    background-image: none;
+    background-color: #1c1c24;
+    box-shadow: none;
+    border-bottom: 1px solid #2a2a35;
+  }
+
+  .TitleBar__title {
+    padding-left: 12px;
+    font-size: 13px;
+    color: #e0e0e0;
+    font-weight: bolder;
+    letter-spacing: 0.08em;
+  }
+
+  --section-separator-color: #2a2a35;
+
+  .Section {
+    background-color: #1c1c24;
+  }
+
+  .Section__titleText {
+    text-transform: uppercase;
+    font-size: 11px;
+    letter-spacing: 0.1em;
+    color: #e0e0e0;
+  }
+
+  .Button {
+    --color-text: #d0d0d0;
+    --button-background-default: #25252e;
+    --button-background-selected: #3d3770;
+  }
+
+  .Button:hover {
+    background-color: #2f2f3a;
+  }
+
+  --input-border-color: #34343f;
+  --input-border-color-focus: #6a62a8;
+
+  .Divider {
+    border-color: #34343f;
+  }
+
+  .Window__contentPadding {
+    margin-left: 0.5rem;
+    margin-right: 0.5rem;
+  }
+}
