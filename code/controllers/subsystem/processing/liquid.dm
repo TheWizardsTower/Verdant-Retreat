@@ -39,7 +39,8 @@ PROCESSING_SUBSYSTEM_DEF(liquid)
 	var/datum/liquid_registry/registry
 	var/datum/liquid_manager/manager
 	var/datum/pool_manager/pool_manager
-	var/list/overlay_appearance_cache = list() // (state|dir|color|alpha|layer|plane) -> mutable_appearance; one appearance assignment per redraw instead of six var writes
+	var/list/overlay_appearance_cache = list() // visual tuple -> render_target string of its master
+	var/list/liquid_render_masters = list()
 
 	// The simulation runs in verdant_native; DM keeps the per-type /cell
 	// caches in sync from the engine's per-tick deltas and forwards every 
@@ -54,6 +55,7 @@ PROCESSING_SUBSYSTEM_DEF(liquid)
 	var/list/vn_res_queue = list() // collected payloads awaiting drain, FIFO
 	var/vn_pending_cursor = 0 // cursor into the head payload
 	var/vn_pending_deltas_left = -1 // deltas left in the head payload; -1 = head not yet opened
+	var/vn_pending_backlog = 0 // fluidsum records across the whole queue
 
 /datum/controller/subsystem/processing/liquid/PreInit()
 	if(!registry)
@@ -318,30 +320,52 @@ PROCESSING_SUBSYSTEM_DEF(liquid)
 		return live
 	return C.vis_fluid_level
 
-/// One appearance assignment per redraw: every var write to an overlay
-/// rebuilds its appearance, so the target fields are folded into a cached
-/// mutable_appearance keyed on their tuple. A nonzero darken_band builds the
-/// color as a lightness matrix (~7% darker per band) over the base hex; the
-/// matrix is derived entirely from (ncolor, darken_band) so the key stays a
-/// plain string.
+/atom/movable/screen/liquid_render_source
+	icon = 'icons/turf/newwater.dmi'
+	screen_loc = "CENTER"
+	mouse_opacity = MOUSE_OPACITY_TRANSPARENT
+
+/// One shared master renders each visual combination once; every overlay
+/// showing it just points render_source at the master and positions itself
+/// with its own layer/plane.
+/datum/controller/subsystem/processing/liquid/proc/overlay_render_target(state, ndir, ncolor, darken_band, nalpha)
+	var/key = "[state]|[ndir]|[ncolor]|[darken_band]|[nalpha]"
+	var/target = overlay_appearance_cache[key]
+	if(target)
+		return target
+	if(length(overlay_appearance_cache) > 512)
+		for(var/atom/movable/screen/liquid_render_source/old as anything in liquid_render_masters)
+			for(var/client/C as anything in GLOB.clients)
+				C?.screen -= old
+			qdel(old)
+		liquid_render_masters = list()
+		overlay_appearance_cache = list()
+	target = "*LIQ:[key]"
+	var/atom/movable/screen/liquid_render_source/M = new
+	M.icon_state = state
+	M.dir = ndir
+	if(istext(ncolor) && darken_band > 0)
+		M.color = color_matrix_multiply(color_hex2color_matrix(ncolor), color_matrix_lightness_mult(max(1 - (0.035 * darken_band), 0)))
+	else
+		M.color = ncolor
+	M.alpha = nalpha
+	M.render_target = target
+	liquid_render_masters += M
+	for(var/client/C as anything in GLOB.clients)
+		C?.screen += M
+	overlay_appearance_cache[key] = target
+	return target
+
 /datum/controller/subsystem/processing/liquid/proc/apply_overlay_appearance(obj/effect/liquid/OV, state, ndir, ncolor, darken_band, nalpha, nlayer, nplane)
-	var/key = "[state]|[ndir]|[ncolor]|[darken_band]|[nalpha]|[nlayer]|[nplane]"
-	var/mutable_appearance/MA = overlay_appearance_cache[key]
-	if(!MA)
-		if(length(overlay_appearance_cache) > 512)
-			overlay_appearance_cache = list()
-		MA = new /mutable_appearance(OV)
-		MA.icon_state = state
-		MA.dir = ndir
-		if(istext(ncolor) && darken_band > 0)
-			MA.color = color_matrix_multiply(color_hex2color_matrix(ncolor), color_matrix_lightness_mult(max(1 - (0.07 * darken_band), 0)))
-		else
-			MA.color = ncolor
-		MA.alpha = nalpha
-		MA.layer = nlayer
-		MA.plane = nplane
-		overlay_appearance_cache[key] = MA
-	OV.appearance = MA
+	if(nalpha <= 0)
+		OV.render_source = null
+		OV.alpha = 0
+		return
+	OV.render_source = overlay_render_target(state, ndir, ncolor, darken_band, nalpha)
+	OV.color = null
+	OV.alpha = 255
+	OV.layer = nlayer
+	OV.plane = nplane
 
 /// Registry singleton for a static native mat id; null for dynamics (their
 /// display color always arrives via the committed vis_rgb).
@@ -369,6 +393,11 @@ PROCESSING_SUBSYSTEM_DEF(liquid)
 	var/obj/effect/liquid/OV = T.liquid_overlay
 
 	var/ncolor = cell_vis_color(T.cell)
+	if(!ncolor && T.cell?.fluidsum)
+		// no committed color yet (boot, dry-wet snapthrough): the local
+		// vector is fresh enough for a first tint
+		var/datum/liquid/mostfluid = T.get_highest_fluid_by_volume()
+		ncolor = mostfluid?.color
 
 	var/live_level = get_fluid_level(T)
 	var/fluid_level = get_vis_fluid_level(T, live_level)
@@ -393,7 +422,7 @@ PROCESSING_SUBSYSTEM_DEF(liquid)
 
 	var/state = "together-NEW"
 	var/ndir = OV.dir
-	if(T.cell?.flow_dir && (istype(T, /turf/open/water) || istype(T, /turf/open/floor/rogue/riverbot) || istype(T, /turf/open/floor/rogue/lakebed)))
+	if(T.cell?.flow_dir)
 		state = "rivermove"
 		ndir = T.cell.flow_dir
 
@@ -404,10 +433,10 @@ PROCESSING_SUBSYSTEM_DEF(liquid)
 		nplane = GAME_PLANE_HIGHEST
 	else if(fluid_level >= FLUID_HIGH)
 		nlayer = BELOW_MOB_LAYER
-		nplane = GAME_PLANE
+		nplane = GAME_PLANE_HIGHEST
 	else if(fluid_level >= FLUID_LOW)
 		nlayer = WATER_OVER_ITEM_LAYER
-		nplane = GAME_PLANE
+		nplane = FLOOR_PLANE
 	else
 		nlayer = BELOW_MOB_LAYER
 		nplane = FLOOR_PLANE
@@ -415,12 +444,12 @@ PROCESSING_SUBSYSTEM_DEF(liquid)
 	var/nalpha = 0
 	switch(fluid_level)
 		if(FLUID_VERY_LOW) nalpha = 200
-		if(FLUID_LOW) nalpha = 211
-		if(FLUID_MEDIUM) nalpha = 222
-		if(FLUID_HIGH) nalpha = 233
-		if(FLUID_VERY_HIGH) nalpha = 244
-		if(FLUID_FULL) nalpha = 255
-		if(FLUID_OVERFLOW) nalpha = 255
+		if(FLUID_LOW) nalpha = 207
+		if(FLUID_MEDIUM) nalpha = 214
+		if(FLUID_HIGH) nalpha = 221
+		if(FLUID_VERY_HIGH) nalpha = 228
+		if(FLUID_FULL) nalpha = 235
+		if(FLUID_OVERFLOW) nalpha = 235
 
 	apply_overlay_appearance(OV, state, ndir, ncolor, fluid_level, nalpha, nlayer, nplane)
 
@@ -477,7 +506,6 @@ PROCESSING_SUBSYSTEM_DEF(liquid)
 	vn_check_result(vn_fluid_config("band5", FLUID_BAND_EDGE_5), "fluid_config_band5")
 	vn_check_result(vn_fluid_config("band6", FLUID_BAND_EDGE_6), "fluid_config_band6")
 	vn_check_result(vn_fluid_config("vis_hold_ticks", LIQUID_VIS_HOLD_TICKS), "fluid_config_vis_hold")
-	vn_check_result(vn_fluid_config("max_deltas", LIQUID_MAX_DELTAS_PER_TICK), "fluid_config_max_deltas")
 
 	// bulk sync: everything with fluid plus sources/sinks/flow overrides
 	var/list/edits = list()
@@ -500,6 +528,17 @@ PROCESSING_SUBSYSTEM_DEF(liquid)
 			return FALSE
 
 	vn_native_fluids_ready = TRUE
+
+	// first paint: engine band commits trickle in under the delta cap, so
+	// render the synced state immediately instead of fading in over minutes
+	for(var/turf/T as anything in seen)
+		if(!T?.cell || T.cell.fluidsum < MIN_FLUID_VOLUME)
+			continue
+		update_cell_image(T)
+		var/turf/above = GetAbove(T)
+		if(above && isopenspace(above))
+			update_cell_image(above)
+
 	log_world("verdant_native: fluid engine live ([length(GLOB.vn_liquid_mats)] mats, [length(seen)] wet cells synced)")
 	return TRUE
 
@@ -529,6 +568,8 @@ PROCESSING_SUBSYSTEM_DEF(liquid)
 		return
 	if(length(res))
 		vn_res_queue += list(res)
+		vn_pending_backlog += res[1]
+		NativeApplyTail(res, 2 + res[1] * 4)
 	if(length(vn_res_queue))
 		NativeDrainPending()
 
@@ -547,26 +588,24 @@ PROCESSING_SUBSYSTEM_DEF(liquid)
 	SSliquid.pool_manager.process_rain_injection()
 	SSliquid.pool_manager.process_wet_updates()
 
-/// Drains queued payloads under the per-fire delta budget; each payload's
-/// tail sections (events, falls, bands) apply when its delta section is
-/// exhausted. With two or more payloads queued the budget stretches to at
-/// least the whole head, so the backlog converges at every load level.
+/// Drains queued fluidsum records. Tails (events, falls, band commits) were
+/// already applied at enqueue, so only the volume mirror waits here; the
+/// budget stretches with the backlog so it converges within a few fires at
+/// any arrival rate.
 /datum/controller/subsystem/processing/liquid/proc/NativeDrainPending()
-	var/budget = LIQUID_APPLY_DELTAS_PER_FIRE
+	var/budget = max(LIQUID_APPLY_DELTAS_PER_FIRE, round(vn_pending_backlog / 4) + 1)
 	while(length(vn_res_queue))
 		var/list/res = vn_res_queue[1]
 		if(vn_pending_deltas_left < 0)
-			vn_pending_cursor = 2
 			vn_pending_deltas_left = res[1]
-		if(length(vn_res_queue) >= 2)
-			budget = max(budget, vn_pending_deltas_left)
+			vn_pending_cursor = 2
 		while(vn_pending_deltas_left > 0)
 			if(budget <= 0)
 				return
 			vn_pending_cursor = NativeApplyDelta(res, vn_pending_cursor)
 			vn_pending_deltas_left--
+			vn_pending_backlog--
 			budget--
-		NativeApplyTail(res, vn_pending_cursor)
 		vn_res_queue.Cut(1, 2)
 		vn_pending_deltas_left = -1
 		vn_pending_cursor = 0
@@ -620,7 +659,7 @@ PROCESSING_SUBSYSTEM_DEF(liquid)
 	// owns the redraw and this one would produce an identical appearance
 	if(level != old_level && C.vis_fluid_level <= FLUID_EMPTY)
 		update_cell_image(T)
-	if((old_sum >= SUBMERSION_FLUID_THRESHOLD) != (sum >= SUBMERSION_FLUID_THRESHOLD) && (istype(T, /turf/open/floor/rogue/riverbot) || istype(T, /turf/open/floor/rogue/lakebed)))
+	if(old_sum != sum && (old_sum > SUBMERSION_PRONE_FLUID_THRESHOLD || sum > SUBMERSION_PRONE_FLUID_THRESHOLD))
 		for(var/mob/living/L in T)
 			L.update_submersion()
 		var/turf/above_T = GetAbove(T)
@@ -727,8 +766,8 @@ PROCESSING_SUBSYSTEM_DEF(liquid)
 
 /obj/effect/water/trim
 	icon = 'icons/turf/newwater.dmi'
-	plane = FLOOR_PLANE
-	layer = BELOW_MOB_LAYER
+	plane = GAME_PLANE_HIGHEST
+	layer = ABOVE_MOB_LAYER
 	mouse_opacity = 0
 
 /obj/effect/water/trim/Initialize(mapload, direction)
@@ -786,19 +825,20 @@ PROCESSING_SUBSYSTEM_DEF(liquid)
 			changes_needed = TRUE
 			break
 
-	// Only update vis_contents if changes are actually needed
+	// render_source replaces this overlay's own rendering including its
+	// vis_contents, so trims live directly on the turf instead
 	if(changes_needed)
-		// Remove trims that are no longer needed
 		for(var/direction in GLOB.cardinals)
 			if(current_trim_dirs["[direction]"] && !needed_trim_dirs["[direction]"])
-				vis_contents -= trims["[direction]"]
+				var/obj/effect/water/trim/gone = trims["[direction]"]
+				gone?.moveToNullspace()
 				current_trim_dirs["[direction]"] = FALSE
 
-			// Add trims that are newly needed
 			else if(!current_trim_dirs["[direction]"] && needed_trim_dirs["[direction]"])
 				if(!trims["[direction]"])
 					trims["[direction]"] = new /obj/effect/water/trim(null, direction)
-				vis_contents += trims["[direction]"]
+				var/obj/effect/water/trim/shown = trims["[direction]"]
+				shown.forceMove(here)
 				current_trim_dirs["[direction]"] = TRUE
 
 

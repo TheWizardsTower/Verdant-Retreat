@@ -59,8 +59,10 @@
 #define SUBMERSION_FULL 2
 
 #define SUBMERSION_FILTER_ID "submersion_mask"
-#define SUBMERSION_MASK_OFFSET_PARTIAL 16
-#define SUBMERSION_MASK_OFFSET_FULL -8
+// icon_cutter's solid band spans the bottom 32px of its 64px frame, so an
+// offset O hides sprite rows 1..(32+O): waterline height = 32 + O
+#define SUBMERSION_MASK_OFFSET_WADE -26 // ankle-height waterline
+#define SUBMERSION_MASK_OFFSET_FULL -2 // neck/over-head waterline (matches the hotspring's proven offset)
 
 //Breath pool, used by /mob/living/carbon/var/breath_remaining
 #define BREATH_BASE_TIME (15 SECONDS)

@@ -17,10 +17,10 @@
 #define LIQUID_DOUSE_THRESHOLD 5 // fluid depth at which ground-level fires are snuffed
 #define LIQUID_DOUSE_STANDING_THRESHOLD 50 // fluid depth at which waist and chest-level fires are snuffed
 #define LIQUID_VIS_HOLD_TICKS 4 // A fluid-level band change must persist this many engine ticks before the overlay shows it
-#define LIQUID_MAX_DELTAS_PER_TICK 50 // Engine-side per-tick ceiling on reported volume deltas and band commits; a flood burst queues in the engine (stalest-first, coalescing) so DM apply cost stays bounded
 #define LIQUID_SWEEP_SLICE 6000 // Max wet turfs a periodic absorption/reaction pass visits per fire; the cursor rotates until the sweep completes, then the interval timer rearms
-#define LIQUID_APPLY_DELTAS_PER_FIRE 60 // Max native deltas applied per fire; the rest of a payload carries over so one collect never spikes the tick. When two payloads are queued the drain covers at least the whole head so the backlog always converges.
+#define LIQUID_APPLY_DELTAS_PER_FIRE 400 // Max native fluidsum records applied per fire; the rest of a payload carries over so one collect never spikes the tick. Band/event/fall tails apply the moment a payload opens, so visuals never wait on the volume drain.
 #define SUBMERSION_FLUID_THRESHOLD 80 // fluid depth on a bottom-z bed turf at which mobs there (or on the openspace above) submerge
+#define SUBMERSION_PRONE_FLUID_THRESHOLD FLUID_BAND_EDGE_1 // a prone mob fully submerges in anything deeper than a puddle
 
 // Fluid level defines for use by the fluid subsystem, these are pretty arbitrary and the actual fluidsum is checked by SSliquid. Use the macro: GET_FLUID_LEVEL(turf)
 // Band edges are shared with the native engine (pushed as band1..band6 config at init) - fluidsum <= edge N is band N
