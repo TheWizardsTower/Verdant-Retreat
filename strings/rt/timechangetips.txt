@@ -79,7 +79,7 @@ Zenitstadt is the second largest city in Grenzelhoft, and home to their famous f
 Malum used to carry a divine hammer that gave life to all material things Scarlet Reach was built upon. It is now lost to history.
 Carrion-beasts, cheeles, and nagas are sacred to Pestra. Those who slay them are often punished with terrible plagues.
 Eora stands for far more than familial love, but frowns upon those who break matrimony.
-Sex can be treated as an act of worship to Eora, and temple prostitution is not unheard of. Infidelity, however, will quickly garner the vicious ire of even the most gentle Eoran cult.
+Sex can be treated as an act of worship to Eora, and temple prostitution is common. Infidelity, however, will quickly garner the vicious ire of even the most gentle Eoran cult.
 Eora's spheres encompass sex, love, blood and motherhood. A common Eoran tradition is for the bethrothed to slit open the palm and mix blood with their partner, to symbolize an eternal commitment.
 Love is thought to be carried from the heart through the blood. It is believed among some that blood that mixes is proof of compatibility, and blood that coagulates means that it's probably time to see other people.
 What better trick than stealing fire from Astrata herself?
@@ -110,7 +110,7 @@ The Otavan Inquisition's expertise with torture and blood magic comes in no smal
 THE INQUISITION IS ALL VAMPIRES AND THAT'S WHY THEY WANT YOUR BLOOD. THINK ABOUT IT.
 The Murderwoods stretch all the way from Aemerlond deep into Grenzelhoft. Deep in the forest, fae dwell.
 The elven Black Oak clan once called this duchy home. Their remnants occasionally pepper unfortunate travellers with arrows.
-The firmament is weakest in Scarlet Reach, where the COMET SYON landed, and the dark-star Graggar thrashes, entombed underneath the earth. More gods have bled here than mortal men.
+The firmament is weakest in Scarlet Reach, where the COMET SYON landed, and the dark-star Graggar thrashes, entombed underneath the earth. More gods have bled here than mortal men. It has long since crumbled.
 It is said that Astrata once took the form of a mortal, having fallen in love with a prince named Antero, and ultimately sacrificed Her mortal form to protect her child from Necra's clutches. It did not work.
 The sprawling tundra of Aavnr is the homeland of the Orc race. Few travel there willingly. 
 Vampyres are sun-cursed creechers spawned from Astrata's ill-fated attempt at a family. She has forgiven none of the Pantheon for this. Not Noc, not Xylix, and not Necra.
@@ -118,7 +118,7 @@ A comet capable of rending all the enemies of humanity apart; oh, how graceful H
 Dragons are holy symbols of Matthios—incarnations of greed and stolen sunfyre. To slay one is a holy, and often suicidal, task.
 Merchants and the rich are often viewed with suspicion of Matthiosite heresy by the Inquisition. Except, of course, for nobility, who have divine right to wealth.
 The Ten will have you think He is powerless, and the Four that he is dead; but all He asks of you is for your faith to ENDURE.
-The powerful nation of Otava is home to a radical denomination that venerates PSYDON above all, seeing the TEN as mere fragments of True Divinity. Scarlet Reach is home to a small enclave of this Psydonian Order.
+The once-powerful nation of Otava is home to a radical denomination that venerates PSYDON above all, seeing the TEN as mere fragments of True Divinity. Scarlet Reach supposedly holds one of the last fragments of this Psydonian Order 
 The land of Naledi borders on ruin- demonic taint and starless skies. Their people emigrate en masse, weeping as He does.
 The duchy of Aemerlond is colloquially known as Scarlet Reach, for its verdant red flora.
 It is thought in the wake of the last war between Grenzelhoft and Otava, so much blood was spilled it forever dyed the grass of the reach red.
@@ -162,7 +162,7 @@ ASTRATA is law made manifest and must be respected, lest society fall into chaos
 THERE IS A TUMOR DIRECTLY BEHIND MY LEFT EYEBALL; I NEED TO REACH IN AND CLAW IT OUT BEFORE IT FUCKING EATS ME.
 Rot piled up to my ankles, smell of death, quietly-crept decay from the weeping God 'neath I.
 Harpies are blessed by their patron-goddess Eora, and famous for their entrancing art, beautiful song, and incredible ability to steal everything in sight.
-Guns are never going to happen.
+Guns might happen.
 No pursuit was too perilous, no sacrifice too great. Until, well...
 Under the Heavens and the Many Stars, there are darker things than men may dream of.
 Golems and Dolls can be upgraded with skill exhibitors, either fabricated by an engineer or purchased. Some say the usage of these tools is an affront to Golems' original design.

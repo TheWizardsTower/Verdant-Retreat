@@ -735,7 +735,7 @@
 	if(!user.is_literate())
 		. += "I have no idea what it says."
 	else
-		. += "It says \"SCARLET REACH\""
+		. += "It says \"[SSmapping.config.map_name]\""
 
 /obj/structure/fluff/buysign
 	icon_state = "signwrote"
@@ -831,6 +831,7 @@
 	blade_dulling = DULLING_BASH
 	max_integrity = 300
 	dir = SOUTH
+	blocks_emissive = EMISSIVE_BLOCK_GENERIC
 
 /obj/structure/fluff/statue/OnCrafted(dirin, user)
 	dirin = turn(dirin, 180)

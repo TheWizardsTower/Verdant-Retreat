@@ -2,6 +2,7 @@
 	name = "bolt of nothing"
 	icon_state = "energy"
 	damage = 0
+	blocks_emissive = FALSE
 	damage_type = OXY
 	nodamage = TRUE
 	armor_penetration = 100
@@ -9,13 +10,9 @@
 	flag = "magic"
 	var/explode_sound = list('sound/misc/explode/incendiary (1).ogg','sound/misc/explode/incendiary (2).ogg')
 	var/mob/living/carbon/human/sender
+	plane = ABOVE_LIGHTING_PLANE
 
 
-/obj/projectile/magic/Initialize()
-	. = ..()
-	var/mutable_appearance/glowybit = mutable_appearance(icon_state, icon, plane = EMISSIVE_PLANE)
-	glowybit.alpha = CLAMP(light_power*250, 30, 200)
-	add_overlay(glowybit)
 /obj/projectile/magic/death
 	name = "bolt of death"
 	icon_state = "pulse1_bl"

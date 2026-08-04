@@ -319,10 +319,13 @@ PROCESSING_SUBSYSTEM_DEF(liquid)
 	return C.vis_fluid_level
 
 /// One appearance assignment per redraw: every var write to an overlay
-/// rebuilds its appearance, so the six target fields are folded into a
-/// cached mutable_appearance keyed on their tuple.
-/datum/controller/subsystem/processing/liquid/proc/apply_overlay_appearance(obj/effect/liquid/OV, state, ndir, ncolor, nalpha, nlayer, nplane)
-	var/key = "[state]|[ndir]|[ncolor]|[nalpha]|[nlayer]|[nplane]"
+/// rebuilds its appearance, so the target fields are folded into a cached
+/// mutable_appearance keyed on their tuple. A nonzero darken_band builds the
+/// color as a lightness matrix (~7% darker per band) over the base hex; the
+/// matrix is derived entirely from (ncolor, darken_band) so the key stays a
+/// plain string.
+/datum/controller/subsystem/processing/liquid/proc/apply_overlay_appearance(obj/effect/liquid/OV, state, ndir, ncolor, darken_band, nalpha, nlayer, nplane)
+	var/key = "[state]|[ndir]|[ncolor]|[darken_band]|[nalpha]|[nlayer]|[nplane]"
 	var/mutable_appearance/MA = overlay_appearance_cache[key]
 	if(!MA)
 		if(length(overlay_appearance_cache) > 512)
@@ -330,7 +333,10 @@ PROCESSING_SUBSYSTEM_DEF(liquid)
 		MA = new /mutable_appearance(OV)
 		MA.icon_state = state
 		MA.dir = ndir
-		MA.color = ncolor
+		if(istext(ncolor) && darken_band > 0)
+			MA.color = color_matrix_multiply(color_hex2color_matrix(ncolor), color_matrix_lightness_mult(max(1 - (0.07 * darken_band), 0)))
+		else
+			MA.color = ncolor
 		MA.alpha = nalpha
 		MA.layer = nlayer
 		MA.plane = nplane
@@ -362,7 +368,7 @@ PROCESSING_SUBSYSTEM_DEF(liquid)
 	T.ensure_liquid_overlay()
 	var/obj/effect/liquid/OV = T.liquid_overlay
 
-	var/ncolor = cell_vis_color(T.cell) || OV.color
+	var/ncolor = cell_vis_color(T.cell)
 
 	var/live_level = get_fluid_level(T)
 	var/fluid_level = get_vis_fluid_level(T, live_level)
@@ -376,16 +382,16 @@ PROCESSING_SUBSYSTEM_DEF(liquid)
 			if(below.cell.flow_dir && (istype(below, /turf/open/floor/rogue/riverbot) || istype(below, /turf/open/floor/rogue/lakebed)))
 				state = "rivermove"
 				ndir = below.cell.flow_dir
-			apply_overlay_appearance(OV, state, ndir, ncolor, 205, OV.layer, OV.plane)
+			apply_overlay_appearance(OV, state, ndir, ncolor, 0, 205, OV.layer, OV.plane)
 			if(below.cell.is_liquid_source && T.cell && !T.cell.is_liquid_sink)
 				T.cell.make_liquid_sink(100)
 		else
-			apply_overlay_appearance(OV, OV.icon_state, OV.dir, OV.color, 0, OV.layer, OV.plane)
+			apply_overlay_appearance(OV, OV.icon_state, OV.dir, null, 0, 0, OV.layer, OV.plane)
 			if(T.cell?.is_liquid_sink)
 				T.cell.remove_liquid_sink()
 		return
 
-	var/state = "together"
+	var/state = "together-NEW"
 	var/ndir = OV.dir
 	if(T.cell?.flow_dir && (istype(T, /turf/open/water) || istype(T, /turf/open/floor/rogue/riverbot) || istype(T, /turf/open/floor/rogue/lakebed)))
 		state = "rivermove"
@@ -408,15 +414,15 @@ PROCESSING_SUBSYSTEM_DEF(liquid)
 
 	var/nalpha = 0
 	switch(fluid_level)
-		if(FLUID_VERY_LOW) nalpha = 80
-		if(FLUID_LOW) nalpha = 100
-		if(FLUID_MEDIUM) nalpha = 115
-		if(FLUID_HIGH) nalpha = 145
-		if(FLUID_VERY_HIGH) nalpha = 185
-		if(FLUID_FULL) nalpha = 205
-		if(FLUID_OVERFLOW) nalpha = 235
+		if(FLUID_VERY_LOW) nalpha = 200
+		if(FLUID_LOW) nalpha = 211
+		if(FLUID_MEDIUM) nalpha = 222
+		if(FLUID_HIGH) nalpha = 233
+		if(FLUID_VERY_HIGH) nalpha = 244
+		if(FLUID_FULL) nalpha = 255
+		if(FLUID_OVERFLOW) nalpha = 255
 
-	apply_overlay_appearance(OV, state, ndir, ncolor, nalpha, nlayer, nplane)
+	apply_overlay_appearance(OV, state, ndir, ncolor, fluid_level, nalpha, nlayer, nplane)
 
 	if((T.cell.last_fluid_level < live_level) && (live_level >= FLUID_FULL) || (T.cell.last_fluid_level > live_level) && (live_level < FLUID_FULL))
 		var/list/queue = list()

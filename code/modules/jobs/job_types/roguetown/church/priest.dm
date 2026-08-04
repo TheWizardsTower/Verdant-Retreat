@@ -402,7 +402,7 @@ GLOBAL_LIST_EMPTY(heretical_players)
 	if(!(devotion && devotion.devotion >= 500))
 		to_chat(src, span_warning("I need more devotion to channel Her voice! (500 required)"))
 		return FALSE
-	var/inputty = input("Make an announcement", "SCARLET REACH") as text|null
+	var/inputty = input("Make an announcement", "[SSmapping.config.map_name]") as text|null
 	if(inputty)
 		if(!istype(get_area(src), /area/rogue/indoors/town/church/chapel))
 			to_chat(src, span_warning("I need to do this from the chapel."))

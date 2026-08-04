@@ -117,6 +117,7 @@
 	var/obj/item/ssaddle
 	var/simple_detect_bonus = 0 // A flat percentage bonus to our ability to detect sneaking people only. Use in lieu of giving mobs huge STAPER bonuses if you want them to be observant.
 	var/aggressive = 0
+	blocks_emissive = EMISSIVE_BLOCK_UNIQUE
 
 /obj/item/natural/bone
 	name = "bone"
