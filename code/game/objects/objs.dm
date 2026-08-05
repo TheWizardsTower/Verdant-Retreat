@@ -82,6 +82,7 @@
 		obj_integrity = max_integrity
 
 	. = ..() //Do this after, else mat datums is mad.
+	update_submersion_cut()
 
 	if (set_obj_flags)
 		var/flagslist = splittext(set_obj_flags,";")

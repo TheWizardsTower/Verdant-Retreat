@@ -432,20 +432,11 @@ PROCESSING_SUBSYSTEM_DEF(liquid)
 		state = "rivermove"
 		ndir = T.cell.flow_dir
 
-	var/nlayer
-	var/nplane
+	var/nlayer = WATER_OVERLAY_LAYER
+	var/nplane = FLOOR_PLANE
 	if((fluid_level >= FLUID_FULL && isopenspace(GetAbove(T))) || istype(T, /turf/open/floor/rogue/riverbot) || istype(T, /turf/open/floor/rogue/lakebed))
 		nlayer = ABOVE_MOB_LAYER
 		nplane = GAME_PLANE_HIGHEST
-	else if(fluid_level >= FLUID_HIGH)
-		nlayer = BELOW_MOB_LAYER
-		nplane = GAME_PLANE_HIGHEST
-	else if(fluid_level >= FLUID_LOW)
-		nlayer = WATER_OVER_ITEM_LAYER
-		nplane = FLOOR_PLANE
-	else
-		nlayer = BELOW_MOB_LAYER
-		nplane = FLOOR_PLANE
 
 	var/nalpha = 0
 	switch(fluid_level)
@@ -668,10 +659,14 @@ PROCESSING_SUBSYSTEM_DEF(liquid)
 	if(old_sum != sum && (old_sum > SUBMERSION_PRONE_FLUID_THRESHOLD || sum > SUBMERSION_PRONE_FLUID_THRESHOLD))
 		for(var/mob/living/L in T)
 			L.update_submersion()
+		for(var/obj/O in T)
+			O.update_submersion_cut()
 		var/turf/above_T = GetAbove(T)
 		if(above_T && isopenspace(above_T))
 			for(var/mob/living/L in above_T)
 				L.update_submersion()
+			for(var/obj/O in above_T)
+				O.update_submersion_cut()
 	vn_deltas_applied++
 	return cur
 

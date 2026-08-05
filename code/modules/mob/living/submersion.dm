@@ -77,10 +77,38 @@
 /mob/living/proc/is_submerged()
 	return submersion_level != SUBMERSION_NONE
 
+/proc/submersion_mask_offset(depth)
+	return clamp(SUBMERSION_MASK_OFFSET_WADE + (depth - SUBMERSION_PRONE_FLUID_THRESHOLD) * (SUBMERSION_MASK_OFFSET_FULL - SUBMERSION_MASK_OFFSET_WADE) / (100 - SUBMERSION_PRONE_FLUID_THRESHOLD), SUBMERSION_MASK_OFFSET_WADE, SUBMERSION_MASK_OFFSET_FULL)
+
 /mob/living/proc/update_submersion_filter()
 	if(submersion_depth <= SUBMERSION_PRONE_FLUID_THRESHOLD)
 		remove_filter(SUBMERSION_FILTER_ID)
 		return
-	var/depth_offset = clamp(SUBMERSION_MASK_OFFSET_WADE + (submersion_depth - SUBMERSION_PRONE_FLUID_THRESHOLD) * (SUBMERSION_MASK_OFFSET_FULL - SUBMERSION_MASK_OFFSET_WADE) / (100 - SUBMERSION_PRONE_FLUID_THRESHOLD), SUBMERSION_MASK_OFFSET_WADE, SUBMERSION_MASK_OFFSET_FULL)
-	add_filter(SUBMERSION_FILTER_ID, 1, alpha_mask_filter(0, depth_offset, icon('icons/effects/icon_cutter.dmi', "icon_cutter"), null, MASK_INVERSE))
+	add_filter(SUBMERSION_FILTER_ID, 1, alpha_mask_filter(0, submersion_mask_offset(submersion_depth), icon('icons/effects/icon_cutter.dmi', "icon_cutter"), null, MASK_INVERSE))
 	update_vision_cone()
+
+/turf/proc/fluid_depth()
+	if(isopenspace(src))
+		var/turf/below = GetBelow(src)
+		return below?.cell ? below.cell.fluidsum : 0
+	return cell ? cell.fluidsum : 0
+
+/turf/open/water/fluid_depth()
+	if(water_level <= 1)
+		return 0
+	return water_level >= 3 ? 100 : 85
+
+/obj/proc/update_submersion_cut()
+	var/turf/T = loc
+	var/depth = isturf(T) ? T.fluid_depth() : 0
+	if(depth <= SUBMERSION_PRONE_FLUID_THRESHOLD)
+		remove_filter(SUBMERSION_FILTER_ID)
+		return
+	add_filter(SUBMERSION_FILTER_ID, 1, alpha_mask_filter(0, submersion_mask_offset(depth), icon('icons/effects/icon_cutter.dmi', "icon_cutter"), null, MASK_INVERSE))
+
+/obj/effect/update_submersion_cut()
+	return
+
+/obj/Moved(atom/old_loc, movement_dir, forced)
+	. = ..()
+	update_submersion_cut()
