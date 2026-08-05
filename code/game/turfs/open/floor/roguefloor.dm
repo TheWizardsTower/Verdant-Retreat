@@ -15,8 +15,6 @@
 /turf/open/floor/rogue/Initialize()
 	if(prettifyturf)
 		dir = pick(GLOB.cardinals)
-	fertility = SSnoisemap.gradient_noise.get2(x/0.01,y/0.01)
-	maptext = fertility
 	. = ..()
 
 /turf/open/floor/rogue/twig
@@ -338,6 +336,9 @@
 	spread_chance = 15
 	burn_power = 6
 	prettifyturf = TRUE
+/turf/open/floor/rogue/grass/Initialize()
+	. = ..()
+	AddComponent(/datum/component/fertility)
 
 /turf/open/floor/rogue/dirt/ambush
 	name = "dirt"
@@ -372,6 +373,11 @@
 	var/obj/structure/closet/dirthole/holie
 	var/dirt_amt = 3
 	prettifyturf = TRUE
+
+/turf/open/floor/rogue/dirt/Initialize()
+	. = ..()
+	AddComponent(/datum/component/fertility)
+
 /turf/open/floor/rogue/dirt/get_slowdown(mob/user)
 	. = ..()
 	var/negate_slowdown = FALSE

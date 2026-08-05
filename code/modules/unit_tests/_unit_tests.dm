@@ -103,7 +103,6 @@
 #include "subsystem_init.dm"
 #include "timer_sanity.dm"
 #include "unit_test.dm"
-#include "water_overlay_mask.dm"
 // END_INCLUDE
 #ifdef REFERENCE_TRACKING_DEBUG //Don't try and parse this file if ref tracking isn't turned on. IE: don't parse ref tracking please mr linter
 #include "find_reference_sanity.dm"
