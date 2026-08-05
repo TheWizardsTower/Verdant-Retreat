@@ -327,6 +327,7 @@
 		minv = min(minv, sum)
 		maxv = max(maxv, sum)
 		if(P.cell)
+			SSliquid.refresh_cell_types(P)
 			for(var/datum/liquid/F as anything in P.cell.fluid_volume)
 				var/amt = P.cell.fluid_volume[F]
 				if(amt > 0)
@@ -435,6 +436,7 @@
 		if("add")
 			SSliquid.manager.add_fluid(T, fluid_path, amount)
 		if("erase")
+			SSliquid.refresh_cell_types(T)
 			for(var/datum/liquid/F as anything in T.cell.fluid_volume)
 				if(T.cell.fluid_volume[F] > 0)
 					SSliquid.manager.remove_fluid(T, F, amount)

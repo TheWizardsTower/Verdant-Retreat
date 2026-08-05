@@ -39,8 +39,8 @@ SUBSYSTEM_DEF(input)
 		"F1", "F2", "F3", "F4", "F5", "F6", "F7", "F8", "F9", "F10", "F11", "F12",
 		)
 	for(var/key in classic_mode_keys)
-		macroset_classic_input[key] = "\"KeyDown [key]\""
-		macroset_classic_input["[key]+UP"] = "\"KeyUp [key]\""
+		macroset_classic_input[key] = "\"KeyDown \\\"[key]\\\"\""
+		macroset_classic_input["[key]+UP"] = "\"KeyUp \\\"[key]\\\"\""
 	// LET'S PLAY THE BIND EVERY KEY GAME!
 	// oh except for Backspace and Enter; if you want to use those you shouldn't have used oldmode!
 	var/list/classic_ctrl_override_keys = list(
@@ -55,8 +55,8 @@ SUBSYSTEM_DEF(input)
 	// let's play the list iteration game x2
 	for(var/key in classic_ctrl_override_keys)
 		// make sure to double double quote to ensure things are treated as a key combo instead of addition/semicolon logic.
-		macroset_classic_input["\"Ctrl+[key]\""] = "\"KeyDown [istext(classic_ctrl_override_keys[key])? classic_ctrl_override_keys[key] : key]\""
-		macroset_classic_input["\"Ctrl+[key]+UP\""] = "\"KeyUp [istext(classic_ctrl_override_keys[key])? classic_ctrl_override_keys[key] : key]\""
+		macroset_classic_input["\"Ctrl+[key]\""] = "\"KeyDown \\\"[istext(classic_ctrl_override_keys[key])? classic_ctrl_override_keys[key] : key]\\\"\""
+		macroset_classic_input["\"Ctrl+[key]+UP\""] = "\"KeyUp \\\"[istext(classic_ctrl_override_keys[key])? classic_ctrl_override_keys[key] : key]\\\"\""
 	// Misc
 	macroset_classic_input["Tab"] = "\".winset \\\"mainwindow.macro=[SKIN_MACROSET_CLASSIC_HOTKEYS] map.focus=true input.background-color=[COLOR_INPUT_DISABLED]\\\"\""
 	macroset_classic_input["Escape"] = "\".winset \\\"input.text=\\\"\\\"\\\"\""
@@ -64,8 +64,8 @@ SUBSYSTEM_DEF(input)
 	// FINALLY, WE CAN DO SOMETHING MORE NORMAL FOR THE SNOWFLAKE-BUT-LESS KEYSET.
 
 	macroset_classic_hotkey = list(
-	"Any" = "\"KeyDown \[\[*\]\]\"",
-	"Any+UP" = "\"KeyUp \[\[*\]\]\"",
+	"Any" = "\"KeyDown \\\"\[\[*\]\]\\\"\"",
+	"Any+UP" = "\"KeyUp \\\"\[\[*\]\]\\\"\"",
 	"Tab" = "\".winset \\\"mainwindow.macro=[SKIN_MACROSET_CLASSIC_INPUT] input.focus=true input.background-color=[COLOR_INPUT_ENABLED]\\\"\"",
 	"Escape" = "\".winset \\\"input.text=\\\"\\\"\\\"\"",
 	"Back" = "\".winset \\\"input.text=\\\"\\\"\\\"\"",
@@ -73,8 +73,8 @@ SUBSYSTEM_DEF(input)
 
 	// And finally, the modern set.
 	macroset_hotkey = list(
-	"Any" = "\"KeyDown \[\[*\]\]\"",
-	"Any+UP" = "\"KeyUp \[\[*\]\]\"",
+	"Any" = "\"KeyDown \\\"\[\[*\]\]\\\"\"",
+	"Any+UP" = "\"KeyUp \\\"\[\[*\]\]\\\"\"",
 	"Tab" = "\".winset \\\"input.focus=true?map.focus=true input.background-color=[COLOR_INPUT_DISABLED]:input.focus=true input.background-color=[COLOR_INPUT_ENABLED]\\\"\"",
 	"Escape" = "\".winset \\\"input.text=\\\"\\\"\\\"\"",
 	"Back" = "\".winset \\\"input.text=\\\"\\\"\\\"\"",

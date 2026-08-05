@@ -162,10 +162,9 @@ SUBSYSTEM_DEF(mapping)
 	water_bed_turfs.Cut()
 	if(!length(plugged))
 		return
-	log_water_gen("Water generation found [length(plugged)] unsealed turf\s bordering generated river/lake beds:")
+	log_world("WATER GENERATION DETECTED A MAPPING ERROR: [length(plugged)] unsealed turf\s bordering generated river/lake beds:")
 	for(var/entry in plugged)
-		log_water_gen(entry)
-	log_world("WATER GENERATION DETECTED A MAPPING ERROR. SEE LOGS AT [GLOB.world_water_gen_log] FOR DETAILS.")
+		log_world(entry)
 
 /datum/controller/subsystem/mapping/proc/calculate_default_z_level_gravities()
 	for(var/z_level in 1 to length(z_list))

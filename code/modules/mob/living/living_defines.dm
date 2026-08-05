@@ -11,6 +11,7 @@
 	var/resize = 1 //Badminnery resize
 	var/underwater_bobbing = FALSE
 	var/submersion_level = SUBMERSION_NONE
+	var/submersion_depth = 0
 	var/lastattacker = null
 	var/lastattackerckey = null
 	var/last_attack_was_blunted = FALSE // Track if the last attack was blunted by armor

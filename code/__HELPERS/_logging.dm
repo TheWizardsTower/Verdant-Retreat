@@ -195,9 +195,6 @@
 /proc/log_mapping(text)
 	WRITE_LOG(GLOB.world_map_error_log, "\[[logtime]] [text]")
 
-/proc/log_water_gen(text)
-	WRITE_LOG(GLOB.world_water_gen_log, "\[[logtime]] WATERGEN: [text]")
-
 /proc/log_character(text)
 	WRITE_LOG(GLOB.character_list_log, "\[[logtime]] [text]")
 

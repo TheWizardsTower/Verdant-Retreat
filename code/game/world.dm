@@ -176,7 +176,6 @@ GLOBAL_VAR(restart_counter)
 	GLOB.sql_error_log = "[GLOB.log_directory]/sql.log"
 	GLOB.world_qdel_log = "[GLOB.log_directory]/qdel.log"
 	GLOB.world_map_error_log = "[GLOB.log_directory]/map_errors.log"
-	GLOB.world_water_gen_log = "[GLOB.log_directory]/water_generation.log"
 	GLOB.character_list_log = "[GLOB.log_directory]/character_list.log"
 	GLOB.world_runtime_log = "[GLOB.log_directory]/runtime.log"
 	GLOB.query_debug_log = "[GLOB.log_directory]/query_debug.log"

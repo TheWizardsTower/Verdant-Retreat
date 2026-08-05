@@ -12,9 +12,13 @@
 				return SUBMERSION_NONE
 		return (prone || W.water_level == 3) ? SUBMERSION_FULL : SUBMERSION_PARTIAL
 	if(istype(T, /turf/open/floor/rogue/riverbot) || istype(T, /turf/open/floor/rogue/lakebed))
-		if(!T.cell || T.cell.fluidsum < SUBMERSION_FLUID_THRESHOLD)
+		if(!T.cell)
 			return SUBMERSION_NONE
-		return prone ? SUBMERSION_FULL : SUBMERSION_PARTIAL
+		if(prone && T.cell.fluidsum > SUBMERSION_PRONE_FLUID_THRESHOLD)
+			return SUBMERSION_FULL
+		if(T.cell.fluidsum < SUBMERSION_FLUID_THRESHOLD)
+			return SUBMERSION_NONE
+		return T.cell.fluidsum >= MAX_FLUID_VOLUME ? SUBMERSION_FULL : SUBMERSION_PARTIAL
 	if(isopenspace(T))
 		for(var/obj/structure/S in T)
 			if(S.obj_flags & BLOCK_Z_OUT_DOWN)
@@ -23,15 +27,44 @@
 		if(!below?.cell || below.cell.fluidsum < SUBMERSION_FLUID_THRESHOLD)
 			return SUBMERSION_NONE
 		return prone ? SUBMERSION_FULL : SUBMERSION_PARTIAL
+	if(!T.cell)
+		return SUBMERSION_NONE
+	if(prone && T.cell.fluidsum > SUBMERSION_PRONE_FLUID_THRESHOLD)
+		return SUBMERSION_FULL
+	if(T.cell.fluidsum >= SUBMERSION_FLUID_THRESHOLD)
+		return T.cell.fluidsum >= MAX_FLUID_VOLUME ? SUBMERSION_FULL : SUBMERSION_PARTIAL
 	return SUBMERSION_NONE
+
+/mob/living/proc/compute_submersion_depth()
+	var/turf/T = loc
+	if(!isturf(T) || is_floor_hazard_immune())
+		return 0
+	if(istype(T, /turf/open/water))
+		var/turf/open/water/W = T
+		if(W.water_level <= 1)
+			return 0
+		for(var/obj/structure/S in T)
+			if(S.obj_flags & BLOCK_Z_OUT_DOWN)
+				return 0
+		return W.water_level >= 3 ? 100 : 85
+	if(isopenspace(T))
+		for(var/obj/structure/S in T)
+			if(S.obj_flags & BLOCK_Z_OUT_DOWN)
+				return 0
+		var/turf/below = GetBelow(T)
+		return below?.cell ? below.cell.fluidsum : 0
+	return T.cell ? T.cell.fluidsum : 0
 
 /mob/living/proc/update_submersion()
 	var/new_level = compute_submersion_level()
-	if(new_level == submersion_level)
+	var/new_depth = compute_submersion_depth()
+	if(new_level == submersion_level && new_depth == submersion_depth)
 		return
 	var/old_level = submersion_level
 	submersion_level = new_level
-	SEND_SIGNAL(src, COMSIG_LIVING_SUBMERSION_CHANGED, old_level, new_level)
+	submersion_depth = new_depth
+	if(old_level != new_level)
+		SEND_SIGNAL(src, COMSIG_LIVING_SUBMERSION_CHANGED, old_level, new_level)
 	refresh_submersion_effects(old_level, new_level)
 
 /mob/living/proc/refresh_submersion_effects(old_level, new_level)
@@ -44,10 +77,52 @@
 /mob/living/proc/is_submerged()
 	return submersion_level != SUBMERSION_NONE
 
+/proc/submersion_mask_offset(depth)
+	return clamp(SUBMERSION_MASK_OFFSET_WADE + (depth - SUBMERSION_PRONE_FLUID_THRESHOLD) * (SUBMERSION_MASK_OFFSET_FULL - SUBMERSION_MASK_OFFSET_WADE) / (100 - SUBMERSION_PRONE_FLUID_THRESHOLD), SUBMERSION_MASK_OFFSET_WADE, SUBMERSION_MASK_OFFSET_FULL)
+
 /mob/living/proc/update_submersion_filter()
-	if(submersion_level == SUBMERSION_NONE)
+	if(submersion_depth <= SUBMERSION_PRONE_FLUID_THRESHOLD)
 		remove_filter(SUBMERSION_FILTER_ID)
 		return
-	var/depth_offset = (submersion_level == SUBMERSION_FULL) ? SUBMERSION_MASK_OFFSET_FULL : SUBMERSION_MASK_OFFSET_PARTIAL
-	add_filter(SUBMERSION_FILTER_ID, 1, alpha_mask_filter(0, depth_offset, icon('icons/effects/icon_cutter.dmi', "icon_cutter"), null, MASK_INVERSE))
+	add_filter(SUBMERSION_FILTER_ID, 1, alpha_mask_filter(0, submersion_mask_offset(submersion_depth), icon('icons/effects/icon_cutter.dmi', "icon_cutter"), null, MASK_INVERSE))
 	update_vision_cone()
+
+/turf/proc/fluid_depth()
+	if(isopenspace(src))
+		var/turf/below = GetBelow(src)
+		return below?.cell ? below.cell.fluidsum : 0
+	return cell ? cell.fluidsum : 0
+
+/turf/open/water/fluid_depth()
+	if(water_level <= 1)
+		return 0
+	return water_level >= 3 ? 100 : 85
+
+/obj/proc/update_submersion_cut()
+	var/turf/T = loc
+	var/depth = isturf(T) ? T.fluid_depth() : 0
+	if(depth <= SUBMERSION_PRONE_FLUID_THRESHOLD)
+		remove_filter(SUBMERSION_FILTER_ID)
+		return
+	if(smoothing_flags || submersion_tiled)
+		var/turf/S = get_step(src, SOUTH)
+		for(var/obj/O in S)
+			if((O.smoothing_flags || O.submersion_tiled) && (istype(O, type) || istype(src, O.type)))
+				remove_filter(SUBMERSION_FILTER_ID)
+				return
+	var/half = 16
+	if(icon)
+		var/key = "[icon]"
+		half = SSliquid.icon_half_heights[key]
+		if(isnull(half))
+			var/icon/I = icon(icon)
+			half = I.Height() / 2
+			SSliquid.icon_half_heights[key] = half
+	add_filter(SUBMERSION_FILTER_ID, 1, alpha_mask_filter(0, submersion_mask_offset(depth) + 16 - half - pixel_y, icon('icons/effects/icon_cutter.dmi', "icon_cutter"), null, MASK_INVERSE))
+
+/obj/effect/update_submersion_cut()
+	return
+
+/obj/Moved(atom/old_loc, movement_dir, forced)
+	. = ..()
+	update_submersion_cut()

@@ -3,11 +3,15 @@
 
 	var/turf/rb = run_loc_top_right.ChangeTurf(/turf/open/floor/rogue/riverbot, null, CHANGETURF_IGNORE_AIR)
 	TEST_ASSERT_NOTNULL(rb.cell, "riverbot must have a liquid cell")
-	TEST_ASSERT(rb.cell.fluidsum >= 80, "riverbot cell must be full")
+	rb.cell.sim_exempt = TRUE
+	var/datum/liquid/rb_water = rb.cell.get_fluid_datum(WATER)
+	TEST_ASSERT_NOTNULL(rb_water, "riverbot must have a water fluid datum")
+	rb.cell.fluid_volume[rb_water] = SUBMERSION_FLUID_THRESHOLD + 10
+	SSliquid.update_fluidsum(rb)
 
 	H.forceMove(rb)
 	H.update_submersion()
-	TEST_ASSERT_EQUAL(H.submersion_level, SUBMERSION_PARTIAL, "standing human on a full riverbot must read as partially submerged")
+	TEST_ASSERT_EQUAL(H.submersion_level, SUBMERSION_PARTIAL, "standing human in chest-deep water must read as partially submerged")
 
 	H.setOxyLoss(0)
 	H.holding_breath = FALSE
@@ -18,6 +22,11 @@
 	H.handle_choke_recovery()
 	TEST_ASSERT_EQUAL(H.getOxyLoss(), 0, "standing (partial) submersion while not holding must not deal drowning damage")
 	TEST_ASSERT_EQUAL(H.breath_remaining, pre_breath, "standing (partial) submersion while not holding must not drain breath")
+
+	rb.cell.fluid_volume[rb_water] = MAX_FLUID_VOLUME
+	SSliquid.update_fluidsum(rb)
+	H.update_submersion()
+	TEST_ASSERT_EQUAL(H.submersion_level, SUBMERSION_FULL, "standing in over-head water must read as fully submerged")
 
 	H.set_resting(TRUE)
 	H.update_submersion()
@@ -52,6 +61,8 @@
 	H.handle_roguebreath()
 	H.handle_choke_recovery()
 	TEST_ASSERT(H.getOxyLoss() > 0, "running out of held breath while still fully submerged must begin drowning damage within the following tick")
+
+	rb.cell.sim_exempt = FALSE
 
 /datum/unit_test/drowning_lethality/Run()
 	var/mob/living/carbon/human/H = allocate(/mob/living/carbon/human)
