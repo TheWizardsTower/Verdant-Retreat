@@ -104,7 +104,21 @@
 	if(depth <= SUBMERSION_PRONE_FLUID_THRESHOLD)
 		remove_filter(SUBMERSION_FILTER_ID)
 		return
-	add_filter(SUBMERSION_FILTER_ID, 1, alpha_mask_filter(0, submersion_mask_offset(depth), icon('icons/effects/icon_cutter.dmi', "icon_cutter"), null, MASK_INVERSE))
+	if(smoothing_flags || submersion_tiled)
+		var/turf/S = get_step(src, SOUTH)
+		for(var/obj/O in S)
+			if((O.smoothing_flags || O.submersion_tiled) && (istype(O, type) || istype(src, O.type)))
+				remove_filter(SUBMERSION_FILTER_ID)
+				return
+	var/half = 16
+	if(icon)
+		var/key = "[icon]"
+		half = SSliquid.icon_half_heights[key]
+		if(isnull(half))
+			var/icon/I = icon(icon)
+			half = I.Height() / 2
+			SSliquid.icon_half_heights[key] = half
+	add_filter(SUBMERSION_FILTER_ID, 1, alpha_mask_filter(0, submersion_mask_offset(depth) + 16 - half - pixel_y, icon('icons/effects/icon_cutter.dmi', "icon_cutter"), null, MASK_INVERSE))
 
 /obj/effect/update_submersion_cut()
 	return

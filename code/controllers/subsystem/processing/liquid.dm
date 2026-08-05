@@ -41,6 +41,7 @@ PROCESSING_SUBSYSTEM_DEF(liquid)
 	var/datum/pool_manager/pool_manager
 	var/list/overlay_appearance_cache = list() // visual tuple -> render_target string of its master
 	var/list/liquid_render_masters = list()
+	var/list/icon_half_heights = list()
 
 	// The simulation runs in verdant_native; DM keeps the per-type /cell
 	// caches in sync from the engine's per-tick deltas and forwards every 

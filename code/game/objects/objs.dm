@@ -7,6 +7,8 @@
 	var/obj_flags_ignore = FALSE
 	var/set_obj_flags // ONLY FOR MAPPING: Sets flags from a string list, handled in Initialize. Usage: set_obj_flags = "EMAGGED;!CAN_BE_HIT" to set EMAGGED and clear CAN_BE_HIT.
 
+	var/submersion_tiled = FALSE
+
 	var/damtype = BRUTE
 	var/force = 0
 	//a modifier to an item's damage against structures
