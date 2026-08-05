@@ -457,6 +457,7 @@ Main responsibilities include:
 	if(!C || !T || !T.cell)
 		return FALSE
 
+	SSliquid.refresh_cell_types(T)
 	// Find any conductive liquid on this turf
 	var/datum/liquid/conductive_fluid = null
 	for(var/datum/liquid/fluid as anything in T.cell.fluid_volume)
@@ -514,6 +515,7 @@ Main responsibilities include:
 	if(!T?.cell)
 		return FALSE
 
+	SSliquid.refresh_cell_types(T)
 	// Find any flammable liquid on this turf
 	var/datum/liquid/flammable_fluid = null
 	var/total_flammable_amount = 0

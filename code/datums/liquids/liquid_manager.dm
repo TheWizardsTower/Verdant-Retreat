@@ -192,6 +192,7 @@
 /datum/liquid_manager/proc/get_fluid_volume_safe(turf/target_turf, datum/liquid/fluid_instance)
 	if(!target_turf?.cell || !fluid_instance)
 		return 0
+	SSliquid.refresh_cell_types(target_turf)
 	return target_turf.cell.fluid_volume[fluid_instance]
 
 // Internal helper for safe fluid volume modification
@@ -206,6 +207,7 @@
 	if(!target_turf?.cell)
 		return null
 
+	SSliquid.refresh_cell_types(target_turf)
 	return target_turf.get_highest_fluid_by_volume()
 
 /datum/liquid_manager/proc/has_fluid_type(turf/target_turf, datum/liquid/fluid_type)
@@ -215,6 +217,7 @@
 	if(!target_turf?.cell)
 		return list()
 
+	SSliquid.refresh_cell_types(target_turf)
 	var/list/fluid_list = list()
 	for(var/datum/liquid/fluid in target_turf.cell.fluid_volume)
 		if(target_turf.cell.fluid_volume[fluid] > 0)

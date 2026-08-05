@@ -80,19 +80,7 @@
 /mob/living/proc/update_submersion_filter()
 	if(submersion_depth <= SUBMERSION_PRONE_FLUID_THRESHOLD)
 		remove_filter(SUBMERSION_FILTER_ID)
-		if(!isnull(submersion_saved_layer))
-			layer = submersion_saved_layer
-			plane = submersion_saved_plane
-			submersion_saved_layer = null
-			submersion_saved_plane = null
 		return
 	var/depth_offset = clamp(SUBMERSION_MASK_OFFSET_WADE + (submersion_depth - SUBMERSION_PRONE_FLUID_THRESHOLD) * (SUBMERSION_MASK_OFFSET_FULL - SUBMERSION_MASK_OFFSET_WADE) / (100 - SUBMERSION_PRONE_FLUID_THRESHOLD), SUBMERSION_MASK_OFFSET_WADE, SUBMERSION_MASK_OFFSET_FULL)
 	add_filter(SUBMERSION_FILTER_ID, 1, alpha_mask_filter(0, depth_offset, icon('icons/effects/icon_cutter.dmi', "icon_cutter"), null, MASK_INVERSE))
-	// the masked body renders above the water sheet so the uncut part
-	// visibly emerges from it
-	if(isnull(submersion_saved_layer))
-		submersion_saved_layer = layer
-		submersion_saved_plane = plane
-	plane = GAME_PLANE_HIGHEST
-	layer = ABOVE_MOB_LAYER + 0.1
 	update_vision_cone()

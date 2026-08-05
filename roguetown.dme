@@ -364,6 +364,12 @@
 #include "code\controllers\subsystem\mobs.dm"
 #include "code\controllers\subsystem\music_update.dm"
 #include "code\controllers\subsystem\native.dm"
+#ifdef VN_SELFTEST
+#include "code\controllers\subsystem\native_tests.dm"
+#endif
+#ifdef VN_BENCH
+#include "code\controllers\subsystem\stress_tests.dm"
+#endif
 #include "code\controllers\subsystem\nightshift.dm"
 #include "code\controllers\subsystem\overlays.dm"
 #include "code\controllers\subsystem\parallax.dm"

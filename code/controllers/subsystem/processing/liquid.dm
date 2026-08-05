@@ -79,10 +79,13 @@ PROCESSING_SUBSYSTEM_DEF(liquid)
 	cell_index = new
 	sleeping_cells = new
 
+	var/cells_created = 0
 	for(var/turf/T in world) // You can't stop me from doing this. No one can stop me from doing this. Mwahahaha
 		if(!T.cell)
 			T.cell = new /cell(T)
 			T.cell.InitLiquids()
+			cells_created++
+	log_world("SSliquid: cell pass created [cells_created] cells ([world.maxx]x[world.maxy]x[world.maxz] world)")
 
 /datum/controller/subsystem/processing/liquid/fire(resumed = 0, no_mc_tick = FALSE)
 	if(!VN_OK)
@@ -288,6 +291,9 @@ PROCESSING_SUBSYSTEM_DEF(liquid)
 /turf/liquid_source/Initialize()
 	. = ..()
 	SSliquid.liquid_sources += src
+	if(!cell)
+		cell = new /cell(src)
+		cell.InitLiquids()
 	cell.is_liquid_source = TRUE
 	cell.production_rate = 1  // Amount of liquid produced per tick
 
@@ -345,7 +351,7 @@ PROCESSING_SUBSYSTEM_DEF(liquid)
 	M.icon_state = state
 	M.dir = ndir
 	if(istext(ncolor) && darken_band > 0)
-		M.color = color_matrix_multiply(color_hex2color_matrix(ncolor), color_matrix_lightness_mult(max(1 - (0.035 * darken_band), 0)))
+		M.color = color_matrix_multiply(color_hex2color_matrix(ncolor), color_matrix_lightness_mult(max(1 - (0.07 * darken_band), 0)))
 	else
 		M.color = ncolor
 	M.alpha = nalpha
@@ -444,12 +450,12 @@ PROCESSING_SUBSYSTEM_DEF(liquid)
 	var/nalpha = 0
 	switch(fluid_level)
 		if(FLUID_VERY_LOW) nalpha = 200
-		if(FLUID_LOW) nalpha = 207
-		if(FLUID_MEDIUM) nalpha = 214
-		if(FLUID_HIGH) nalpha = 221
-		if(FLUID_VERY_HIGH) nalpha = 228
-		if(FLUID_FULL) nalpha = 235
-		if(FLUID_OVERFLOW) nalpha = 235
+		if(FLUID_LOW) nalpha = 211
+		if(FLUID_MEDIUM) nalpha = 222
+		if(FLUID_HIGH) nalpha = 233
+		if(FLUID_VERY_HIGH) nalpha = 244
+		if(FLUID_FULL) nalpha = 255
+		if(FLUID_OVERFLOW) nalpha = 255
 
 	apply_overlay_appearance(OV, state, ndir, ncolor, fluid_level, nalpha, nlayer, nplane)
 
@@ -698,6 +704,10 @@ PROCESSING_SUBSYSTEM_DEF(liquid)
 		var/rgb_int = res[cur + 5]
 		cur += 6
 		var/cell/BC = B?.cell
+		if(!BC && B) // first record for a turf on a z loaded after the cell pass
+			BC = new /cell(B)
+			B.cell = BC
+			BC.InitLiquids()
 		if(BC && (BC.vis_fluid_level != band || BC.vis_mat != mat || BC.vis_rgb != rgb_int))
 			var/was_surface = BC.vis_fluid_level >= FLUID_FULL
 			var/old_rgb = BC.vis_rgb
