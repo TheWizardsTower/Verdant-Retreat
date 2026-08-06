@@ -98,27 +98,48 @@
 		return 0
 	return water_level >= 3 ? 100 : 85
 
+/obj/effect/waterline
+	name = ""
+	icon = 'icons/turf/newwater.dmi'
+	icon_state = "together-NEW"
+	layer = FLOAT_LAYER
+	plane = FLOAT_PLANE
+	mouse_opacity = MOUSE_OPACITY_TRANSPARENT
+	appearance_flags = RESET_COLOR|RESET_ALPHA|RESET_TRANSFORM
+
+/obj/effect/waterline/proc/set_waterline(obj/effect/liquid/source, offset_x, offset_y)
+	var/static/icon/cutter = icon('icons/effects/icon_cutter.dmi', "icon_cutter")
+	if(source)
+		appearance = source.appearance
+	transform = null
+	layer = FLOAT_LAYER
+	plane = FLOAT_PLANE
+	mouse_opacity = MOUSE_OPACITY_TRANSPARENT
+	appearance_flags = RESET_COLOR|RESET_ALPHA|RESET_TRANSFORM
+	filters = alpha_mask_filter(offset_x, offset_y, cutter)
+
+/obj/proc/clear_waterline()
+	if(!waterline_overlay)
+		return
+	vis_contents -= waterline_overlay
+	QDEL_NULL(waterline_overlay)
+
 /obj/proc/update_submersion_cut()
 	var/turf/T = loc
 	var/depth = isturf(T) ? T.fluid_depth() : 0
 	if(depth <= SUBMERSION_PRONE_FLUID_THRESHOLD)
-		remove_filter(SUBMERSION_FILTER_ID)
+		clear_waterline()
 		return
 	if(smoothing_flags || submersion_tiled)
 		var/turf/S = get_step(src, SOUTH)
 		for(var/obj/O in S)
 			if((O.smoothing_flags || O.submersion_tiled) && (istype(O, type) || istype(src, O.type)))
-				remove_filter(SUBMERSION_FILTER_ID)
+				clear_waterline()
 				return
-	var/half = 16
-	if(icon)
-		var/key = "[icon]"
-		half = SSliquid.icon_half_heights[key]
-		if(isnull(half))
-			var/icon/I = icon(icon)
-			half = I.Height() / 2
-			SSliquid.icon_half_heights[key] = half
-	add_filter(SUBMERSION_FILTER_ID, 1, alpha_mask_filter(0, submersion_mask_offset(depth) + 16 - half - pixel_y, icon('icons/effects/icon_cutter.dmi', "icon_cutter"), null, MASK_INVERSE))
+	if(!waterline_overlay)
+		waterline_overlay = new
+		vis_contents += waterline_overlay
+	waterline_overlay.set_waterline(T.liquid_overlay, -pixel_x, submersion_mask_offset(depth) - pixel_y)
 
 /obj/effect/update_submersion_cut()
 	return
