@@ -61,6 +61,7 @@
 	var/blocks_emissive = FALSE
 	///Internal holder for emissive blocker object, do not use directly use blocks_emissive
 	var/atom/movable/emissive_blocker/em_block
+	var/obj/effect/waterline/waterline_overlay
 
 
 /atom/movable/Initialize(mapload)
@@ -504,6 +505,7 @@
 	QDEL_NULL(proximity_monitor)
 	QDEL_NULL(language_holder)
 	QDEL_NULL(em_block)
+	clear_waterline()
 	unbuckle_all_mobs(force=1)
 
 	. = ..()
