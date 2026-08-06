@@ -31,6 +31,7 @@
 		return FALSE
 		
 	GLOB.player_list |= src
+	SSquadtree.RefreshKinds(src)
 	lastKnownIP	= client.address
 	computer_id	= client.computer_id
 	log_access("Mob Login: [key_name(src)] was assigned to a [type]")

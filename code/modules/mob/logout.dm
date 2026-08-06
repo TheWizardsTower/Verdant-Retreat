@@ -4,6 +4,7 @@
 	unset_machine()
 	clear_typing_indicator()
 	GLOB.player_list -= src
+	SSquadtree.RefreshKinds(src)
 
 	SEND_SIGNAL(src, COMSIG_MOB_LOGOUT)
 	..()

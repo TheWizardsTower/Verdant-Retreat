@@ -31,7 +31,7 @@ GLOBAL_VAR_INIT(mobids, 1)
 	GLOB.mob_directory -= tag
 	focus = null
 
-	SSquadtree.UnregisterMob(src)
+	SSquadtree.Untrack(src)
 
 	for (var/alert in alerts)
 		clear_alert(alert, TRUE)
@@ -92,7 +92,7 @@ GLOBAL_VAR_INIT(mobids, 1)
 	// By putting this here, we can track even ghosts for a variety of shenanigans
 	if(!isdead(src) && !isobserver(src)) // Yes I know this sucks, but overriding the entire initialize chain is too much of a hassle
 		qt_range = RECT(x, y, AI_HIBERNATION_RANGE * 2, AI_HIBERNATION_RANGE * 2)
-		SSquadtree.RegisterMob(src)
+		SSquadtree.Track(src)
 
 /**
  * Generate the tag for this mob

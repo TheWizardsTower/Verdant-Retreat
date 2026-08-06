@@ -66,9 +66,11 @@ PROCESSING_SUBSYSTEM_DEF(ai)
 		if(!M.ai_root.blackboard)
 			M.ai_root.blackboard = new
 		active_mobs[M] = TRUE
+		SSquadtree.SetSleeping(M, FALSE)
 		M.ai_root.next_think_tick = world.time + M.ai_root.next_think_delay
 		M.ai_root.next_move_tick = world.time + M.ai_root.next_move_delay
 		GLOB.npc_list |= M
+		SSquadtree.RefreshKinds(M)
 
 /datum/controller/subsystem/processing/ai/proc/Unregister(mob/living/M)
 	if(!M) return
@@ -83,7 +85,9 @@ PROCESSING_SUBSYSTEM_DEF(ai)
 	if(!M.ai_root)
 		active_mobs -= M
 		sleeping_mobs -= M
+		SSquadtree.SetSleeping(M, FALSE)
 		GLOB.npc_list -= M
+		SSquadtree.RefreshKinds(M)
 		return
 	else
 		#ifdef AI_SQUADS
@@ -97,7 +101,9 @@ PROCESSING_SUBSYSTEM_DEF(ai)
 
 		active_mobs -= M
 		sleeping_mobs -= M
+		SSquadtree.SetSleeping(M, FALSE)
 		GLOB.npc_list -= M
+		SSquadtree.RefreshKinds(M)
 		QDEL_NULL(M.ai_root)
 
 /datum/controller/subsystem/processing/ai/proc/WakeUp(mob/living/M, forced = FALSE)
@@ -106,7 +112,8 @@ PROCESSING_SUBSYSTEM_DEF(ai)
 	if(M.ai_root.ai_flags & AI_FLAG_FORCESLEEP) return
 	if(sleeping_mobs[M]) sleeping_mobs.Remove(M)
 	else return // Defensive programming, should never hit this condition afaik
-	
+	SSquadtree.SetSleeping(M, FALSE)
+
 	active_mobs[M] = TRUE
 	if(M.ai_root.blackboard)
 		M.ai_root.blackboard -= AIBLK_HIBERNATION_TIMER
@@ -119,6 +126,7 @@ PROCESSING_SUBSYSTEM_DEF(ai)
 	if(M.ai_root.next_sleep_tick < world.time) 
 		sleeping_mobs[M] = TRUE
 		active_mobs.Remove(M)
+		SSquadtree.SetSleeping(M, TRUE)
 
 // Processing our active mobs
 /datum/controller/subsystem/processing/ai/fire(var/time_delta)

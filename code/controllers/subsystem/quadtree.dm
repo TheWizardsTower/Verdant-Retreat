@@ -3,271 +3,277 @@
 // ==============================================================================
 GLOBAL_LIST_EMPTY(qt_init_queue)
 
-PROCESSING_SUBSYSTEM_DEF(quadtree)
+SUBSYSTEM_DEF(quadtree)
 	name = "Quadtree"
-	wait = 0.5 SECONDS
+	wait = 1
 	priority = SS_PRIORITY_QUADTREE
 	init_order = INIT_ORDER_QUADTREE
 	runlevels = RUNLEVELS_DEFAULT
-	flags = SS_KEEP_TIMING
+	flags = SS_KEEP_TIMING | SS_NO_TICK_CHECK
 
-	var/list/cur_quadtrees
-	var/list/new_quadtrees
-	var/list/player_feed
+	var/list/trees
+	var/list/entries
 
-	var/list/cur_npc_carbon_quadtrees
-	var/list/new_npc_carbon_quadtrees
-	var/list/npc_carbon_feed
+	var/tracked_players = 0
+	var/tracked_npcs = 0
+	var/tracked_hearables = 0
 
-	var/list/cur_npc_simple_quadtrees
-	var/list/new_npc_simple_quadtrees
-	var/list/npc_simple_feed
+	var/resyncs = 0
+	var/moves_applied = 0
+	var/relocations = 0
 
-	var/list/cur_hearable_quadtrees
-	var/list/new_hearable_quadtrees
-	var/list/hearable_feed
-
-	var/list/unregister_queue = list()
-
-
-/datum/controller/subsystem/processing/quadtree/Initialize()
-	NEW_SS_GLOBAL(SSquadtree)
-
-	cur_quadtrees = new/list(world.maxz)
-	new_quadtrees = new/list(world.maxz)
-	cur_npc_carbon_quadtrees = new/list(world.maxz)
-	new_npc_carbon_quadtrees = new/list(world.maxz)
-	cur_npc_simple_quadtrees = new/list(world.maxz)
-	new_npc_simple_quadtrees = new/list(world.maxz)
-	cur_hearable_quadtrees = new/list(world.maxz)
-	new_hearable_quadtrees = new/list(world.maxz)
-	player_feed = list()
-	npc_carbon_feed = list()
-	npc_simple_feed = list()
-	hearable_feed = list()
-
-	var/datum/shape/rectangle/R
+/datum/controller/subsystem/quadtree/Initialize()
+	trees = new/list(world.maxz)
+	entries = list()
 	for(var/i in 1 to world.maxz)
-		R = RECT(world.maxx/2, world.maxy/2, world.maxx, world.maxy)
-		new_quadtrees[i] = QTREE(R, i)
-		new_npc_carbon_quadtrees[i] = QTREE(R, i)
-		new_npc_simple_quadtrees[i] = QTREE(R, i)
-		new_hearable_quadtrees[i] = QTREE(R, i)
-	
-	for(var/mob/living/M in GLOB.qt_init_queue)
-		RegisterMob(M)
-	GLOB.qt_init_queue.len = 0
+		trees[i] = new /datum/quadtree(0.5, world.maxx + 0.5, 0.5, world.maxy + 0.5, i, null)
 
-/datum/controller/subsystem/processing/quadtree/fire(resumed = FALSE)
-	if(!resumed)
-		var/list/remove_from_queue = list()
-		if(length(unregister_queue))
-			for(var/mob/M as anything in unregister_queue)
-				if(isnull(M))
-					remove_from_queue += M
-					continue
-				if(M.client)
-					player_feed -= M
-				else if(iscarbon(M))
-					npc_carbon_feed -= M
+	GLOB.qt_init_queue.Cut()
+	initialized = TRUE
+	Resync()
+	return ..()
 
-				else if(issimple(M))
-					npc_simple_feed -= M
-			
-			for(var/mob/M as anything in remove_from_queue)
-				unregister_queue.Remove(M)
+/datum/controller/subsystem/quadtree/proc/KindsFor(atom/movable/AM)
+	. = 0
+	if(HAS_TRAIT(AM, TRAIT_HEARING_SENSITIVE))
+		. |= QT_KIND_HEARABLE
+	if(!ismob(AM))
+		return
+	var/mob/M = AM
+	if(M in GLOB.player_list)
+		. |= QT_KIND_PLAYER
+	if(M in GLOB.npc_list)
+		. |= QT_KIND_NPC_LISTED
+		if(iscarbon(M))
+			. |= QT_KIND_NPC_CARBON
+		else if(issimple(M))
+			. |= QT_KIND_NPC_SIMPLE
 
-			
-		// --- Reset Player Trees ---
-		player_feed = GLOB.player_list.Copy()
-		cur_quadtrees = new_quadtrees
-		new_quadtrees = new/list(world.maxz)
-		for(var/i in 1 to world.maxz)
-			new_quadtrees[i] = QTREE(RECT(world.maxx/2,world.maxy/2, world.maxx, world.maxy), i)
+/datum/controller/subsystem/quadtree/proc/CountKinds(kinds, sign)
+	if(kinds & QT_KIND_PLAYER)
+		tracked_players += sign
+	if(kinds & QT_KIND_NPC_LISTED)
+		tracked_npcs += sign
+	if(kinds & QT_KIND_HEARABLE)
+		tracked_hearables += sign
 
-		// --- Reset NPC Trees ---
-		var/list/npc_feeds = GLOB.npc_list.Copy()
-		var/list/carbon_feed = list()
-		var/list/simple_feed = list()
-		
-		for(var/mob/living/M as anything in npc_feeds)
-			if(iscarbon(M))
-				carbon_feed += M
-			else if(issimple(M))
-				simple_feed += M
+/datum/controller/subsystem/quadtree/proc/Track(atom/movable/AM)
+	if(!initialized || !entries)
+		GLOB.qt_init_queue |= AM
+		return
+	if(entries[AM])
+		RefreshKinds(AM)
+		return
+	TrackWithKinds(AM, KindsFor(AM))
 
-		npc_carbon_feed = carbon_feed
-		cur_npc_carbon_quadtrees = new_npc_carbon_quadtrees
-		new_npc_carbon_quadtrees = new/list(world.maxz)
-		for(var/i in 1 to world.maxz)
-			new_npc_carbon_quadtrees[i] = QTREE(RECT(world.maxx/2,world.maxy/2, world.maxx, world.maxy), i)
+/datum/controller/subsystem/quadtree/proc/Untrack(atom/movable/AM)
+	GLOB.qt_init_queue -= AM
+	if(!entries)
+		return
+	var/datum/qt_entry/entry = entries[AM]
+	if(!entry)
+		return
+	UnregisterSignal(AM, COMSIG_MOVABLE_MOVED)
+	var/datum/quadtree/node = entry.node
+	if(node)
+		var/datum/quadtree/root = trees[entry.z_pos]
+		root.Remove(entry)
+	CountKinds(entry.kinds, -1)
+	entries -= AM
+	qdel(entry)
 
-		// --- Reset NPC Simple Trees ---
-		npc_simple_feed = simple_feed
+/datum/controller/subsystem/quadtree/proc/RefreshKinds(atom/movable/AM)
+	if(!initialized || !entries)
+		return
+	var/datum/qt_entry/entry = entries[AM]
+	if(!entry)
+		Track(AM)
+		return
+	var/kinds = KindsFor(AM) | (entry.kinds & QT_KIND_AI_SLEEPING)
+	if(kinds == entry.kinds)
+		return
+	if(!(kinds & ~QT_KIND_AI_SLEEPING))
+		Untrack(AM)
+		return
+	var/datum/quadtree/node = entry.node
+	if(!node)
+		CountKinds(entry.kinds, -1)
+		entry.kinds = kinds
+		CountKinds(kinds, 1)
+		return
+	node.RemoveLocal(entry)
+	CountKinds(entry.kinds, -1)
+	entry.kinds = kinds
+	CountKinds(kinds, 1)
+	node.AddLocal(entry)
 
-		cur_npc_simple_quadtrees = new_npc_simple_quadtrees
-		new_npc_simple_quadtrees = new/list(world.maxz)
-		for(var/i in 1 to world.maxz)
-			new_npc_simple_quadtrees[i] = QTREE(RECT(world.maxx/2,world.maxy/2, world.maxx, world.maxy), i)
-
-		// --- Reset Hearable Trees ---
-		hearable_feed = GLOB.hearables.Copy()
-		cur_hearable_quadtrees = new_hearable_quadtrees
-		new_hearable_quadtrees = new/list(world.maxz)
-		for(var/i in 1 to world.maxz)
-			new_hearable_quadtrees[i] = QTREE(RECT(world.maxx/2,world.maxy/2, world.maxx, world.maxy), i)
-
-
-	// --- Populate Player Trees ---
-	while(length(player_feed))
-		var/mob/mob_found = player_feed[length(player_feed)]
-		player_feed.len--
-		if(!mob_found) continue
-		var/turf/T = get_turf(mob_found)
-		if(!T?.z || length(new_quadtrees) < T.z) continue
-		var/coords/qtplayer/p_coords = new /coords/qtplayer
-		p_coords.player = mob_found
-		p_coords.x_pos = T.x
-		p_coords.y_pos = T.y
-		p_coords.z_pos = T.z
-		if(isobserver(mob_found))
-			p_coords.is_observer = TRUE
-		var/datum/quadtree/QT = new_quadtrees[T.z]
-		QT.insert_player(p_coords)
-		if(MC_TICK_CHECK) return
-
-	// --- Populate NPC Carbon Trees ---
-	while(length(npc_carbon_feed))
-		var/mob/living/mob_found = npc_carbon_feed[length(npc_carbon_feed)]
-		npc_carbon_feed.len--
-		if(!mob_found) continue
-		var/turf/T = get_turf(mob_found)
-		if(!T?.z || length(new_npc_carbon_quadtrees) < T.z) continue
-		var/coords/qtnpc/n_coords = new /coords/qtnpc
-		n_coords.npc = mob_found
-		n_coords.x_pos = T.x
-		n_coords.y_pos = T.y
-		n_coords.z_pos = T.z
-		var/datum/quadtree/QT = new_npc_carbon_quadtrees[T.z]
-		QT.insert_npc(n_coords)
-		if(MC_TICK_CHECK) return
-
-	// --- Populate NPC Simple Trees ---
-	while(length(npc_simple_feed))
-		var/mob/living/mob_found = npc_simple_feed[length(npc_simple_feed)]
-		npc_simple_feed.len--
-		if(!mob_found) continue
-		var/turf/T = get_turf(mob_found)
-		if(!T?.z || length(new_npc_simple_quadtrees) < T.z) continue
-		var/coords/qtnpc/n_coords = new /coords/qtnpc
-		n_coords.npc = mob_found
-		n_coords.x_pos = T.x
-		n_coords.y_pos = T.y
-		n_coords.z_pos = T.z
-		var/datum/quadtree/QT = new_npc_simple_quadtrees[T.z]
-		QT.insert_npc(n_coords)
-		if(MC_TICK_CHECK) return
-
-	// --- Populate Hearable Trees ---
-	while(length(hearable_feed))
-		var/atom/movable/hearable_found = hearable_feed[length(hearable_feed)]
-		hearable_feed.len--
-		if(QDELETED(hearable_found)) continue
-		var/turf/T = get_turf(hearable_found)
-		if(!T?.z || length(new_hearable_quadtrees) < T.z) continue
-		var/coords/qthearable/h_coords = new /coords/qthearable
-		h_coords.hearable = hearable_found
-		h_coords.x_pos = T.x
-		h_coords.y_pos = T.y
-		h_coords.z_pos = T.z
-		var/datum/quadtree/QT = new_hearable_quadtrees[T.z]
-		QT.insert_hearable(h_coords)
-		if(MC_TICK_CHECK) return
-		
-/datum/controller/subsystem/processing/quadtree/proc/OnMobMoved(mob/living/moved_mob)
+/datum/controller/subsystem/quadtree/proc/OnMoved(atom/movable/AM, atom/old_loc, dir, forced)
 	SIGNAL_HANDLER
-	var/turf/T = get_turf(moved_mob)
-	if(!T) return
+	if(!entries)
+		return
+	var/datum/qt_entry/entry = entries[AM]
+	if(!entry)
+		return
+	var/turf/T = get_turf(AM)
+	if(!T)
+		return
+	var/new_x = T.x
+	var/new_y = T.y
+	var/new_z = T.z
+	if(entry.x_pos == new_x && entry.y_pos == new_y && entry.z_pos == new_z)
+		return
+	moves_applied++
 
-	if(!moved_mob.qt_range)
+	if(ismob(AM))
+		var/mob/M = AM
+		if(M.qt_range)
+			M.qt_range.Recenter(new_x, new_y)
+
+	var/datum/quadtree/node = entry.node
+	if(node && entry.z_pos == new_z && new_x >= node.min_x && new_x <= node.max_x && new_y >= node.min_y && new_y <= node.max_y)
+		entry.x_pos = new_x
+		entry.y_pos = new_y
+		WakeNearbySleepers(AM, new_z)
 		return
 
-	// Updates the mob's tracked coordinates within the quadtree structure
-	moved_mob.qt_range.UpdateQTMover(moved_mob.x, moved_mob.y)
+	relocations++
+	if(node)
+		var/datum/quadtree/old_root = trees[entry.z_pos]
+		old_root.Remove(entry)
+	entry.x_pos = new_x
+	entry.y_pos = new_y
+	entry.z_pos = new_z
+	if(new_z < 1 || new_z > length(trees))
+		return
+	var/datum/quadtree/root = trees[new_z]
+	root.Insert(entry)
+	WakeNearbySleepers(AM, new_z)
 
-	if(isobserver(moved_mob)) return
-
-	var/list/nearby_entities = npcs_in_range(moved_mob.qt_range, T.z)
-	
-	if(!moved_mob.ai_root)
-		for(var/mob/living/M as anything in nearby_entities)
-			if(M.ai_root && !los_blocked(moved_mob, M))
-				SSai.WakeUp(M)
+/datum/controller/subsystem/quadtree/proc/SetSleeping(mob/living/M, sleeping)
+	if(!entries)
+		return
+	var/datum/qt_entry/entry = entries[M]
+	if(!entry)
+		return
+	var/was_sleeping = (entry.kinds & QT_KIND_AI_SLEEPING) ? TRUE : FALSE
+	if(was_sleeping == (sleeping ? TRUE : FALSE))
+		return
+	var/datum/quadtree/node = entry.node
+	if(node)
+		node.RemoveLocal(entry)
+	if(sleeping)
+		entry.kinds |= QT_KIND_AI_SLEEPING
 	else
-		nearby_entities -= moved_mob
-		for(var/mob/living/M as anything in nearby_entities)
-			if(M.ai_root && !moved_mob.faction_check_mob(M) && !los_blocked(moved_mob, M))
-				SSai.WakeUp(M)
+		entry.kinds &= ~QT_KIND_AI_SLEEPING
+	if(node)
+		node.AddLocal(entry)
+		node.AdjustSleeping(sleeping ? 1 : -1)
 
-/datum/controller/subsystem/processing/quadtree/proc/RegisterMob(mob/living/M)
-	if(!can_fire || !initialized)
-		GLOB.qt_init_queue += M
+/datum/controller/subsystem/quadtree/proc/WakeNearbySleepers(atom/movable/AM, z)
+	if(!isliving(AM))
 		return
-		
-	RegisterSignal(M, COMSIG_MOB_MOVED, PROC_REF(OnMobMoved))
-	if(M.client)
-		player_feed += M
+	var/mob/living/mover = AM
+	var/datum/shape/range = mover.qt_range
+	if(!range || z < 1 || z > length(trees))
+		return
+	var/datum/quadtree/root = trees[z]
+	if(!root || !root.subtree_sleeping)
+		return
+	var/list/sleepers = list()
+	root.Query(range, sleepers, QT_KIND_AI_SLEEPING, 0)
+	if(!length(sleepers))
+		return
+	var/mover_is_ai = mover.ai_root ? TRUE : FALSE
+	for(var/mob/living/sleeper as anything in sleepers)
+		if(sleeper == mover || !sleeper.ai_root)
+			continue
+		if(mover_is_ai && mover.faction_check_mob(sleeper))
+			continue
+		if(los_blocked(mover, sleeper))
+			continue
+		SSai.WakeUp(sleeper)
 
-	else if(iscarbon(M))
-		npc_carbon_feed += M
+/datum/controller/subsystem/quadtree/proc/Resync()
+	resyncs++
+	for(var/atom/movable/AM as anything in entries)
+		var/datum/qt_entry/entry = entries[AM]
+		UnregisterSignal(AM, COMSIG_MOVABLE_MOVED)
+		qdel(entry)
+	entries.Cut()
+	tracked_players = 0
+	tracked_npcs = 0
+	tracked_hearables = 0
+	for(var/i in 1 to length(trees))
+		trees[i] = new /datum/quadtree(0.5, world.maxx + 0.5, 0.5, world.maxy + 0.5, i, null)
 
-	else if(issimple(M))
-		npc_simple_feed += M
+	var/list/kinds_by_atom = list()
+	for(var/mob/M as anything in GLOB.player_list)
+		if(!QDELETED(M))
+			kinds_by_atom[M] |= QT_KIND_PLAYER
+	for(var/mob/M as anything in GLOB.npc_list)
+		if(QDELETED(M))
+			continue
+		var/npc_kinds = QT_KIND_NPC_LISTED
+		if(iscarbon(M))
+			npc_kinds |= QT_KIND_NPC_CARBON
+		else if(issimple(M))
+			npc_kinds |= QT_KIND_NPC_SIMPLE
+		kinds_by_atom[M] |= npc_kinds
+	for(var/atom/movable/AM as anything in GLOB.hearables)
+		if(!QDELETED(AM))
+			kinds_by_atom[AM] |= QT_KIND_HEARABLE
 
-/datum/controller/subsystem/processing/quadtree/proc/UnregisterMob(mob/living/M)
-	UnregisterSignal(M, COMSIG_MOB_MOVED)
-	unregister_queue += M
+	for(var/atom/movable/AM as anything in kinds_by_atom)
+		TrackWithKinds(AM, kinds_by_atom[AM])
 
-/datum/controller/subsystem/processing/quadtree/proc/players_in_range(datum/shape/range, z_level, flags = 0)
-	var/list/players = list()
-	if(!cur_quadtrees) return players
-	if(z_level && length(cur_quadtrees) >= z_level)
-		var/datum/quadtree/Q = cur_quadtrees[z_level]
-		if(!Q) return players
-		Q.query_range(range, players, flags)
-	return players
+/datum/controller/subsystem/quadtree/proc/TrackWithKinds(atom/movable/AM, kinds)
+	if(!kinds || entries[AM])
+		return
+	var/turf/T = get_turf(AM)
+	if(!T || T.z < 1 || T.z > length(trees))
+		return
+	var/datum/qt_entry/entry = new
+	entry.target = AM
+	entry.x_pos = T.x
+	entry.y_pos = T.y
+	entry.z_pos = T.z
+	entry.kinds = kinds
+	entries[AM] = entry
+	var/datum/quadtree/root = trees[T.z]
+	root.Insert(entry)
+	CountKinds(kinds, 1)
+	RegisterSignal(AM, COMSIG_MOVABLE_MOVED, PROC_REF(OnMoved), TRUE)
 
-// Combined search for all NPCs (Carbon and Simple)
+/datum/controller/subsystem/quadtree/fire(resumed = FALSE)
+	if(tracked_players != length(GLOB.player_list) || tracked_npcs != length(GLOB.npc_list) || tracked_hearables != length(GLOB.hearables))
+		Resync()
 
-/datum/controller/subsystem/processing/quadtree/proc/npcs_in_range(datum/shape/range, z_level)
-	return npc_carbons_in_range(range, z_level) + npc_simples_in_range(range, z_level)
+/datum/controller/subsystem/quadtree/proc/QueryKinds(datum/shape/range, z_level, kind_mask, flags = 0)
+	. = list()
+	if(!range || !trees || z_level < 1 || z_level > length(trees))
+		return
+	var/datum/quadtree/root = trees[z_level]
+	if(!root)
+		return
+	root.Query(range, ., kind_mask, flags)
 
-// Search for NPC Carbons
-/datum/controller/subsystem/processing/quadtree/proc/npc_carbons_in_range(datum/shape/range, z_level)
-	var/list/npcs = list()
-	if(!cur_npc_carbon_quadtrees) return npcs
-	if(z_level && length(cur_npc_carbon_quadtrees) >= z_level)
-		var/datum/quadtree/Q = cur_npc_carbon_quadtrees[z_level]
-		if(!Q) return npcs
-		Q.query_range_npcs(range, npcs)
-	return npcs
+/datum/controller/subsystem/quadtree/proc/players_in_range(datum/shape/range, z_level, flags = 0)
+	return QueryKinds(range, z_level, QT_KIND_PLAYER, flags)
 
-// Search for NPC Simples
-/datum/controller/subsystem/processing/quadtree/proc/npc_simples_in_range(datum/shape/range, z_level)
-	var/list/npcs = list()
-	if(!cur_npc_simple_quadtrees) return npcs
-	if(z_level && length(cur_npc_simple_quadtrees) >= z_level)
-		var/datum/quadtree/Q = cur_npc_simple_quadtrees[z_level]
-		if(!Q) return npcs
-		Q.query_range_npcs(range, npcs)
-	return npcs
+/datum/controller/subsystem/quadtree/proc/npcs_in_range(datum/shape/range, z_level)
+	return QueryKinds(range, z_level, QT_KIND_NPC_ANY)
 
-// Search for Hearables
-/datum/controller/subsystem/processing/quadtree/proc/hearables_in_range(datum/shape/range, z_level)
-	var/list/hearables = list()
-	if(!cur_hearable_quadtrees) return hearables
-	if(z_level && length(cur_hearable_quadtrees) >= z_level)
-		var/datum/quadtree/Q = cur_hearable_quadtrees[z_level]
-		if(!Q) return hearables
-		Q.query_range_hearables(range, hearables)
-	return hearables
+/datum/controller/subsystem/quadtree/proc/npc_carbons_in_range(datum/shape/range, z_level)
+	return QueryKinds(range, z_level, QT_KIND_NPC_CARBON)
+
+/datum/controller/subsystem/quadtree/proc/npc_simples_in_range(datum/shape/range, z_level)
+	return QueryKinds(range, z_level, QT_KIND_NPC_SIMPLE)
+
+/datum/controller/subsystem/quadtree/proc/hearables_in_range(datum/shape/range, z_level)
+	return QueryKinds(range, z_level, QT_KIND_HEARABLE)
+
+/datum/controller/subsystem/quadtree/proc/RegisterMob(mob/living/M)
+	Track(M)
+
+/datum/controller/subsystem/quadtree/proc/UnregisterMob(mob/living/M)
+	Untrack(M)
