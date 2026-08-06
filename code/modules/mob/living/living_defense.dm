@@ -499,6 +499,10 @@
 		span_hear("I hear a heavy electrical crack.") \
 	)
 	playsound(src, pick('sound/misc/elec (1).ogg', 'sound/misc/elec (2).ogg', 'sound/misc/elec (3).ogg'), 100, FALSE)
+	if(!(flags & (SHOCK_CONDUCTED | SHOCK_ILLUSION)))
+		var/turf/W = get_turf(src)
+		if(W)
+			SSliquid.spread_shock(src, W, shock_damage, null, siemens_coeff)
 	return shock_damage
 
 /mob/living/emp_act(severity)

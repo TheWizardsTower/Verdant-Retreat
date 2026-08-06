@@ -105,7 +105,7 @@ PROCESSING_SUBSYSTEM_DEF(liquid)
 /datum/controller/subsystem/processing/liquid/proc/get_pool_avg(list/pool)
 	return SSliquid.pool_manager.get_pool_avg_fluid(pool)
 
-/datum/controller/subsystem/processing/liquid/proc/spread_shock(mob/living/carbon/C, turf/T, shock_damage, def_zone, siemens_coeff)
+/datum/controller/subsystem/processing/liquid/proc/spread_shock(mob/living/C, turf/T, shock_damage, def_zone, siemens_coeff)
 	return SSliquid.registry.execute_flag_behavior(FLUID_CONDUCTIVE, "conduct_shock", C, T, shock_damage, def_zone, siemens_coeff)
 
 
