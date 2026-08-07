@@ -6,6 +6,19 @@
 
 GLOBAL_LIST_EMPTY(ai_init_queue)
 
+#ifdef VN_BENCH
+#define VNA_SKIP_QUERY    (1<<0)
+#define VNA_SKIP_DISPATCH (1<<1)
+#define VNA_SKIP_SQUADS   (1<<2)
+#define VNA_QUERY_ON      (!(vna_skip & VNA_SKIP_QUERY))
+#define VNA_DISPATCH_ON   (!(vna_skip & VNA_SKIP_DISPATCH))
+#define VNA_SQUADS_ON     (!(vna_skip & VNA_SKIP_SQUADS))
+#else
+#define VNA_QUERY_ON      TRUE
+#define VNA_DISPATCH_ON   TRUE
+#define VNA_SQUADS_ON     TRUE
+#endif
+
 PROCESSING_SUBSYSTEM_DEF(ai)
 	name = "AI"
 	priority = SS_PRIORITY_AI
@@ -14,6 +27,11 @@ PROCESSING_SUBSYSTEM_DEF(ai)
 	wait = 1 // Process every tick to check for thonk delays. This is insanely fast anyway compared to the other subsystems.
 
 	// Using associative lists for performance. Checking for a key is much faster than searching a list. We learned this from liquids, lads.
+#ifdef VN_BENCH
+	var/vna_skip = 0
+	var/vna_legacy_query = FALSE
+	var/list/vna_dummy_players = list(1)
+#endif
 	var/list/active_mobs = list()
 	var/list/sleeping_mobs = list()
 	var/list/unregister_queue = list()
@@ -152,9 +170,15 @@ PROCESSING_SUBSYSTEM_DEF(ai)
 		if(current_time >= M.ai_root.next_think_tick || current_time >= M.ai_root.next_move_tick)
 			if(!(M.ai_root.ai_flags & (AI_FLAG_PERSISTENT|AI_FLAG_ASSUMEDIRECTCONTROL|AI_FLAG_FORCESLEEP)))
 
-				var/list/nearby_players = SSquadtree.players_in_range(M.qt_range, T.z, QTREE_SCAN_MOBS|QTREE_EXCLUDE_OBSERVER)
+				var/players_near = M.nearby_players
+#ifdef VN_BENCH
+				if(!VNA_QUERY_ON)
+					players_near = 1
+				else if(vna_legacy_query)
+					players_near = length(SSquadtree.players_in_range(M.qt_range, T.z, QTREE_SCAN_MOBS|QTREE_EXCLUDE_OBSERVER))
+#endif
 
-				if(!length(nearby_players))
+				if(!players_near)
 					if(M.ai_root.blackboard)
 						if(!M.ai_root.blackboard[AIBLK_HIBERNATION_TIMER])
 							M.ai_root.blackboard[AIBLK_HIBERNATION_TIMER] = current_time + AI_HIBERNATION_DELAY
@@ -166,6 +190,8 @@ PROCESSING_SUBSYSTEM_DEF(ai)
 					if(M.ai_root.blackboard && M.ai_root.blackboard[AIBLK_HIBERNATION_TIMER])
 						M.ai_root.blackboard -= AIBLK_HIBERNATION_TIMER
 			
+			if(!VNA_DISPATCH_ON)
+				continue
 			if(vn_native)
 				VN_Think(M, current_time)
 			else
@@ -189,7 +215,7 @@ PROCESSING_SUBSYSTEM_DEF(ai)
 	unregister_queue.len = 0
 	sleep_queue.len = 0
 #ifdef AI_SQUADS
-	if(current_time > next_squad_update_tick)
+	if(VNA_SQUADS_ON && current_time > next_squad_update_tick)
 		for(var/ai_squad/S as anything in squads)
 			if(length(S.members))
 				INVOKE_ASYNC(S, TYPE_PROC_REF(/ai_squad, RunAI))
@@ -516,6 +542,10 @@ PROCESSING_SUBSYSTEM_DEF(ai)
 // Below are any functions or types that are useful for interacting with this subsystem, or with NPCs in general.
 
 /mob/var/datum/shape/qt_range // Each mob has a single shape datum to define the quadtree's areas of interest for running searches. This is more performant than creating and destroying the shape datums on every tick.
+
+/// Maintained by SSquadtree: non-observer players within AI_HIBERNATION_RANGE.
+/// Replaces a per-mob-per-tick players_in_range query in SSai.fire.
+/mob/var/nearby_players = 0
 
 /mob/var/wake_scan_x = 0
 /mob/var/wake_scan_y = 0

@@ -1,0 +1,287 @@
+#define VNA_TICKS 60
+#define VNA_THINK_ITERS 200
+
+GLOBAL_VAR_INIT(vna_started, FALSE)
+GLOBAL_LIST_EMPTY(vna_pop)
+
+/proc/vna_bench_requested()
+	return world.params["vn_ai_bench"] || world.GetConfig("env", "VN_AI_BENCH") || fexists("data/vn_ai_bench.flag")
+
+/proc/vna_cfg(key, pname, envname, default)
+	if(fexists("data/vn_ai_config.json"))
+		var/list/cfg = json_decode(file2text("data/vn_ai_config.json"))
+		if(islist(cfg) && cfg[key])
+			return cfg[key]
+	return vns_cfg(pname, envname, default)
+
+/proc/vna_log(msg)
+	log_world(msg)
+	rustg_file_append("[msg]\n", "data/vn_ai_progress.log")
+
+/proc/vna_teardown()
+	for(var/mob/living/M as anything in GLOB.vna_pop)
+		if(M && !QDELETED(M))
+			SSai.Unregister(M)
+			GLOB.npc_list -= M
+			GLOB.player_list -= M
+			qdel(M)
+	GLOB.vna_pop.Cut()
+
+/proc/vna_build_population(count, turf/center, radius)
+	. = list()
+	for(var/i in 1 to count)
+		var/turf/T = locate(
+			clamp(center.x + rand(-radius, radius), 2, world.maxx - 1),
+			clamp(center.y + rand(-radius, radius), 2, world.maxy - 1),
+			center.z)
+		if(!istype(T, /turf/open) || isopenspace(T))
+			continue
+		var/mob/living/simple_animal/vnq_ai_dummy/D = new(T)
+		GLOB.npc_list |= D
+		SSquadtree.RefreshKinds(D)
+		SSai.Register(D)
+		GLOB.vna_pop += D
+		. += D
+		if(i % 50 == 0)
+			sleep(world.tick_lag)
+
+/// Every active mob is forced think-eligible so a tick measures the full population.
+/proc/vna_force_think_eligible(list/mobs)
+	for(var/mob/living/M as anything in mobs)
+		if(!M.ai_root)
+			continue
+		M.ai_root.next_think_tick = 0
+		M.ai_root.next_move_tick = 0
+
+/proc/vna_wiring()
+	var/exported = 0
+	var/failed = 0
+	for(var/key in GLOB.vn_bt_tree_ids)
+		if(GLOB.vn_bt_tree_ids[key])
+			exported++
+		else
+			failed++
+	return list(
+		"vn_bt_native" = GLOB.vn_bt_native ? 1 : 0,
+		"vn_ok" = VN_OK ? 1 : 0,
+		"mirror_loaded" = SSnative?.mirror_loaded ? 1 : 0,
+		"trees_exported" = exported,
+		"trees_failed_dm_fallback" = failed,
+		"registered_agents" = length(SSai.vn_mobs),
+		"active_mobs" = length(SSai.active_mobs),
+		"sleeping_mobs" = length(SSai.sleeping_mobs),
+	)
+
+/// Times SSai.fire() itself. Actions and the movement subtree are dispatched with
+/// INVOKE_ASYNC, so their cost lands AFTER fire() returns - see vna_bench_tick.
+/proc/vna_time_fire(ticks, list/mobs)
+	var/list/per_tick = list()
+	for(var/i in 1 to ticks)
+		vna_force_think_eligible(mobs)
+		rustg_time_reset("vnafire")
+		vnq_fire_full(SSai)
+		per_tick += rustg_time_microseconds("vnafire")
+	return vnq_summarise_steps(per_tick)
+
+/// Times fire() plus the async drain: sleep(0) lets every INVOKE_ASYNC callback run,
+/// so this captures the movement subtree and action leaves that fire() hides.
+/proc/vna_time_tick_total(ticks, list/mobs)
+	var/list/per_tick = list()
+	for(var/i in 1 to ticks)
+		vna_force_think_eligible(mobs)
+		rustg_time_reset("vnatick")
+		vnq_fire_full(SSai)
+		sleep(0)
+		per_tick += rustg_time_microseconds("vnatick")
+	return vnq_summarise_steps(per_tick)
+
+/// Synchronous per-mob evaluation, bypassing INVOKE_ASYNC entirely.
+/proc/vna_time_think(list/mobs, iters)
+	. = list()
+	var/n = length(mobs)
+	if(!n)
+		return
+	var/sink = 0
+
+	rustg_time_reset("vnat")
+	for(var/i in 1 to iters)
+		for(var/mob/living/M as anything in mobs)
+			if(M.ai_root)
+				sink++
+	.["loop_only_ns_per_mob"] = rustg_time_microseconds("vnat") * 1000 / (iters * n)
+
+	rustg_time_reset("vnat")
+	for(var/i in 1 to iters)
+		for(var/mob/living/M as anything in mobs)
+			var/datum/behavior_tree/node/parallel/root/root = M.ai_root
+			if(root?.move_node)
+				root.move_node.evaluate(M, root.target, root.blackboard)
+	.["move_subtree_us_per_mob"] = rustg_time_microseconds("vnat") / (iters * n)
+
+	rustg_time_reset("vnat")
+	for(var/i in 1 to iters)
+		for(var/mob/living/M as anything in mobs)
+			var/datum/behavior_tree/node/parallel/root/root = M.ai_root
+			if(root?.main_node)
+				root.main_node.evaluate(M, root.target, root.blackboard)
+	.["main_subtree_us_per_mob"] = rustg_time_microseconds("vnat") / (iters * n)
+
+	rustg_time_reset("vnat")
+	for(var/i in 1 to iters)
+		for(var/mob/living/M as anything in mobs)
+			M.RunAI()
+	.["runai_full_us_per_mob"] = rustg_time_microseconds("vnat") / (iters * n)
+	if(sink < 0)
+		.["sink"] = sink
+
+/mob/proc/vna_noop_ai()
+	return TRUE
+
+/// Prices INVOKE_ASYNC against a direct call and against the real query, so the
+/// ablation differences are confirmed rather than inferred.
+/proc/vna_micro(list/mobs, iters)
+	. = list()
+	var/n = length(mobs)
+	if(!n)
+		return
+	var/sink = 0
+
+	rustg_time_reset("vnam")
+	for(var/i in 1 to iters)
+		for(var/mob/living/M as anything in mobs)
+			sink += M.vna_noop_ai()
+	.["direct_call_ns"] = rustg_time_microseconds("vnam") * 1000 / (iters * n)
+
+	rustg_time_reset("vnam")
+	for(var/i in 1 to iters)
+		for(var/mob/living/M as anything in mobs)
+			INVOKE_ASYNC(M, TYPE_PROC_REF(/mob, vna_noop_ai))
+	.["invoke_async_ns"] = rustg_time_microseconds("vnam") * 1000 / (iters * n)
+
+	rustg_time_reset("vnam")
+	for(var/i in 1 to iters)
+		for(var/mob/living/M as anything in mobs)
+			var/turf/T = get_turf(M)
+			sink += length(SSquadtree.players_in_range(M.qt_range, T.z, QTREE_SCAN_MOBS|QTREE_EXCLUDE_OBSERVER))
+	.["players_in_range_ns"] = rustg_time_microseconds("vnam") * 1000 / (iters * n)
+
+	rustg_time_reset("vnam")
+	for(var/i in 1 to iters)
+		for(var/mob/living/M as anything in mobs)
+			sink += get_turf(M) ? 1 : 0
+	.["get_turf_ns"] = rustg_time_microseconds("vnam") * 1000 / (iters * n)
+	if(sink < 0)
+		.["sink"] = sink
+
+/// Confirms the maintained nearby_players counters match a fresh query.
+/proc/vna_verify_counters(list/mobs)
+	var/mismatches = 0
+	var/checked = 0
+	var/worst = 0
+	for(var/mob/living/M as anything in mobs)
+		var/turf/T = get_turf(M)
+		if(!T)
+			continue
+		checked++
+		var/actual = length(SSquadtree.players_in_range(M.qt_range, T.z, QTREE_SCAN_MOBS|QTREE_EXCLUDE_OBSERVER))
+		if(M.nearby_players != actual)
+			mismatches++
+			worst = max(worst, abs(M.nearby_players - actual))
+	return list("checked" = checked, "mismatches" = mismatches, "worst_delta" = worst)
+
+/proc/vna_scenario(count, radius, player_n, label)
+	vna_teardown()
+	var/turf/center = vnq_placement_turf("scattered")
+	if(!center)
+		return list("error" = "no spawn turf")
+	var/list/mobs = vna_build_population(count, center, radius)
+	if(!length(mobs))
+		return list("error" = "no mobs")
+
+	for(var/i in 1 to player_n)
+		var/turf/T = locate(clamp(center.x + rand(-3, 3), 2, world.maxx - 1), clamp(center.y + rand(-3, 3), 2, world.maxy - 1), center.z)
+		if(!T)
+			continue
+		var/mob/living/carbon/human/species/human/northern/P = new(T)
+		GLOB.player_list |= P
+		SSquadtree.RefreshKinds(P)
+		GLOB.vna_pop += P
+	sleep(world.tick_lag)
+
+	var/list/row = list(
+		"label" = label,
+		"mobs" = length(mobs),
+		"players_nearby" = player_n,
+		"wiring" = vna_wiring(),
+	)
+
+	GLOB.vn_bt_native = FALSE
+	SSai.vna_skip = 0
+	row["fire_dm"] = vna_time_fire(VNA_TICKS, mobs)
+
+	SSai.vna_legacy_query = TRUE
+	row["fire_legacy_query"] = vna_time_fire(VNA_TICKS, mobs)
+	SSai.vna_legacy_query = FALSE
+	row["counter_check"] = vna_verify_counters(mobs)
+
+	SSai.vna_skip = VNA_SKIP_DISPATCH
+	row["fire_no_dispatch"] = vna_time_fire(VNA_TICKS, mobs)
+	SSai.vna_skip = VNA_SKIP_DISPATCH | VNA_SKIP_QUERY
+	row["fire_no_dispatch_no_query"] = vna_time_fire(VNA_TICKS, mobs)
+	SSai.vna_skip = VNA_SKIP_QUERY
+	row["fire_no_query"] = vna_time_fire(VNA_TICKS, mobs)
+	SSai.vna_skip = VNA_SKIP_DISPATCH | VNA_SKIP_QUERY | VNA_SKIP_SQUADS
+	row["fire_loop_only"] = vna_time_fire(VNA_TICKS, mobs)
+	SSai.vna_skip = 0
+	row["tick_total_dm"] = vna_time_tick_total(VNA_TICKS, mobs)
+	row["think_dm"] = vna_time_think(mobs, VNA_THINK_ITERS)
+	row["micro"] = vna_micro(mobs, 40)
+
+	if(VN_OK && SSnative?.mirror_loaded)
+		GLOB.vn_bt_native = TRUE
+		row["fire_native"] = vna_time_fire(VNA_TICKS, mobs)
+		row["tick_total_native"] = vna_time_tick_total(VNA_TICKS, mobs)
+		row["wiring_native"] = vna_wiring()
+		GLOB.vn_bt_native = FALSE
+
+	vna_teardown()
+	return row
+
+/proc/vna_run_bench()
+	set waitfor = FALSE
+	var/tag = vna_cfg("tag", "vn_ai_tag", "VN_AI_TAG", "ai")
+	fdel("data/vn_ai_progress.log")
+	vna_log("AIBENCH start tag=[tag] maxx=[world.maxx] maxy=[world.maxy] tick_lag=[world.tick_lag]")
+
+	vnq_freeze_world()
+	SSai.wait = 100000
+	SSai.next_fire = world.time + 1000000
+	sleep(world.tick_lag * 3)
+
+	var/list/results = list("meta" = list("tag" = tag, "ticks" = VNA_TICKS, "think_iters" = VNA_THINK_ITERS), "scenarios" = list())
+
+	for(var/list/spec in list(list(50, 12, 0, "idle_50"), list(50, 12, 1, "engaged_50"), list(150, 20, 1, "engaged_150"), list(300, 28, 1, "engaged_300")))
+		var/list/row = vna_scenario(spec[1], spec[2], spec[3], spec[4])
+		results["scenarios"] += list(row)
+		var/list/w = row["wiring"]
+		var/list/fd = row["fire_dm"]
+		var/list/td = row["tick_total_dm"]
+		var/list/th = row["think_dm"]
+		var/list/fnd = row["fire_no_dispatch"]
+		var/list/fndq = row["fire_no_dispatch_no_query"]
+		var/list/flo = row["fire_loop_only"]
+		var/list/mi = row["micro"]
+		var/list/cc = row["counter_check"]
+		var/list/flq = row["fire_legacy_query"]
+		vna_log("AIBENCH [row["label"]] COUNTERS checked=[cc?["checked"]] mismatches=[cc?["mismatches"]] worst=[cc?["worst_delta"]] | fire legacy_query=[flq?["mean_us"]] maintained=[fd?["mean_us"]]")
+		vna_log("AIBENCH [row["label"]] MICRO direct=[mi?["direct_call_ns"]]ns invoke_async=[mi?["invoke_async_ns"]]ns players_in_range=[mi?["players_in_range_ns"]]ns get_turf=[mi?["get_turf_ns"]]ns per mob")
+		vna_log("AIBENCH [row["label"]] ABLATION full=[fd?["mean_us"]] no_dispatch=[fnd?["mean_us"]] no_disp_no_query=[fndq?["mean_us"]] loop_only=[flo?["mean_us"]] us/tick over [row["mobs"]] mobs")
+		vna_log("AIBENCH [row["label"]] mobs=[row["mobs"]] native_trees=[w?["trees_exported"]]/[(w?["trees_exported"] || 0) + (w?["trees_failed_dm_fallback"] || 0)] fire=[fd?["mean_us"]]us tick_total=[td?["mean_us"]]us runai=[th?["runai_full_us_per_mob"]]us/mob move=[th?["move_subtree_us_per_mob"]] main=[th?["main_subtree_us_per_mob"]]")
+		sleep(world.tick_lag)
+
+	fdel("data/vn_ai_results_[tag].json")
+	text2file(json_encode(results), "data/vn_ai_results_[tag].json")
+	vna_log("AIBENCH COMPLETE")
+
+#undef VNA_TICKS
+#undef VNA_THINK_ITERS

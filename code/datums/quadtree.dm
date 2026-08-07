@@ -161,6 +161,12 @@
 	var/subtree_count = 0
 	var/subtree_sleeping = 0
 
+	/// Bitmask of QT_KIND_* present anywhere in this subtree; queries prune on one read.
+	var/subtree_kinds = 0
+	var/subtree_players = 0
+	var/subtree_npcs = 0
+	var/subtree_hearables = 0
+
 /datum/quadtree/New(x1, x2, y1, y2, z, datum/quadtree/branch_parent)
 	..()
 	min_x = x1
@@ -223,11 +229,41 @@
 	entry.node = null
 	local_count--
 
-/datum/quadtree/proc/AdjustSleeping(delta)
+/datum/quadtree/proc/ApplyKindDelta(kinds, sign)
+	if(kinds & QT_KIND_PLAYER)
+		subtree_players += sign
+		if(subtree_players)
+			subtree_kinds |= QT_KIND_PLAYER
+		else
+			subtree_kinds &= ~QT_KIND_PLAYER
+	if(kinds & QT_KIND_NPC_ANY)
+		subtree_npcs += sign
+		if(subtree_npcs)
+			subtree_kinds |= QT_KIND_NPC_ANY
+		else
+			subtree_kinds &= ~QT_KIND_NPC_ANY
+	if(kinds & QT_KIND_HEARABLE)
+		subtree_hearables += sign
+		if(subtree_hearables)
+			subtree_kinds |= QT_KIND_HEARABLE
+		else
+			subtree_kinds &= ~QT_KIND_HEARABLE
+	if(kinds & QT_KIND_AI_SLEEPING)
+		subtree_sleeping += sign
+		if(subtree_sleeping)
+			subtree_kinds |= QT_KIND_AI_SLEEPING
+		else
+			subtree_kinds &= ~QT_KIND_AI_SLEEPING
+
+/// Walks to the root applying a kind delta; used when an entry's kinds change in place.
+/datum/quadtree/proc/AdjustKinds(kinds, sign)
 	var/datum/quadtree/walk = src
 	while(walk)
-		walk.subtree_sleeping += delta
+		walk.ApplyKindDelta(kinds, sign)
 		walk = walk.parent
+
+/datum/quadtree/proc/AdjustSleeping(delta)
+	AdjustKinds(QT_KIND_AI_SLEEPING, delta)
 
 /datum/quadtree/proc/Subdivide()
 	sw_branch = new /datum/quadtree(min_x, center_x, min_y, center_y, z_level, src)
@@ -257,8 +293,7 @@
 	for(var/datum/qt_entry/entry as anything in moving)
 		var/datum/quadtree/child = ChildFor(entry.x_pos, entry.y_pos)
 		child.subtree_count++
-		if(entry.kinds & QT_KIND_AI_SLEEPING)
-			child.subtree_sleeping++
+		child.ApplyKindDelta(entry.kinds, 1)
 		child.AddLocal(entry)
 	for(var/datum/quadtree/child as anything in list(sw_branch, se_branch, nw_branch, ne_branch))
 		if(child.local_count > QUADTREE_CAPACITY && !child.final_divide)
@@ -306,11 +341,10 @@
 
 /datum/quadtree/proc/Insert(datum/qt_entry/entry)
 	var/datum/quadtree/node = src
-	var/sleeping = entry.kinds & QT_KIND_AI_SLEEPING
+	var/kinds = entry.kinds
 	while(TRUE)
 		node.subtree_count++
-		if(sleeping)
-			node.subtree_sleeping++
+		node.ApplyKindDelta(kinds, 1)
 		if(!node.is_divided)
 			node.AddLocal(entry)
 			if(node.local_count > QUADTREE_CAPACITY && !node.final_divide)
@@ -322,14 +356,13 @@
 	var/datum/quadtree/node = entry.node
 	if(!node)
 		return
-	var/sleeping = entry.kinds & QT_KIND_AI_SLEEPING
+	var/kinds = entry.kinds
 	node.RemoveLocal(entry)
 	var/datum/quadtree/collapse_at
 	var/datum/quadtree/walk = node
 	while(walk)
 		walk.subtree_count--
-		if(sleeping)
-			walk.subtree_sleeping--
+		walk.ApplyKindDelta(kinds, -1)
 		if(walk.is_divided && walk.subtree_count <= QUADTREE_MERGE_THRESHOLD)
 			collapse_at = walk
 		walk = walk.parent
@@ -337,7 +370,7 @@
 		collapse_at.Collapse()
 
 /datum/quadtree/proc/Harvest(list/found, kind_mask, flags)
-	if(kind_mask == QT_KIND_AI_SLEEPING && !subtree_sleeping)
+	if(!(kind_mask & subtree_kinds))
 		return
 	if(is_divided)
 		sw_branch.Harvest(found, kind_mask, flags)
@@ -431,11 +464,62 @@
 		LAZYADD(to_wake, sleeper)
 	return to_wake
 
+/// Counts matching entries without building a result list. Players only, non-observer,
+/// matching players_in_range(QTREE_EXCLUDE_OBSERVER) semantics.
+/datum/quadtree/proc/CountPlayersBounds(rmin_x, rmax_x, rmin_y, rmax_y)
+	if(!(subtree_kinds & QT_KIND_PLAYER))
+		return 0
+	if(rmax_x < min_x || rmin_x > max_x || rmax_y < min_y || rmin_y > max_y)
+		return 0
+	if(is_divided)
+		return sw_branch.CountPlayersBounds(rmin_x, rmax_x, rmin_y, rmax_y) \
+			+ se_branch.CountPlayersBounds(rmin_x, rmax_x, rmin_y, rmax_y) \
+			+ nw_branch.CountPlayersBounds(rmin_x, rmax_x, rmin_y, rmax_y) \
+			+ ne_branch.CountPlayersBounds(rmin_x, rmax_x, rmin_y, rmax_y)
+	if(!players)
+		return 0
+	. = 0
+	for(var/datum/qt_entry/entry as anything in players)
+		var/ex = entry.x_pos
+		if(ex < rmin_x || ex > rmax_x)
+			continue
+		var/ey = entry.y_pos
+		if(ey < rmin_y || ey > rmax_y)
+			continue
+		var/mob/P = entry.target
+		if(!P || isobserver(P))
+			continue
+		.++
+
+/// Applies a delta to nearby_players on every AI-kind mob within the box.
+/datum/quadtree/proc/AdjustNearbyPlayersBounds(rmin_x, rmax_x, rmin_y, rmax_y, sign)
+	if(!(subtree_kinds & QT_KIND_NPC_ANY))
+		return
+	if(rmax_x < min_x || rmin_x > max_x || rmax_y < min_y || rmin_y > max_y)
+		return
+	if(is_divided)
+		sw_branch.AdjustNearbyPlayersBounds(rmin_x, rmax_x, rmin_y, rmax_y, sign)
+		se_branch.AdjustNearbyPlayersBounds(rmin_x, rmax_x, rmin_y, rmax_y, sign)
+		nw_branch.AdjustNearbyPlayersBounds(rmin_x, rmax_x, rmin_y, rmax_y, sign)
+		ne_branch.AdjustNearbyPlayersBounds(rmin_x, rmax_x, rmin_y, rmax_y, sign)
+		return
+	for(var/list/bucket in list(npc_carbons, npc_simples))
+		for(var/datum/qt_entry/entry as anything in bucket)
+			var/ex = entry.x_pos
+			if(ex < rmin_x || ex > rmax_x)
+				continue
+			var/ey = entry.y_pos
+			if(ey < rmin_y || ey > rmax_y)
+				continue
+			var/mob/M = entry.target
+			if(M)
+				M.nearby_players += sign
+
 /datum/quadtree/proc/Query(datum/shape/range, list/found, kind_mask, flags)
 	QueryBounds(range.min_x, range.max_x, range.min_y, range.max_y, range.is_circle ? range : null, found, kind_mask, flags)
 
 /datum/quadtree/proc/QueryBounds(rmin_x, rmax_x, rmin_y, rmax_y, datum/shape/circle_range, list/found, kind_mask, flags)
-	if(kind_mask == QT_KIND_AI_SLEEPING && !subtree_sleeping)
+	if(!(kind_mask & subtree_kinds))
 		return
 	if(rmax_x < min_x || rmin_x > max_x || rmax_y < min_y || rmin_y > max_y)
 		return

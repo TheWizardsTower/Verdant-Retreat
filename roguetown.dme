@@ -370,6 +370,7 @@
 #ifdef VN_BENCH
 #include "code\controllers\subsystem\stress_tests.dm"
 #include "code\controllers\subsystem\quadtree_bench.dm"
+#include "code\controllers\subsystem\ai_bench.dm"
 #endif
 #include "code\controllers\subsystem\nightshift.dm"
 #include "code\controllers\subsystem\overlays.dm"
