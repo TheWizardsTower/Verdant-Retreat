@@ -306,7 +306,10 @@ PROCESSING_SUBSYSTEM_DEF(ai)
 /datum/controller/subsystem/processing/ai/proc/VN_Think(mob/living/M, current_time)
 	var/datum/behavior_tree/node/parallel/root/root = M.ai_root
 	// root.evaluate() always fires the movement subtree async
-	INVOKE_ASYNC(root.move_node, TYPE_PROC_REF(/datum/behavior_tree/node, evaluate), M, root.target, root.blackboard)
+	if(GLOB.vn_move_sync)
+		root.move_node.evaluate(M, root.target, root.blackboard)
+	else
+		INVOKE_ASYNC(root.move_node, TYPE_PROC_REF(/datum/behavior_tree/node, evaluate), M, root.target, root.blackboard)
 
 	// think gate, replicating bt_action/check_think_valid
 	if(M.stat == DEAD || current_time < root.next_think_tick || M.incapacitated(ignore_restraints = 1))

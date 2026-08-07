@@ -88,7 +88,11 @@
 	return NODE_SUCCESS
 
 /bt_action/check_has_path/evaluate(mob/living/user, atom/target, list/blackboard)
-	if(!user.ai_root || !user.ai_root.path || !length(user.ai_root.path))
+	if(!user.ai_root)
+		return NODE_FAILURE
+	if(user.ai_root.path_request_id)
+		user.collect_ai_path()
+	if(!user.ai_root.path || !length(user.ai_root.path))
 		return NODE_FAILURE
 	return NODE_SUCCESS
 

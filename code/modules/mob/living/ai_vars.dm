@@ -52,6 +52,30 @@
 	return (ai_root.move_node.evaluate(src, ai_root.target, ai_root.blackboard) == NODE_SUCCESS)
 */
 
+/// Collects an in-flight native path request. Never sleeps. Returns TRUE if a
+/// usable path landed this call.
+/mob/living/proc/collect_ai_path()
+	if(!ai_root?.path_request_id)
+		return FALSE
+	var/result = SSpathfinding.PollPath(ai_root.path_request_id)
+	if(result == PATH_PENDING)
+		return FALSE
+	ai_root.path_request_id = 0
+	var/atom/dest = ai_root.path_request_dest
+	ai_root.path_request_dest = null
+	if(!islist(result) || !length(result) || !dest || QDELETED(dest))
+		if(ai_root.blackboard && dest)
+			ai_root.blackboard[AIBLK_FAILED_PATH_DEST] = dest
+			ai_root.blackboard[AIBLK_FAILED_PATH_TIME] = world.time
+		return FALSE
+	ai_root.path = result
+	ai_root.move_destination = dest
+	SSai.claim_turf(get_turf(dest), src)
+	if(ai_root.blackboard)
+		ai_root.blackboard -= AIBLK_FAILED_PATH_DEST
+		ai_root.blackboard -= AIBLK_FAILED_PATH_TIME
+	return TRUE
+
 /mob/living/proc/set_ai_path_to(atom/destination)
 	if(!ai_root)
 		return FALSE
@@ -72,6 +96,10 @@
 			SSai.unclaim_turf(get_turf(ai_root.move_destination), src)
 		ai_root.path = null
 		ai_root.move_destination = null
+		if(ai_root.path_request_id)
+			SSpathfinding.CancelPath(ai_root.path_request_id)
+			ai_root.path_request_id = 0
+			ai_root.path_request_dest = null
 		return FALSE
 
 	// Check if we recently failed to path to this destination (EARLY CHECK to avoid expensive operations)
@@ -157,8 +185,17 @@
 		ai_root.path = null
 		ai_root.move_destination = null
 		return FALSE
-
-	ai_root.path = A_Star(src, start_turf, dest_turf)
+	if(start_turf.z == dest_turf.z && get_dist(start_turf, dest_turf) <= 30)
+		ai_root.path = A_Star(src, start_turf, dest_turf)
+	else
+		var/req = SSpathfinding.RequestPath(src, start_turf, dest_turf)
+		if(req)
+			if(ai_root.path_request_id)
+				SSpathfinding.CancelPath(ai_root.path_request_id)
+			ai_root.path_request_id = req
+			ai_root.path_request_dest = destination
+			return FALSE
+		ai_root.path = A_Star(src, start_turf, dest_turf)
 
 	if(length(ai_root.path) > 0)
 		ai_root.move_destination = destination

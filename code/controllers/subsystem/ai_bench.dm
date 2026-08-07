@@ -1,8 +1,22 @@
 #define VNA_TICKS 60
+#define VNA_TREE_TYPES list(	/datum/behavior_tree/node/selector/behemoth_tree, /datum/behavior_tree/node/selector/bigrat_tree, 	/datum/behavior_tree/node/selector/chicken_tree, /datum/behavior_tree/node/selector/colossus_tree, 	/datum/behavior_tree/node/selector/deepone_melee_tree, /datum/behavior_tree/node/selector/deepone_ranged_tree, 	/datum/behavior_tree/node/selector/direbear_tree, /datum/behavior_tree/node/selector/dryad_tree, 	/datum/behavior_tree/node/selector/generic_friendly_tree, /datum/behavior_tree/node/selector/generic_hostile_tree, 	/datum/behavior_tree/node/selector/generic_hungry_hostile_tree, /datum/behavior_tree/node/selector/goblin_tree, 	/datum/behavior_tree/node/selector/haunt_tree, /datum/behavior_tree/node/selector/hostile_humanoid_tree, 	/datum/behavior_tree/node/selector/insane_clown_tree, /datum/behavior_tree/node/selector/lamia_tree, 	/datum/behavior_tree/node/selector/leyline_tree, /datum/behavior_tree/node/selector/mimic_tree, 	/datum/behavior_tree/node/selector/mossback_tree, /datum/behavior_tree/node/selector/obelisk_tree, 	/datum/behavior_tree/node/selector/skeleton_spear_tree, /datum/behavior_tree/node/selector/skeleton_tree, 	/datum/behavior_tree/node/selector/volf_tree)
 #define VNA_THINK_ITERS 200
 
 GLOBAL_VAR_INIT(vna_started, FALSE)
 GLOBAL_LIST_EMPTY(vna_pop)
+
+/// generic_hostile_tree does NOT export natively, so the default bench dummy can never
+/// exercise the native VM. This one uses an exporting tree so native-vs-DM is measurable.
+/mob/living/simple_animal/vna_native_dummy
+	name = "bench native dummy"
+	icon_state = "chicken"
+	density = FALSE
+	wander = 0
+	stop_automated_movement = 1
+
+/mob/living/simple_animal/vna_native_dummy/Initialize(mapload)
+	. = ..()
+	init_ai_root(/datum/behavior_tree/node/selector/generic_friendly_tree)
 
 /proc/vna_bench_requested()
 	return world.params["vn_ai_bench"] || world.GetConfig("env", "VN_AI_BENCH") || fexists("data/vn_ai_bench.flag")
@@ -36,7 +50,7 @@ GLOBAL_LIST_EMPTY(vna_pop)
 			center.z)
 		if(!istype(T, /turf/open) || isopenspace(T))
 			continue
-		var/mob/living/simple_animal/vnq_ai_dummy/D = new(T)
+		var/mob/living/simple_animal/vna_native_dummy/D = new(T)
 		GLOB.npc_list |= D
 		SSquadtree.RefreshKinds(D)
 		SSai.Register(D)
@@ -189,6 +203,35 @@ GLOBAL_LIST_EMPTY(vna_pop)
 			worst = max(worst, abs(M.nearby_players - actual))
 	return list("checked" = checked, "mismatches" = mismatches, "worst_delta" = worst)
 
+/// Instantiates every AI tree wired to a mob and tests native exportability.
+/// Answers whether the native BT offload applies to anything in a live round.
+/proc/vna_tree_export_audit()
+	. = list()
+	var/list/trees = list()
+	for(var/T in subtypesof(/datum/behavior_tree/node/parallel/root))
+		trees += T
+	var/list/roots = list()
+	for(var/mob/living/M as anything in GLOB.vna_pop)
+		if(M.ai_root?.tree_typepath)
+			roots |= M.ai_root.tree_typepath
+	var/exported = 0
+	var/failed = 0
+	var/list/detail = list()
+	for(var/tp in VNA_TREE_TYPES)
+		var/datum/behavior_tree/node/tree_root = new tp()
+		var/list/out = list()
+		var/list/refs = list()
+		var/ok = vn_export_node(tree_root, out, refs)
+		detail += list(list("tree" = "[tp]", "exports" = ok ? 1 : 0, "nodes" = length(refs)))
+		if(ok)
+			exported++
+		else
+			failed++
+		qdel(tree_root)
+	.["exported"] = exported
+	.["failed"] = failed
+	.["detail"] = detail
+
 /proc/vna_scenario(count, radius, player_n, label)
 	vna_teardown()
 	var/turf/center = vnq_placement_turf("scattered")
@@ -218,6 +261,13 @@ GLOBAL_LIST_EMPTY(vna_pop)
 	GLOB.vn_bt_native = FALSE
 	SSai.vna_skip = 0
 	row["fire_dm"] = vna_time_fire(VNA_TICKS, mobs)
+
+	GLOB.vn_move_sync = FALSE
+	row["fire_move_async"] = vna_time_fire(VNA_TICKS, mobs)
+	row["tick_move_async"] = vna_time_tick_total(VNA_TICKS, mobs)
+	GLOB.vn_move_sync = TRUE
+	row["fire_move_sync"] = vna_time_fire(VNA_TICKS, mobs)
+	row["tick_move_sync"] = vna_time_tick_total(VNA_TICKS, mobs)
 
 	SSai.vna_legacy_query = TRUE
 	row["fire_legacy_query"] = vna_time_fire(VNA_TICKS, mobs)
@@ -253,12 +303,35 @@ GLOBAL_LIST_EMPTY(vna_pop)
 	fdel("data/vn_ai_progress.log")
 	vna_log("AIBENCH start tag=[tag] maxx=[world.maxx] maxy=[world.maxy] tick_lag=[world.tick_lag]")
 
+	// SSnative loads the map mirror incrementally and only then sets mirror_loaded,
+	// which gates the native BT path. Freezing it first would make native unmeasurable.
+	if(GLOB.vn_available && !GLOB.vn_safe_mode)
+		var/pumps = 0
+		var/old_limit = Master.current_ticklimit
+		while(!SSnative.mirror_loaded && pumps < 20000)
+			Master.current_ticklimit = 100000
+			SSnative.BulkLoadGrid()
+			Master.current_ticklimit = old_limit
+			pumps++
+			if(!SSnative.grid_inited && pumps > 3)
+				break
+			if(pumps % 20 == 0)
+				sleep(world.tick_lag)
+		vna_log("AIBENCH native mirror pumps=[pumps] mirror_loaded=[SSnative.mirror_loaded ? 1 : 0] vn_available=[GLOB.vn_available ? 1 : 0] safe_mode=[GLOB.vn_safe_mode ? 1 : 0] grid_inited=[SSnative.grid_inited ? 1 : 0] init_complete=[Master.init_complete ? 1 : 0] can_fire=[SSnative.can_fire ? 1 : 0] load_z=[SSnative.load_z] load_y=[SSnative.load_y] maxy=[world.maxy]")
+	else
+		vna_log("AIBENCH native unavailable: vn_available=[GLOB.vn_available ? 1 : 0] safe_mode=[GLOB.vn_safe_mode ? 1 : 0]")
+
 	vnq_freeze_world()
 	SSai.wait = 100000
 	SSai.next_fire = world.time + 1000000
 	sleep(world.tick_lag * 3)
 
-	var/list/results = list("meta" = list("tag" = tag, "ticks" = VNA_TICKS, "think_iters" = VNA_THINK_ITERS), "scenarios" = list())
+	var/list/audit = vna_tree_export_audit()
+	vna_log("AIBENCH TREE EXPORT AUDIT exported=[audit["exported"]] failed=[audit["failed"]]")
+	for(var/list/d in audit["detail"])
+		vna_log("AIBENCH   tree [d["tree"]] exports=[d["exports"]] nodes=[d["nodes"]]")
+
+	var/list/results = list("meta" = list("tag" = tag, "ticks" = VNA_TICKS, "think_iters" = VNA_THINK_ITERS), "scenarios" = list(), "tree_audit" = audit)
 
 	for(var/list/spec in list(list(50, 12, 0, "idle_50"), list(50, 12, 1, "engaged_50"), list(150, 20, 1, "engaged_150"), list(300, 28, 1, "engaged_300")))
 		var/list/row = vna_scenario(spec[1], spec[2], spec[3], spec[4])
@@ -273,6 +346,11 @@ GLOBAL_LIST_EMPTY(vna_pop)
 		var/list/mi = row["micro"]
 		var/list/cc = row["counter_check"]
 		var/list/flq = row["fire_legacy_query"]
+		var/list/fma = row["fire_move_async"]
+		var/list/fms = row["fire_move_sync"]
+		var/list/tma = row["tick_move_async"]
+		var/list/tms = row["tick_move_sync"]
+		vna_log("AIBENCH [row["label"]] MOVE A/B mobs=[row["mobs"]] fire async=[fma?["mean_us"]] sync=[fms?["mean_us"]] | tick async=[tma?["mean_us"]] sync=[tms?["mean_us"]]")
 		vna_log("AIBENCH [row["label"]] COUNTERS checked=[cc?["checked"]] mismatches=[cc?["mismatches"]] worst=[cc?["worst_delta"]] | fire legacy_query=[flq?["mean_us"]] maintained=[fd?["mean_us"]]")
 		vna_log("AIBENCH [row["label"]] MICRO direct=[mi?["direct_call_ns"]]ns invoke_async=[mi?["invoke_async_ns"]]ns players_in_range=[mi?["players_in_range_ns"]]ns get_turf=[mi?["get_turf_ns"]]ns per mob")
 		vna_log("AIBENCH [row["label"]] ABLATION full=[fd?["mean_us"]] no_dispatch=[fnd?["mean_us"]] no_disp_no_query=[fndq?["mean_us"]] loop_only=[flo?["mean_us"]] us/tick over [row["mobs"]] mobs")

@@ -18,6 +18,8 @@
 	var/tree_typepath
 	var/list/path // This should always be instantiated if we're creating a mob that has one of these anyways, but still do it in InitAI, not in a node definition.
 	var/atom/move_destination // This is where we're going.
+	var/path_request_id = 0
+	var/atom/path_request_dest
 	var/atom/target // And this is who we're KILLING.
 	var/atom/obj_target // And if we're targeting an object, we'll cast it here.
 	var/datum/behavior_tree/node/main_node // Reference to the node that handles the main behavior tree
@@ -300,7 +302,10 @@
 /// with the thinking tree. Skips over nodes to jump back to the last running node and
 /// clears the running node if the node returns anything other than NODE_RUNNING.
 /datum/behavior_tree/node/parallel/root/evaluate(mob/living/npc, atom/target, list/blackboard)
-	INVOKE_ASYNC(move_node, PROC_REF(evaluate), npc, target, blackboard)
+	if(GLOB.vn_move_sync)
+		move_node.evaluate(npc, target, blackboard)
+	else
+		INVOKE_ASYNC(move_node, PROC_REF(evaluate), npc, target, blackboard)
 
 	if(running_node)
 		var/result = running_node.evaluate(npc, target, blackboard)
