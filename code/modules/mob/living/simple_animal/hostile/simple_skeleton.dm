@@ -53,14 +53,14 @@
 		else
 			summoner = user.name
 	if (is_summoned || cabal_affine)
-		faction |= "cabal"
+		add_faction("cabal")
 	// adds the name of the summoner to the faction, to avoid the hooded "Unknown" bug with Skeleton IDs
 	if(user && user.mind && user.mind.current)
-		faction |= "[user.mind.current.real_name]_faction"
+		add_faction("[user.mind.current.real_name]_faction")
 		// lich also gets to have friendlies, as a treat
 		var/datum/antagonist/lich/lich_antag = user.mind.has_antag_datum(/datum/antagonist/lich)
 		if(lich_antag && user.real_name)
-			faction |= "[user.real_name]_faction"
+			add_faction("[user.real_name]_faction")
 	
 	ADD_TRAIT(src, TRAIT_SILVER_WEAK, TRAIT_GENERIC)
 

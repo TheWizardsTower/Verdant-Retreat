@@ -61,6 +61,11 @@
 #define FLUID_PERMEATING 0x10 // This is going to be used to check if fluids should cause the on touch effect of their associated reagent.
 #define FLUID_STICKY 0x20 // For fluids that should stick to mobs who touch them for a while.
 
+// Electrocution conduction through contiguous conductive liquid
+#define SHOCK_CONDUCT_MIN_DEPTH 10 // tiles holding less than this do not conduct (films, drying edges, shallow fords break the circuit)
+#define SHOCK_TILE_CONDUCTIVITY 0.8 // fraction of shock power retained per tile traveled
+#define SHOCK_CONDUCT_MIN_POWER 1 // propagation and damage stop below this
+
 // Quick access to common fluid types so you don't have to type the whole path
 
 #define WATER /datum/liquid/water

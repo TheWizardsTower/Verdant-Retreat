@@ -90,6 +90,8 @@ SUBSYSTEM_DEF(procgen)
 	for(var/obj/effect/liquid/liquid_overlay in world)
 		liquid_overlay.update_icon()
 
+	return ..()
+
 // Parent area type, this should not be placed on the map ever and will probably cause bugs if it is
 /area/procedural_generation
 	name = "Procedurally Generated Area"

@@ -109,7 +109,7 @@
 		new /obj/item/natural/glass_shard(invoker_turf)
 		playsound(src, 'modular_azurepeak/sound/spellbooks/crystal.ogg', 70, TRUE)
 
-		invoker.mind.current.faction += "[invoker.real_name]_faction"
+		invoker.mind.current.add_faction("[invoker.real_name]_faction")
 		var/mob/living/simple_animal/hostile/retaliate/rogue/arcane/noc_guard/guard = new /mob/living/simple_animal/hostile/retaliate/rogue/arcane/noc_guard(invoker_turf)
 		qdel(src)
 
@@ -123,7 +123,7 @@
 			guard.GiveTarget(invoker)
 			return
 
-		guard.faction += "[invoker.real_name]_faction"
+		guard.add_faction("[invoker.real_name]_faction")
 		invoker.summons_under += guard
 		guard.summoner = invoker
 

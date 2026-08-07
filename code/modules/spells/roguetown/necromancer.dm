@@ -151,18 +151,18 @@
 			return FALSE
 		if(target.mind && target.mind.current)
 			if (faction_tag in target.mind.current.faction)
-				target.mind.current.faction -= faction_tag
+				target.mind.current.remove_faction(faction_tag)
 				user.say("Hostis declaratus es.")
 			else
-				target.mind.current.faction += faction_tag
+				target.mind.current.add_faction(faction_tag)
 				user.say("Amicus declaratus es.")
 			target.notify_faction_change()
 		else if(istype(target, /mob/living/simple_animal))
 			if (faction_tag in target.faction)
-				target.faction -= faction_tag
+				target.remove_faction(faction_tag)
 				user.say("Hostis declaratus es.")
 			else
-				target.faction |= faction_tag
+				target.add_faction(faction_tag)
 				user.say("Amicus declaratus es.")
 			if(istype(target, /mob/living/simple_animal/hostile))
 				var/mob/living/simple_animal/hostile/hostile_target = target

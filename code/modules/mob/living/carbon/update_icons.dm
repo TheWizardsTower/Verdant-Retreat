@@ -39,6 +39,7 @@
 		if(!is_shifted)
 			pixel_x = get_standard_pixel_x_offset()
 			pixel_y = get_standard_pixel_y_offset(lying)
+	update_submersion_filter()
 
 /mob/living
 	var/list/overlays_standing[TOTAL_LAYERS]

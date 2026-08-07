@@ -167,6 +167,11 @@
 	/// A list of factions that this mob is currently in, for hostile mob targetting, amongst other things
 	var/list/faction = list("neutral")
 
+	/// Interned id of a single-entry faction, 0 if absent or multi-entry. Maintained by SSquadtree for the sleeper wake scan
+	var/faction_id = 0
+	/// Interned id of this mob's own name, 0 if no faction list anywhere references it
+	var/faction_name_id = 0
+
 	/// Can this mob enter shuttles
 	var/move_on_shuttle = 1
 

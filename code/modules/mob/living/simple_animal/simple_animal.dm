@@ -658,6 +658,7 @@ GLOBAL_VAR_INIT(farm_animals, FALSE)
 		animate(src, transform = ntransform, time = 2, easing = EASE_IN|EASE_OUT)
 		if(underwater_bobbing)
 			underwater_float_animate()
+	update_submersion_filter()
 
 /mob/living/simple_animal/proc/sentience_act() //Called when a simple animal gains sentience via gold slime potion
 	// No legacy logic needed here anymore. AI is controlled by behavior tree.

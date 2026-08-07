@@ -2,57 +2,53 @@
 // QUADTREE DATUMS
 // ==============================================================================
 
-/coords/qtplayer
-	/// Relevant mob the coords are associated to
-	var/mob/player
-	/// Truthy if player is an observer
-	var/is_observer = FALSE
+/datum/shape
+	var/is_circle = FALSE
 
-// Related scheme to above
-/coords/qtplayer/Destroy()
-	player = null
-	..()
-	return QDEL_HINT_IWILLGC
-
-/coords/qtnpc
-	/// Relevant mob the coords are associated to. Should always be a /mob/living or subtype of it to avoid scope errors, since this is specifically for NPCs.
-	var/mob/living/npc
-
-/coords/qtnpc/Destroy()
-	npc = null
-	..()
-	return QDEL_HINT_IWILLGC
-
-/coords/qthearable
-	/// Relevant atom the coords are associated to.
-	var/atom/movable/hearable
-
-/coords/qthearable/Destroy()
-	hearable = null
-	..()
-	return QDEL_HINT_IWILLGC
-
-/datum/shape //Leaving rectangles as a subtype if anyone decides to add circles later - Did it lol - Plasmatik
 	var/center_x = 0
 	var/center_y = 0
-	// Moving the width and height variables to the base class so they can be used by all shapes - Plasmatik
 	var/width = 0
 	var/height = 0
 
 	var/initial_width = 0
 	var/initial_height = 0
 
-/datum/shape/proc/intersects(datum/shape/range)
+	var/min_x = 0
+	var/max_x = 0
+	var/min_y = 0
+	var/max_y = 0
+
+/datum/shape/proc/RecalcBounds()
 	return
 
-/datum/shape/proc/contains(coords/coords)
-	return
+/datum/shape/proc/Recenter(x, y)
+	center_x = x
+	center_y = y
+	RecalcBounds()
 
-/datum/shape/proc/UpdateQTMover(...)
-	return
+/datum/shape/proc/Resize(w, h)
+	width = w
+	height = h
+	RecalcBounds()
+
+/datum/shape/proc/ResetSize()
+	width = initial_width
+	height = initial_height
+	RecalcBounds()
+
+/datum/shape/proc/contains_point(px, py)
+	return FALSE
+
+/datum/shape/proc/overlaps_box(box_min_x, box_max_x, box_min_y, box_max_y)
+	return FALSE
+
+/datum/shape/proc/contains_box(box_min_x, box_max_x, box_min_y, box_max_y)
+	return FALSE
+
+/datum/shape/proc/UpdateQTMover(x, y)
+	Recenter(x, y)
 
 /datum/shape/rectangle
-
 
 /datum/shape/rectangle/New(x, y, w, h)
 	..()
@@ -62,241 +58,452 @@
 	initial_width = w
 	height = h
 	initial_height = h
+	RecalcBounds()
 
-/datum/shape/rectangle/UpdateQTMover(x, y)
-	center_x = x
-	center_y = y
+/datum/shape/rectangle/RecalcBounds()
+	var/half_w = width * 0.5
+	var/half_h = height * 0.5
+	min_x = center_x - half_w
+	max_x = center_x + half_w
+	min_y = center_y - half_h
+	max_y = center_y + half_h
 
-/datum/shape/rectangle/intersects(datum/shape/range)
-	switch(range.type) // We can use switches in these cases because we know the exact types being passed, and we get a very minor performance boost compared to if/else as the type is only evaluated once.
-		if(/datum/shape/rectangle)
-			var/datum/shape/rectangle/rect = range
-			return !(rect.center_x + rect.width/2 < center_x - width / 2 || \
-					rect.center_x  - rect.width/2 > center_x + width / 2 || \
-					rect.center_y + rect.height/2 < center_y - height / 2 || \
-					rect.center_y - rect.height/2 > center_y + height / 2)
-		if(/datum/shape/circle) // If we're checking to see if a circle intersects a rectangle, we'll use the circle's intersect proc instead.
-			return range.intersects(src)
-		else
-			return ..() // Fallback in case something goes wrong, this should never happen.
+/datum/shape/rectangle/contains_point(px, py)
+	return (px >= min_x && px <= max_x && py >= min_y && py <= max_y)
 
-/datum/shape/circle/intersects(datum/shape/circle/range)
+/datum/shape/rectangle/overlaps_box(box_min_x, box_max_x, box_min_y, box_max_y)
+	return !(max_x < box_min_x || min_x > box_max_x || max_y < box_min_y || min_y > box_max_y)
 
-
-/datum/shape/rectangle/contains(coords/coords)
-	return (coords.x_pos >= center_x - width / 2  \
-			&& coords.x_pos <= center_x + width / 2 \
-			&& coords.y_pos >= center_y - height /2  \
-			&& coords.y_pos <= center_y + height / 2)
+/datum/shape/rectangle/contains_box(box_min_x, box_max_x, box_min_y, box_max_y)
+	return (min_x <= box_min_x && max_x >= box_max_x && min_y <= box_min_y && max_y >= box_max_y)
 
 /datum/shape/circle
+	is_circle = TRUE
 	var/radius = 0
+	var/radius_sq = 0
 
 /datum/shape/circle/New(x, y, r)
 	..()
 	center_x = x
 	center_y = y
-	radius = r
-	width = r*2
-	height = r*2
+	width = r * 2
+	initial_width = width
+	height = r * 2
+	initial_height = height
+	RecalcBounds()
 
-/datum/shape/circle/contains(coords/coords)
-	return get_dist_euclidean_squared(center_x, center_y, coords.x_pos, coords.y_pos) <= radius**2
+/datum/shape/circle/RecalcBounds()
+	radius = width * 0.5
+	radius_sq = radius * radius
+	min_x = center_x - radius
+	max_x = center_x + radius
+	min_y = center_y - radius
+	max_y = center_y + radius
 
-/datum/shape/circle/intersects(datum/shape/range)
-	switch(range.type)
-		if(/datum/shape/rectangle)
-			var/datum/shape/rectangle/rect = range
-			// To check if a circle intersects a rectangle, first we have to find the closest point on the rectangle to the circle's center
-			var/closest_x = Clamp(center_x, rect.center_x - rect.width / 2, rect.center_x + rect.width / 2)
-			var/closest_y = Clamp(center_y, rect.center_y - rect.height / 2, rect.center_y + rect.height / 2)
+/datum/shape/circle/contains_point(px, py)
+	var/dx = px - center_x
+	var/dy = py - center_y
+	return (dx * dx + dy * dy) <= radius_sq
 
-			// Then we calculate the distance between the circle's center and said closest point using Euclidean distance
-			var/dist_sq = get_dist_euclidean_squared(closest_x, closest_y, center_x, center_y)
+/datum/shape/circle/overlaps_box(box_min_x, box_max_x, box_min_y, box_max_y)
+	var/closest_x = clamp(center_x, box_min_x, box_max_x)
+	var/closest_y = clamp(center_y, box_min_y, box_max_y)
+	var/dx = center_x - closest_x
+	var/dy = center_y - closest_y
+	return (dx * dx + dy * dy) <= radius_sq
 
-			// If the result is less than or equal to the circle's radius squared, they intersect
-			return dist_sq <= radius**2
+/datum/shape/circle/contains_box(box_min_x, box_max_x, box_min_y, box_max_y)
+	var/dx = max(abs(center_x - box_min_x), abs(center_x - box_max_x))
+	var/dy = max(abs(center_y - box_min_y), abs(center_y - box_max_y))
+	return (dx * dx + dy * dy) <= radius_sq
 
-		if(/datum/shape/circle)
-			// It's much easier to check if two circles intersect one another. Here, we don't have to worry about doing extra math to find the closest points, as we can compare the sum of their radii to the distance between them instead.
-			var/datum/shape/circle/other = range
-			var/dist_sq = get_dist_euclidean_squared(center_x, center_y, other.center_x, other.center_y)
-			var/radii_sum_sq = (radius + other.radius)**2
-			return dist_sq <= radii_sum_sq
-		else
-			return ..() // Fallback in case something goes wrong, again this shouldn't happen.
+/datum/qt_entry
+	var/atom/movable/target
+	var/x_pos = 0
+	var/y_pos = 0
+	var/z_pos = 0
+	var/kinds = 0
+	var/datum/quadtree/node
+
+	var/faction_id = 0
+	var/faction_name_id = 0
+
+/datum/qt_entry/Destroy()
+	target = null
+	node = null
+	..()
+	return QDEL_HINT_IWILLGC
 
 /datum/quadtree
+	var/datum/quadtree/parent
 	var/datum/quadtree/nw_branch
 	var/datum/quadtree/ne_branch
 	var/datum/quadtree/sw_branch
 	var/datum/quadtree/se_branch
-	var/datum/shape/rectangle/boundary
-	var/list/coords/qtplayer/player_coords
-	var/list/coords/qtnpc/npc_coords
-	var/list/coords/qthearable/hearable_coords
-	var/z_level
-	var/is_divided
+
+	var/min_x = 0
+	var/max_x = 0
+	var/min_y = 0
+	var/max_y = 0
+	var/center_x = 0
+	var/center_y = 0
+
+	var/z_level = 0
+	var/is_divided = FALSE
 	var/final_divide = FALSE
 
-/datum/quadtree/New(datum/shape/rectangle/rect, z)
+	var/list/players
+	var/list/npc_carbons
+	var/list/npc_simples
+	var/list/hearables
+	var/list/ai_sleeping
+	var/local_count = 0
+	var/subtree_count = 0
+	var/subtree_sleeping = 0
+
+/datum/quadtree/New(x1, x2, y1, y2, z, datum/quadtree/branch_parent)
 	..()
-	boundary = rect
+	min_x = x1
+	max_x = x2
+	min_y = y1
+	max_y = y2
+	center_x = (x1 + x2) * 0.5
+	center_y = (y1 + y2) * 0.5
 	z_level = z
-	if(boundary.width <= QUADTREE_BOUNDARY_MINIMUM_WIDTH || boundary.height <= QUADTREE_BOUNDARY_MINIMUM_HEIGHT)
+	parent = branch_parent
+	if((max_x - min_x) <= QUADTREE_BOUNDARY_MINIMUM_WIDTH || (max_y - min_y) <= QUADTREE_BOUNDARY_MINIMUM_HEIGHT)
 		final_divide = TRUE
 
 /datum/quadtree/Destroy()
-	// Basically just DON'T use qdel, safety net provided if you do anyway
-	QDEL_NULL(nw_branch)
-	QDEL_NULL(ne_branch)
-	QDEL_NULL(sw_branch)
-	QDEL_NULL(se_branch)
-	QDEL_NULL(boundary)
-	QDEL_NULL(player_coords)
-	QDEL_NULL(npc_coords) // Added for cleanup
-	QDEL_NULL(hearable_coords)
+	nw_branch = null
+	ne_branch = null
+	sw_branch = null
+	se_branch = null
+	parent = null
+	players = null
+	npc_carbons = null
+	npc_simples = null
+	hearables = null
+	ai_sleeping = null
 	..()
-	return QDEL_HINT_IWILLGC // Shouldn't have to begin with
+	return QDEL_HINT_IWILLGC
 
-/datum/quadtree/proc/subdivide() // Clarified and refactored this to make it less eye cancer - Plasmatik
-	var/half_width = boundary.width / 2
-	var/half_height = boundary.height / 2
-	var/quarter_width = boundary.width / 4
-	var/quarter_height = boundary.height / 4
+/datum/quadtree/proc/ChildFor(px, py)
+	if(py < center_y)
+		return (px < center_x) ? sw_branch : se_branch
+	return (px < center_x) ? nw_branch : ne_branch
 
-	// We're gonna create four quadrants, each one being half the size of its parent
-	// And our centers will be offset by 1/4 of parent's dimensions from parent's center, so we get 4 equally sized quadrants
-	nw_branch = QTREE(RECT(boundary.center_x - quarter_width, boundary.center_y + quarter_height, half_width, half_height), z_level)
-	ne_branch = QTREE(RECT(boundary.center_x + quarter_width, boundary.center_y + quarter_height, half_width, half_height), z_level)
-	sw_branch = QTREE(RECT(boundary.center_x - quarter_width, boundary.center_y - quarter_height, half_width, half_height), z_level)
-	se_branch = QTREE(RECT(boundary.center_x + quarter_width, boundary.center_y - quarter_height, half_width, half_height), z_level)
+/datum/quadtree/proc/AddLocal(datum/qt_entry/entry)
+	var/kinds = entry.kinds
+	if(kinds & QT_KIND_PLAYER)
+		LAZYADD(players, entry)
+	if(kinds & QT_KIND_NPC_CARBON)
+		LAZYADD(npc_carbons, entry)
+	if(kinds & QT_KIND_NPC_SIMPLE)
+		LAZYADD(npc_simples, entry)
+	if(kinds & QT_KIND_HEARABLE)
+		LAZYADD(hearables, entry)
+	if(kinds & QT_KIND_AI_SLEEPING)
+		LAZYADD(ai_sleeping, entry)
+	entry.node = src
+	local_count++
+
+/datum/quadtree/proc/RemoveLocal(datum/qt_entry/entry)
+	var/kinds = entry.kinds
+	if(kinds & QT_KIND_PLAYER)
+		LAZYREMOVE(players, entry)
+	if(kinds & QT_KIND_NPC_CARBON)
+		LAZYREMOVE(npc_carbons, entry)
+	if(kinds & QT_KIND_NPC_SIMPLE)
+		LAZYREMOVE(npc_simples, entry)
+	if(kinds & QT_KIND_HEARABLE)
+		LAZYREMOVE(hearables, entry)
+	if(kinds & QT_KIND_AI_SLEEPING)
+		LAZYREMOVE(ai_sleeping, entry)
+	entry.node = null
+	local_count--
+
+/datum/quadtree/proc/AdjustSleeping(delta)
+	var/datum/quadtree/walk = src
+	while(walk)
+		walk.subtree_sleeping += delta
+		walk = walk.parent
+
+/datum/quadtree/proc/Subdivide()
+	sw_branch = new /datum/quadtree(min_x, center_x, min_y, center_y, z_level, src)
+	se_branch = new /datum/quadtree(center_x, max_x, min_y, center_y, z_level, src)
+	nw_branch = new /datum/quadtree(min_x, center_x, center_y, max_y, z_level, src)
+	ne_branch = new /datum/quadtree(center_x, max_x, center_y, max_y, z_level, src)
 	is_divided = TRUE
 
-/datum/quadtree/proc/insert_player(coords/qtplayer/p_coords)
-	if(!boundary.contains(p_coords))
-		return FALSE
+	var/list/moving = list()
+	if(players)
+		moving |= players
+	if(npc_carbons)
+		moving |= npc_carbons
+	if(npc_simples)
+		moving |= npc_simples
+	if(hearables)
+		moving |= hearables
+	if(ai_sleeping)
+		moving |= ai_sleeping
+	players = null
+	npc_carbons = null
+	npc_simples = null
+	hearables = null
+	ai_sleeping = null
+	local_count = 0
 
-	// Initialize list if needed
-	if(!player_coords)
-		player_coords = list()
+	for(var/datum/qt_entry/entry as anything in moving)
+		var/datum/quadtree/child = ChildFor(entry.x_pos, entry.y_pos)
+		child.subtree_count++
+		if(entry.kinds & QT_KIND_AI_SLEEPING)
+			child.subtree_sleeping++
+		child.AddLocal(entry)
+	for(var/datum/quadtree/child as anything in list(sw_branch, se_branch, nw_branch, ne_branch))
+		if(child.local_count > QUADTREE_CAPACITY && !child.final_divide)
+			child.Subdivide()
 
-	// If we have capacity or can't subdivide further, add here
-	if(final_divide || length(player_coords) < QUADTREE_CAPACITY)
-		player_coords.Add(p_coords)
-		return TRUE
-
-	// We're at capacity and can subdivide
+/datum/quadtree/proc/Collapse()
 	if(!is_divided)
-		subdivide()
+		return
+	sw_branch.HarvestInto(src)
+	se_branch.HarvestInto(src)
+	nw_branch.HarvestInto(src)
+	ne_branch.HarvestInto(src)
+	sw_branch = null
+	se_branch = null
+	nw_branch = null
+	ne_branch = null
+	is_divided = FALSE
 
-	// Try to insert into appropriate quadrant
-	if(nw_branch.insert_player(p_coords)) return TRUE
-	if(ne_branch.insert_player(p_coords)) return TRUE
-	if(sw_branch.insert_player(p_coords)) return TRUE
-	if(se_branch.insert_player(p_coords)) return TRUE
+/datum/quadtree/proc/HarvestInto(datum/quadtree/destination)
+	if(is_divided)
+		sw_branch.HarvestInto(destination)
+		se_branch.HarvestInto(destination)
+		nw_branch.HarvestInto(destination)
+		ne_branch.HarvestInto(destination)
+		return
+	var/list/moving = list()
+	if(players)
+		moving |= players
+	if(npc_carbons)
+		moving |= npc_carbons
+	if(npc_simples)
+		moving |= npc_simples
+	if(hearables)
+		moving |= hearables
+	if(ai_sleeping)
+		moving |= ai_sleeping
+	for(var/datum/qt_entry/entry as anything in moving)
+		destination.AddLocal(entry)
+	players = null
+	npc_carbons = null
+	npc_simples = null
+	hearables = null
+	ai_sleeping = null
+	local_count = 0
 
-	// If subdivision failed (shouldn't happen with proper contains() logic)
-	// Fall back to adding to current node as overflow
-	player_coords.Add(p_coords)
-	return TRUE
+/datum/quadtree/proc/Insert(datum/qt_entry/entry)
+	var/datum/quadtree/node = src
+	var/sleeping = entry.kinds & QT_KIND_AI_SLEEPING
+	while(TRUE)
+		node.subtree_count++
+		if(sleeping)
+			node.subtree_sleeping++
+		if(!node.is_divided)
+			node.AddLocal(entry)
+			if(node.local_count > QUADTREE_CAPACITY && !node.final_divide)
+				node.Subdivide()
+			return
+		node = node.ChildFor(entry.x_pos, entry.y_pos)
 
-/datum/quadtree/proc/insert_npc(coords/qtnpc/n_coords)
-	if(!boundary.contains(n_coords))
-		return FALSE
+/datum/quadtree/proc/Remove(datum/qt_entry/entry)
+	var/datum/quadtree/node = entry.node
+	if(!node)
+		return
+	var/sleeping = entry.kinds & QT_KIND_AI_SLEEPING
+	node.RemoveLocal(entry)
+	var/datum/quadtree/collapse_at
+	var/datum/quadtree/walk = node
+	while(walk)
+		walk.subtree_count--
+		if(sleeping)
+			walk.subtree_sleeping--
+		if(walk.is_divided && walk.subtree_count <= QUADTREE_MERGE_THRESHOLD)
+			collapse_at = walk
+		walk = walk.parent
+	if(collapse_at)
+		collapse_at.Collapse()
 
-	if(!npc_coords)
-		npc_coords = list()
-
-	if(final_divide || length(npc_coords) < QUADTREE_CAPACITY)
-		npc_coords.Add(n_coords)
-		return TRUE
-
-	if(!is_divided)
-		subdivide()
-
-	if(nw_branch.insert_npc(n_coords)) return TRUE
-	if(ne_branch.insert_npc(n_coords)) return TRUE
-	if(sw_branch.insert_npc(n_coords)) return TRUE
-	if(se_branch.insert_npc(n_coords)) return TRUE
-
-	npc_coords.Add(n_coords)
-	return TRUE
-
-/datum/quadtree/proc/insert_hearable(coords/qthearable/h_coords)
-	if(!boundary.contains(h_coords))
-		return FALSE
-
-	if(!hearable_coords)
-		hearable_coords = list()
-
-	if(final_divide || length(hearable_coords) < QUADTREE_CAPACITY)
-		hearable_coords.Add(h_coords)
-		return TRUE
-
-	if(!is_divided)
-		subdivide()
-
-	if(nw_branch.insert_hearable(h_coords)) return TRUE
-	if(ne_branch.insert_hearable(h_coords)) return TRUE
-	if(sw_branch.insert_hearable(h_coords)) return TRUE
-	if(se_branch.insert_hearable(h_coords)) return TRUE
-
-	hearable_coords.Add(h_coords)
-	return TRUE
-
-/datum/quadtree/proc/query_range(datum/shape/range, list/found_players, flags = 0)
-	if(!found_players)
-		found_players = list()
-	. = found_players
-	if(!range?.intersects(boundary))
+/datum/quadtree/proc/Harvest(list/found, kind_mask, flags)
+	if(kind_mask == QT_KIND_AI_SLEEPING && !subtree_sleeping)
 		return
 	if(is_divided)
-		nw_branch.query_range(range, found_players, flags)
-		ne_branch.query_range(range, found_players, flags)
-		sw_branch.query_range(range, found_players, flags)
-		se_branch.query_range(range, found_players, flags)
-	if(!player_coords)
+		sw_branch.Harvest(found, kind_mask, flags)
+		se_branch.Harvest(found, kind_mask, flags)
+		nw_branch.Harvest(found, kind_mask, flags)
+		ne_branch.Harvest(found, kind_mask, flags)
 		return
-	for(var/coords/qtplayer/P as anything in player_coords)
-		if(!P.player) continue
-		if((flags & QTREE_EXCLUDE_OBSERVER) && P.is_observer) continue
-		if(range.contains(P))
-			if(flags & QTREE_SCAN_MOBS)
-				found_players.Add(P.player)
-			else if(P.player.client)
-				found_players.Add(P.player.client)
+	if((kind_mask & QT_KIND_PLAYER) && players)
+		for(var/datum/qt_entry/entry as anything in players)
+			AddPlayerResult(entry, found, flags)
+	if((kind_mask & QT_KIND_NPC_CARBON) && npc_carbons)
+		for(var/datum/qt_entry/entry as anything in npc_carbons)
+			if(entry.target)
+				found += entry.target
+	if((kind_mask & QT_KIND_NPC_SIMPLE) && npc_simples)
+		for(var/datum/qt_entry/entry as anything in npc_simples)
+			if(entry.target)
+				found += entry.target
+	if((kind_mask & QT_KIND_HEARABLE) && hearables)
+		for(var/datum/qt_entry/entry as anything in hearables)
+			if(entry.target)
+				found += entry.target
+	if((kind_mask & QT_KIND_AI_SLEEPING) && ai_sleeping)
+		for(var/datum/qt_entry/entry as anything in ai_sleeping)
+			if(entry.target)
+				found += entry.target
 
-/datum/quadtree/proc/query_range_npcs(datum/shape/range, list/found_npcs)
-	if(!found_npcs)
-		found_npcs = list()
-	. = found_npcs
-	if(!range?.intersects(boundary))
+/datum/quadtree/proc/AddPlayerResult(datum/qt_entry/entry, list/found, flags)
+	var/mob/player = entry.target
+	if(!player)
+		return
+	if((flags & QTREE_EXCLUDE_OBSERVER) && isobserver(player))
+		return
+	if(flags & QTREE_SCAN_MOBS)
+		found += player
+	else if(player.client)
+		found += player.client
+
+/datum/quadtree/proc/WakeScan(rmin_x, rmax_x, rmin_y, rmax_y, datum/shape/circle_range, contained, mob/living/mover, list/mover_faction, mover_id, list/to_wake, list/los_pending)
+	if(!subtree_sleeping)
+		return to_wake
+	if(!contained)
+		if(rmax_x < min_x || rmin_x > max_x || rmax_y < min_y || rmin_y > max_y)
+			return to_wake
+		if(!circle_range && rmin_x <= min_x && rmax_x >= max_x && rmin_y <= min_y && rmax_y >= max_y)
+			contained = TRUE
+	if(is_divided)
+		to_wake = sw_branch.WakeScan(rmin_x, rmax_x, rmin_y, rmax_y, circle_range, contained, mover, mover_faction, mover_id, to_wake, los_pending)
+		to_wake = se_branch.WakeScan(rmin_x, rmax_x, rmin_y, rmax_y, circle_range, contained, mover, mover_faction, mover_id, to_wake, los_pending)
+		to_wake = nw_branch.WakeScan(rmin_x, rmax_x, rmin_y, rmax_y, circle_range, contained, mover, mover_faction, mover_id, to_wake, los_pending)
+		to_wake = ne_branch.WakeScan(rmin_x, rmax_x, rmin_y, rmax_y, circle_range, contained, mover, mover_faction, mover_id, to_wake, los_pending)
+		return to_wake
+	if(!ai_sleeping)
+		return to_wake
+	for(var/datum/qt_entry/entry as anything in ai_sleeping)
+		if(!contained)
+			var/ex = entry.x_pos
+			if(ex < rmin_x || ex > rmax_x)
+				continue
+			var/ey = entry.y_pos
+			if(ey < rmin_y || ey > rmax_y)
+				continue
+			if(circle_range && !circle_range.contains_point(ex, ey))
+				continue
+		var/entry_id = entry.faction_id
+		if(mover_id && entry_id && (mover_id == entry_id || mover_id == entry.faction_name_id))
+			continue
+		var/mob/living/sleeper = entry.target
+		if(!sleeper || sleeper == mover || !sleeper.ai_root)
+			continue
+		if(mover_id && entry_id)
+			if(!los_blocked(mover, sleeper))
+				LAZYADD(to_wake, sleeper)
+			else if(los_pending)
+				los_pending[sleeper] = TRUE
+			continue
+		if(mover_faction)
+			var/sleeper_name = sleeper.name
+			var/list/sleeper_faction = sleeper.faction
+			var/allied = FALSE
+			for(var/f in mover_faction)
+				if(f == sleeper_name || (f in sleeper_faction))
+					allied = TRUE
+					break
+			if(allied)
+				continue
+		if(los_blocked(mover, sleeper))
+			if(los_pending)
+				los_pending[sleeper] = TRUE
+			continue
+		LAZYADD(to_wake, sleeper)
+	return to_wake
+
+/datum/quadtree/proc/Query(datum/shape/range, list/found, kind_mask, flags)
+	QueryBounds(range.min_x, range.max_x, range.min_y, range.max_y, range.is_circle ? range : null, found, kind_mask, flags)
+
+/datum/quadtree/proc/QueryBounds(rmin_x, rmax_x, rmin_y, rmax_y, datum/shape/circle_range, list/found, kind_mask, flags)
+	if(kind_mask == QT_KIND_AI_SLEEPING && !subtree_sleeping)
+		return
+	if(rmax_x < min_x || rmin_x > max_x || rmax_y < min_y || rmin_y > max_y)
+		return
+	if(circle_range ? circle_range.contains_box(min_x, max_x, min_y, max_y) : (rmin_x <= min_x && rmax_x >= max_x && rmin_y <= min_y && rmax_y >= max_y))
+		Harvest(found, kind_mask, flags)
 		return
 	if(is_divided)
-		nw_branch.query_range_npcs(range, found_npcs)
-		ne_branch.query_range_npcs(range, found_npcs)
-		sw_branch.query_range_npcs(range, found_npcs)
-		se_branch.query_range_npcs(range, found_npcs)
-	if(!npc_coords)
+		sw_branch.QueryBounds(rmin_x, rmax_x, rmin_y, rmax_y, circle_range, found, kind_mask, flags)
+		se_branch.QueryBounds(rmin_x, rmax_x, rmin_y, rmax_y, circle_range, found, kind_mask, flags)
+		nw_branch.QueryBounds(rmin_x, rmax_x, rmin_y, rmax_y, circle_range, found, kind_mask, flags)
+		ne_branch.QueryBounds(rmin_x, rmax_x, rmin_y, rmax_y, circle_range, found, kind_mask, flags)
 		return
-	for(var/coords/qtnpc/N as anything in npc_coords)
-		if(N.npc && range.contains(N))
-			found_npcs.Add(N.npc)
-
-/datum/quadtree/proc/query_range_hearables(datum/shape/range, list/found_hearables)
-	if(!found_hearables)
-		found_hearables = list()
-	. = found_hearables
-	if(!range?.intersects(boundary))
-		return
-	if(is_divided)
-		nw_branch.query_range_hearables(range, found_hearables)
-		ne_branch.query_range_hearables(range, found_hearables)
-		sw_branch.query_range_hearables(range, found_hearables)
-		se_branch.query_range_hearables(range, found_hearables)
-	if(!hearable_coords)
-		return
-	for(var/coords/qthearable/H as anything in hearable_coords)
-		if(H.hearable && range.contains(H))
-			found_hearables.Add(H.hearable)
+	if((kind_mask & QT_KIND_PLAYER) && players)
+		for(var/datum/qt_entry/entry as anything in players)
+			var/ex = entry.x_pos
+			if(ex < rmin_x || ex > rmax_x)
+				continue
+			var/ey = entry.y_pos
+			if(ey < rmin_y || ey > rmax_y)
+				continue
+			if(circle_range && !circle_range.contains_point(ex, ey))
+				continue
+			AddPlayerResult(entry, found, flags)
+	if((kind_mask & QT_KIND_NPC_CARBON) && npc_carbons)
+		for(var/datum/qt_entry/entry as anything in npc_carbons)
+			var/ex = entry.x_pos
+			if(ex < rmin_x || ex > rmax_x)
+				continue
+			var/ey = entry.y_pos
+			if(ey < rmin_y || ey > rmax_y)
+				continue
+			if(circle_range && !circle_range.contains_point(ex, ey))
+				continue
+			if(entry.target)
+				found += entry.target
+	if((kind_mask & QT_KIND_NPC_SIMPLE) && npc_simples)
+		for(var/datum/qt_entry/entry as anything in npc_simples)
+			var/ex = entry.x_pos
+			if(ex < rmin_x || ex > rmax_x)
+				continue
+			var/ey = entry.y_pos
+			if(ey < rmin_y || ey > rmax_y)
+				continue
+			if(circle_range && !circle_range.contains_point(ex, ey))
+				continue
+			if(entry.target)
+				found += entry.target
+	if((kind_mask & QT_KIND_HEARABLE) && hearables)
+		for(var/datum/qt_entry/entry as anything in hearables)
+			var/ex = entry.x_pos
+			if(ex < rmin_x || ex > rmax_x)
+				continue
+			var/ey = entry.y_pos
+			if(ey < rmin_y || ey > rmax_y)
+				continue
+			if(circle_range && !circle_range.contains_point(ex, ey))
+				continue
+			if(entry.target)
+				found += entry.target
+	if((kind_mask & QT_KIND_AI_SLEEPING) && ai_sleeping)
+		for(var/datum/qt_entry/entry as anything in ai_sleeping)
+			var/ex = entry.x_pos
+			if(ex < rmin_x || ex > rmax_x)
+				continue
+			var/ey = entry.y_pos
+			if(ey < rmin_y || ey > rmax_y)
+				continue
+			if(circle_range && !circle_range.contains_point(ex, ey))
+				continue
+			if(entry.target)
+				found += entry.target

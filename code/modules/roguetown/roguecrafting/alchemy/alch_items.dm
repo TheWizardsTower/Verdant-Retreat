@@ -70,6 +70,6 @@
 	if(M.mind)
 		M.mind.store_memory("You are obsessed with [user].")
 		M.mind.add_special_person(user, "#FFC0CB")
-	M.faction |= "[REF(user)]"
+	M.add_faction("[REF(user)]")
 	M.apply_status_effect(STATUS_EFFECT_INLOVE, user)
 	qdel(src)

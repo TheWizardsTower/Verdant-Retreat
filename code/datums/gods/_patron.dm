@@ -53,11 +53,11 @@ GLOBAL_LIST_EMPTY(prayers)
 	if (HAS_TRAIT(pious, TRAIT_COMMIE))
 		pious.grant_language(/datum/language/thievescant) // the thieves god people get god damn thieves cant.
 	if (HAS_TRAIT(pious, TRAIT_CABAL))
-		pious.faction |= "cabal"
+		pious.add_faction("cabal")
 
 /datum/patron/proc/on_loss(mob/living/pious)
 	if (HAS_TRAIT(pious, TRAIT_CABAL))
-		pious.faction -= "cabal"
+		pious.remove_faction("cabal")
 	if(HAS_TRAIT(pious, TRAIT_XYLIX))
 		pious.remove_language(/datum/language/thievescant)
 	for(var/trait in mob_traits)
