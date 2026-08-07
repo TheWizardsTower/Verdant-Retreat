@@ -369,7 +369,7 @@
 	if(world.time < user.last_aggro_loss + user.del_on_deaggro) return NODE_SUCCESS
 
 	if(user.aggressive)
-		for(var/mob/living/L in view(3, user))
+		for(var/mob/living/L in ai_view(3, user))
 			if(L == user || !user.should_target(L) || L.stat == DEAD) continue
 			user.retaliate(L)
 			return NODE_SUCCESS

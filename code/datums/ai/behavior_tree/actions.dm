@@ -1,3 +1,53 @@
+#ifdef VN_BENCH
+/// Per-action-type attribution. The macro compiles to a direct call outside VN_BENCH.
+/proc/vn_action_eval(bt_action/A, mob/living/npc, atom/target, list/blackboard)
+	if(!GLOB.vn_action_profile)
+		return A.evaluate(npc, target, blackboard)
+	var/key = "[A.type]"
+	rustg_time_reset("vnact")
+	. = A.evaluate(npc, target, blackboard)
+	GLOB.vn_action_us[key] += rustg_time_microseconds("vnact")
+	GLOB.vn_action_n[key] += 1
+#endif
+
+
+/// All BT-side visibility scans funnel through these: they cache per viewer per
+/// tick (several actions in one think ask for the same view) and let the bench
+/// count and ablate them. Accepts BYOND's (Dist, Center) or bare (Center) forms.
+/proc/ai_view(a, b)
+	return ai_visibility_scan(a, b, FALSE)
+
+/proc/ai_oview(a, b)
+	return ai_visibility_scan(a, b, TRUE)
+
+/proc/ai_visibility_scan(a, b, exclude_self)
+	var/range
+	var/atom/center
+	if(isnum(a))
+		range = a
+		center = b
+	else
+		center = a
+		range = world.view
+#ifdef VN_BENCH
+	GLOB.vn_ai_view_calls++
+	if(GLOB.vn_ai_view_off)
+		return list()
+#endif
+	if(!ismob(center))
+		return exclude_self ? oview(range, center) : view(range, center)
+	var/mob/M = center
+	if(M.ai_view_cache_time != world.time)
+		M.ai_view_cache_time = world.time
+		M.ai_view_cache = list()
+	var/key = "[exclude_self ? "o" : "v"][range]"
+	var/list/hit = M.ai_view_cache[key]
+	if(hit)
+		return hit
+	var/list/res = exclude_self ? oview(range, center) : view(range, center)
+	M.ai_view_cache[key] = res
+	return res
+
 // ==============================================================================
 // BEHAVIOR TREE ACTIONS
 // ==============================================================================
@@ -83,7 +133,7 @@
 // ==============================================================================
 
 /bt_action/check_move_valid/evaluate(mob/living/user, atom/target, list/blackboard)
-	if(user.stat == DEAD || user.doing || user.incapacitated(ignore_restraints = 1) || world.time < user.ai_root.next_move_tick)
+	if(user.stat == DEAD || world.time < user.ai_root.next_move_tick || user.doing || user.incapacitated(ignore_restraints = 1))
 		return NODE_FAILURE
 	return NODE_SUCCESS
 

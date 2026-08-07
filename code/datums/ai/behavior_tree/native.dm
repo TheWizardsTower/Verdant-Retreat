@@ -269,7 +269,7 @@
 			if(!istype(A) || !A.my_action)
 				SSai.vn_queue_report(ai_root.vn_id, node_id, NODE_FAILURE)
 				return
-			var/status = A.my_action.evaluate(src, ai_root.target, ai_root.blackboard)
+			var/status = BT_ACTION_EVAL(A.my_action, src, ai_root.target, ai_root.blackboard)
 			if(isnull(status))
 				status = NODE_FAILURE
 			SSai.vn_queue_report(ai_root.vn_id, node_id, status)

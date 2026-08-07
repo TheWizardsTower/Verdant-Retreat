@@ -550,6 +550,10 @@ PROCESSING_SUBSYSTEM_DEF(ai)
 /// Replaces a per-mob-per-tick players_in_range query in SSai.fire.
 /mob/var/nearby_players = 0
 
+/// Per-tick cache of this mob's visibility scans (see ai_visibility_scan).
+/mob/var/ai_view_cache_time = 0
+/mob/var/list/ai_view_cache
+
 /mob/var/wake_scan_x = 0
 /mob/var/wake_scan_y = 0
 /mob/var/wake_scan_z = 0

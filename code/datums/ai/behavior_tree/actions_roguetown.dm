@@ -323,7 +323,7 @@
 		if(current_food.loc) return NODE_SUCCESS
 
 	blackboard -= AIBLK_FOOD_TARGET
-	for(var/obj/item/F in view(search_range, user))
+	for(var/obj/item/F in ai_view(search_range, user))
 		if(is_type_in_list(F, SA.food_type))
 			blackboard[AIBLK_FOOD_TARGET] = F
 			return NODE_SUCCESS
@@ -724,7 +724,7 @@
 	if(check_hands)
 		if(locate(locate_path) in user.held_items) found_thing = locate(locate_path) in user.held_items
 	if(!found_thing)
-		var/list/candidates = view(search_range, user)
+		var/list/candidates = ai_view(search_range, user)
 		for(var/atom/A in candidates)
 			if(istype(A, locate_path))
 				found_thing = A
@@ -936,7 +936,7 @@
 	if(current && !QDELETED(current) && current.stat == DEAD && current.loc && get_dist(user, current) <= search_range)
 		return NODE_SUCCESS
 	blackboard -= AIBLK_CORPSE_TARGET
-	for(var/mob/living/L in oview(search_range, user))
+	for(var/mob/living/L in ai_oview(search_range, user))
 		if(L.stat != DEAD)
 			continue
 		if(L.ckey || L.mind)
@@ -1097,7 +1097,7 @@
 	return NODE_FAILURE
 
 /bt_action/chicken_find_nest/evaluate(mob/living/user, mob/living/target, list/blackboard)
-	var/obj/structure/fluff/nest/N = locate() in oview(user)
+	var/obj/structure/fluff/nest/N = locate() in ai_oview(user)
 	if(N)
 		if(user.set_ai_path_to(N))
 			return NODE_RUNNING
@@ -1127,12 +1127,12 @@
 	return NODE_FAILURE
 
 /bt_action/chicken_find_material/evaluate(mob/living/user, mob/living/target, list/blackboard)
-	var/obj/item/natural/fibers/F = locate() in oview(user)
+	var/obj/item/natural/fibers/F = locate() in ai_oview(user)
 	if(F)
 		if(user.set_ai_path_to(F))
 			return NODE_RUNNING
 		return NODE_FAILURE
-	var/obj/item/grown/log/tree/stick/S = locate() in oview(user)
+	var/obj/item/grown/log/tree/stick/S = locate() in ai_oview(user)
 	if(S)
 		if(user.set_ai_path_to(S))
 			return NODE_RUNNING
@@ -1150,7 +1150,7 @@
 	if(world.time < next_scan) return NODE_FAILURE
 	next_scan = world.time + 20 SECONDS
 	var/list/candidates = list()
-	for(var/mob/living/carbon/C in oview(search_range, user))
+	for(var/mob/living/carbon/C in ai_oview(search_range, user))
 		if(C.stat == DEAD || C.stat == CONSCIOUS) continue
 		if(istype(C.loc, /obj/structure/spider/cocoon)) continue
 		candidates += C

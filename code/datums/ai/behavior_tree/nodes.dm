@@ -343,7 +343,7 @@
 		#endif
 		return NODE_FAILURE
 
-	switch(my_action.evaluate(npc, target, blackboard))
+	switch(BT_ACTION_EVAL(my_action, npc, target, blackboard))
 		if(NODE_SUCCESS)
 			node_state = invert ? NODE_FAILURE : NODE_SUCCESS
 			#ifdef BT_DEBUG

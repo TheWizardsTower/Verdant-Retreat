@@ -257,8 +257,20 @@ GLOBAL_VAR_INIT(vn_liquid_ubend, TRUE)
 #define vn_bt_status call_ext(VERDANT_NATIVE, "byond:vn_bt_status")
 
 /// Route supported behavior trees through the native evaluator.
-GLOBAL_VAR_INIT(vn_bt_native, FALSE)
+GLOBAL_VAR_INIT(vn_bt_native, TRUE)
 GLOBAL_VAR_INIT(vn_move_sync, TRUE)
+GLOBAL_VAR_INIT(vn_ai_view_calls, 0)
+GLOBAL_VAR_INIT(vn_ai_view_off, FALSE)
+
+#ifdef VN_BENCH
+GLOBAL_LIST_EMPTY(vn_action_us)
+GLOBAL_LIST_EMPTY(vn_action_n)
+GLOBAL_VAR_INIT(vn_action_profile, FALSE)
+#define BT_ACTION_EVAL(A, N, T, B) vn_action_eval(A, N, T, B)
+#else
+#define BT_ACTION_EVAL(A, N, T, B) (A).evaluate(N, T, B)
+#endif
+
 /// tree root typepath string -> native tree id (0 = known-unsupported)
 GLOBAL_LIST_EMPTY(vn_bt_tree_ids)
 

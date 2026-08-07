@@ -16,7 +16,7 @@ GLOBAL_LIST_EMPTY(vna_pop)
 
 /mob/living/simple_animal/vna_native_dummy/Initialize(mapload)
 	. = ..()
-	init_ai_root(/datum/behavior_tree/node/selector/generic_friendly_tree)
+	init_ai_root(/datum/behavior_tree/node/selector/generic_hostile_tree)
 
 /proc/vna_bench_requested()
 	return world.params["vn_ai_bench"] || world.GetConfig("env", "VN_AI_BENCH") || fexists("data/vn_ai_bench.flag")
@@ -88,10 +88,13 @@ GLOBAL_LIST_EMPTY(vna_pop)
 
 /// Times SSai.fire() itself. Actions and the movement subtree are dispatched with
 /// INVOKE_ASYNC, so their cost lands AFTER fire() returns - see vna_bench_tick.
-/proc/vna_time_fire(ticks, list/mobs)
+/// force=FALSE leaves the natural think/move cadence in place, which is what a
+/// live round looks like; forcing every mob eligible every tick is a worst case.
+/proc/vna_time_fire(ticks, list/mobs, force = TRUE)
 	var/list/per_tick = list()
 	for(var/i in 1 to ticks)
-		vna_force_think_eligible(mobs)
+		if(force)
+			vna_force_think_eligible(mobs)
 		rustg_time_reset("vnafire")
 		vnq_fire_full(SSai)
 		per_tick += rustg_time_microseconds("vnafire")
@@ -184,6 +187,62 @@ GLOBAL_LIST_EMPTY(vna_pop)
 		for(var/mob/living/M as anything in mobs)
 			sink += get_turf(M) ? 1 : 0
 	.["get_turf_ns"] = rustg_time_microseconds("vnam") * 1000 / (iters * n)
+
+	rustg_time_reset("vnam")
+	for(var/i in 1 to iters)
+		for(var/mob/living/M as anything in mobs)
+			sink += M.incapacitated(ignore_restraints = 1) ? 1 : 0
+	.["incapacitated_ns"] = rustg_time_microseconds("vnam") * 1000 / (iters * n)
+
+	rustg_time_reset("vnam")
+	for(var/i in 1 to iters)
+		for(var/mob/living/M as anything in mobs)
+			sink += (M.stat == DEAD) ? 1 : 0
+	.["stat_read_ns"] = rustg_time_microseconds("vnam") * 1000 / (iters * n)
+
+	rustg_time_reset("vnam")
+	for(var/i in 1 to iters)
+		for(var/mob/living/M as anything in mobs)
+			for(var/mob/living/L in view(7, M))
+				sink++
+	.["view7_mobs_ns"] = rustg_time_microseconds("vnam") * 1000 / (iters * n)
+
+	rustg_time_reset("vnam")
+	for(var/i in 1 to iters)
+		for(var/mob/living/M as anything in mobs)
+			for(var/mob/living/L in oview(9, M))
+				sink++
+	.["oview9_mobs_ns"] = rustg_time_microseconds("vnam") * 1000 / (iters * n)
+
+	rustg_time_reset("vnam")
+	for(var/i in 1 to iters)
+		for(var/mob/living/M as anything in mobs)
+			sink += length(view(7, M))
+	.["view7_all_ns"] = rustg_time_microseconds("vnam") * 1000 / (iters * n)
+
+	var/datum/shape/rectangle/probe = RECT(1, 1, 14, 14)
+	rustg_time_reset("vnam")
+	for(var/i in 1 to iters)
+		for(var/mob/living/M as anything in mobs)
+			var/turf/T = get_turf(M)
+			if(!T)
+				continue
+			probe.Recenter(T.x, T.y)
+			for(var/mob/living/L as anything in SSquadtree.npcs_in_range(probe, T.z))
+				sink++
+	.["qt_npcs_r7_ns"] = rustg_time_microseconds("vnam") * 1000 / (iters * n)
+
+	rustg_time_reset("vnam")
+	for(var/i in 1 to iters)
+		for(var/mob/living/M as anything in mobs)
+			var/turf/T = get_turf(M)
+			if(!T)
+				continue
+			probe.Recenter(T.x, T.y)
+			for(var/mob/living/L as anything in SSquadtree.npcs_in_range(probe, T.z))
+				if(!los_blocked(M, L))
+					sink++
+	.["qt_npcs_r7_los_ns"] = rustg_time_microseconds("vnam") * 1000 / (iters * n)
 	if(sink < 0)
 		.["sink"] = sink
 
@@ -262,6 +321,26 @@ GLOBAL_LIST_EMPTY(vna_pop)
 	SSai.vna_skip = 0
 	row["fire_dm"] = vna_time_fire(VNA_TICKS, mobs)
 
+	row["fire_natural_cadence"] = vna_time_fire(VNA_TICKS, mobs, FALSE)
+
+	GLOB.vn_action_us = list()
+	GLOB.vn_action_n = list()
+	GLOB.vn_action_profile = TRUE
+	vna_time_fire(VNA_TICKS, mobs)
+	GLOB.vn_action_profile = FALSE
+	var/list/act = list()
+	for(var/k in GLOB.vn_action_us)
+		act += list(list("action" = k, "us" = GLOB.vn_action_us[k], "n" = GLOB.vn_action_n[k]))
+	row["action_profile"] = act
+
+	GLOB.vn_ai_view_calls = 0
+	row["fire_view_on"] = vna_time_fire(VNA_TICKS, mobs)
+	var/view_calls = GLOB.vn_ai_view_calls
+	GLOB.vn_ai_view_off = TRUE
+	row["fire_view_off"] = vna_time_fire(VNA_TICKS, mobs)
+	GLOB.vn_ai_view_off = FALSE
+	row["view_calls_per_mob_tick"] = view_calls / max(length(mobs) * VNA_TICKS, 1)
+
 	GLOB.vn_move_sync = FALSE
 	row["fire_move_async"] = vna_time_fire(VNA_TICKS, mobs)
 	row["tick_move_async"] = vna_time_tick_total(VNA_TICKS, mobs)
@@ -333,7 +412,7 @@ GLOBAL_LIST_EMPTY(vna_pop)
 
 	var/list/results = list("meta" = list("tag" = tag, "ticks" = VNA_TICKS, "think_iters" = VNA_THINK_ITERS), "scenarios" = list(), "tree_audit" = audit)
 
-	for(var/list/spec in list(list(50, 12, 0, "idle_50"), list(50, 12, 1, "engaged_50"), list(150, 20, 1, "engaged_150"), list(300, 28, 1, "engaged_300")))
+	for(var/list/spec in list(list(50, 12, 0, "idle_50"), list(300, 30, 1, "engaged_300"), list(500, 40, 2, "engaged_500"), list(800, 52, 3, "engaged_800")))
 		var/list/row = vna_scenario(spec[1], spec[2], spec[3], spec[4])
 		results["scenarios"] += list(row)
 		var/list/w = row["wiring"]
@@ -352,6 +431,31 @@ GLOBAL_LIST_EMPTY(vna_pop)
 		var/list/tms = row["tick_move_sync"]
 		vna_log("AIBENCH [row["label"]] MOVE A/B mobs=[row["mobs"]] fire async=[fma?["mean_us"]] sync=[fms?["mean_us"]] | tick async=[tma?["mean_us"]] sync=[tms?["mean_us"]]")
 		vna_log("AIBENCH [row["label"]] COUNTERS checked=[cc?["checked"]] mismatches=[cc?["mismatches"]] worst=[cc?["worst_delta"]] | fire legacy_query=[flq?["mean_us"]] maintained=[fd?["mean_us"]]")
+		var/list/von = row["fire_view_on"]
+		var/list/voff = row["fire_view_off"]
+		var/list/nc = row["fire_natural_cadence"]
+		vna_log("AIBENCH [row["label"]] NATURAL CADENCE mobs=[row["mobs"]] fire=[nc?["mean_us"]]us (forced-eligible fire=[fd?["mean_us"]]us)")
+		var/list/ap = row["action_profile"]
+		if(length(ap))
+			var/list/sorted = list()
+			for(var/list/e in ap)
+				sorted += list(e)
+			for(var/i in 1 to length(sorted))
+				for(var/j in 1 to length(sorted) - i)
+					var/list/x = sorted[j]
+					var/list/y = sorted[j + 1]
+					if(x["us"] < y["us"])
+						sorted[j] = y
+						sorted[j + 1] = x
+			var/shown = 0
+			for(var/list/e in sorted)
+				shown++
+				if(shown > 10)
+					break
+				vna_log("AIBENCH [row["label"]] ACTION [e["action"]] total=[e["us"]]us calls=[e["n"]] avg=[e["n"] ? round(e["us"] * 1000 / e["n"]) : 0]ns")
+		vna_log("AIBENCH [row["label"]] VIEW ABLATION mobs=[row["mobs"]] with_view=[von?["mean_us"]] without_view=[voff?["mean_us"]] calls/mob/tick=[row["view_calls_per_mob_tick"]]")
+		vna_log("AIBENCH [row["label"]] GUARDCOST incapacitated=[mi?["incapacitated_ns"]]ns stat_read=[mi?["stat_read_ns"]]ns per mob")
+		vna_log("AIBENCH [row["label"]] VIEWCOST view7_mobs=[mi?["view7_mobs_ns"]] oview9_mobs=[mi?["oview9_mobs_ns"]] view7_all=[mi?["view7_all_ns"]] qt_r7=[mi?["qt_npcs_r7_ns"]] qt_r7_los=[mi?["qt_npcs_r7_los_ns"]] ns/mob")
 		vna_log("AIBENCH [row["label"]] MICRO direct=[mi?["direct_call_ns"]]ns invoke_async=[mi?["invoke_async_ns"]]ns players_in_range=[mi?["players_in_range_ns"]]ns get_turf=[mi?["get_turf_ns"]]ns per mob")
 		vna_log("AIBENCH [row["label"]] ABLATION full=[fd?["mean_us"]] no_dispatch=[fnd?["mean_us"]] no_disp_no_query=[fndq?["mean_us"]] loop_only=[flo?["mean_us"]] us/tick over [row["mobs"]] mobs")
 		vna_log("AIBENCH [row["label"]] mobs=[row["mobs"]] native_trees=[w?["trees_exported"]]/[(w?["trees_exported"] || 0) + (w?["trees_failed_dm_fallback"] || 0)] fire=[fd?["mean_us"]]us tick_total=[td?["mean_us"]]us runai=[th?["runai_full_us_per_mob"]]us/mob move=[th?["move_subtree_us_per_mob"]] main=[th?["main_subtree_us_per_mob"]]")
