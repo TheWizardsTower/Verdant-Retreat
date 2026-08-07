@@ -125,6 +125,9 @@
 	var/kinds = 0
 	var/datum/quadtree/node
 
+	var/faction_id = 0
+	var/faction_name_id = 0
+
 /datum/qt_entry/Destroy()
 	target = null
 	node = null
@@ -373,7 +376,7 @@
 	else if(player.client)
 		found += player.client
 
-/datum/quadtree/proc/WakeScan(rmin_x, rmax_x, rmin_y, rmax_y, datum/shape/circle_range, contained, mob/living/mover, list/mover_faction, mover_id, list/to_wake)
+/datum/quadtree/proc/WakeScan(rmin_x, rmax_x, rmin_y, rmax_y, datum/shape/circle_range, contained, mob/living/mover, list/mover_faction, mover_id, list/to_wake, list/los_pending)
 	if(!subtree_sleeping)
 		return to_wake
 	if(!contained)
@@ -382,10 +385,10 @@
 		if(!circle_range && rmin_x <= min_x && rmax_x >= max_x && rmin_y <= min_y && rmax_y >= max_y)
 			contained = TRUE
 	if(is_divided)
-		to_wake = sw_branch.WakeScan(rmin_x, rmax_x, rmin_y, rmax_y, circle_range, contained, mover, mover_faction, mover_id, to_wake)
-		to_wake = se_branch.WakeScan(rmin_x, rmax_x, rmin_y, rmax_y, circle_range, contained, mover, mover_faction, mover_id, to_wake)
-		to_wake = nw_branch.WakeScan(rmin_x, rmax_x, rmin_y, rmax_y, circle_range, contained, mover, mover_faction, mover_id, to_wake)
-		to_wake = ne_branch.WakeScan(rmin_x, rmax_x, rmin_y, rmax_y, circle_range, contained, mover, mover_faction, mover_id, to_wake)
+		to_wake = sw_branch.WakeScan(rmin_x, rmax_x, rmin_y, rmax_y, circle_range, contained, mover, mover_faction, mover_id, to_wake, los_pending)
+		to_wake = se_branch.WakeScan(rmin_x, rmax_x, rmin_y, rmax_y, circle_range, contained, mover, mover_faction, mover_id, to_wake, los_pending)
+		to_wake = nw_branch.WakeScan(rmin_x, rmax_x, rmin_y, rmax_y, circle_range, contained, mover, mover_faction, mover_id, to_wake, los_pending)
+		to_wake = ne_branch.WakeScan(rmin_x, rmax_x, rmin_y, rmax_y, circle_range, contained, mover, mover_faction, mover_id, to_wake, los_pending)
 		return to_wake
 	if(!ai_sleeping)
 		return to_wake
@@ -399,17 +402,18 @@
 				continue
 			if(circle_range && !circle_range.contains_point(ex, ey))
 				continue
+		var/entry_id = entry.faction_id
+		if(mover_id && entry_id && (mover_id == entry_id || mover_id == entry.faction_name_id))
+			continue
 		var/mob/living/sleeper = entry.target
 		if(!sleeper || sleeper == mover || !sleeper.ai_root)
 			continue
-		if(mover_id)
-			var/sleeper_id = sleeper.faction_id
-			if(sleeper_id)
-				if(mover_id == sleeper_id || mover_id == sleeper.faction_name_id)
-					continue
-				if(!los_blocked(mover, sleeper))
-					LAZYADD(to_wake, sleeper)
-				continue
+		if(mover_id && entry_id)
+			if(!los_blocked(mover, sleeper))
+				LAZYADD(to_wake, sleeper)
+			else if(los_pending)
+				los_pending[sleeper] = TRUE
+			continue
 		if(mover_faction)
 			var/sleeper_name = sleeper.name
 			var/list/sleeper_faction = sleeper.faction
@@ -421,6 +425,8 @@
 			if(allied)
 				continue
 		if(los_blocked(mover, sleeper))
+			if(los_pending)
+				los_pending[sleeper] = TRUE
 			continue
 		LAZYADD(to_wake, sleeper)
 	return to_wake

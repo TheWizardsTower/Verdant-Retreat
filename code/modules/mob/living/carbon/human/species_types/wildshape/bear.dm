@@ -26,7 +26,7 @@
 		update_move_intent_slowdown() // Apply speed changes
 
 		AddSpell(new /obj/effect/proc_holder/spell/self/bearclaws)
-		faction += "bears" // It IS a bear
+		add_faction("bears") // It IS a bear
 		if (src.client.prefs?.wildshape_name)
 			real_name = "direbear ([stored_mob.real_name])"
 		else

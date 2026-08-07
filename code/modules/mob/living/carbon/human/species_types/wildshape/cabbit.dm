@@ -24,7 +24,7 @@
 		update_move_intent_slowdown() // Apply speed changes
 
 		AddSpell(new /obj/effect/proc_holder/spell/self/cabbitclaws)
-		faction += "cabbits"
+		add_faction("cabbits")
 		if (src.client.prefs?.wildshape_name)
 			real_name = "cabbit ([stored_mob.real_name])"
 		else

@@ -517,4 +517,12 @@ PROCESSING_SUBSYSTEM_DEF(ai)
 
 /mob/var/datum/shape/qt_range // Each mob has a single shape datum to define the quadtree's areas of interest for running searches. This is more performant than creating and destroying the shape datums on every tick.
 
+/mob/var/wake_scan_x = 0
+/mob/var/wake_scan_y = 0
+/mob/var/wake_scan_z = 0
+/mob/var/wake_scan_w = 0
+/mob/var/wake_scan_epoch = -1
+/mob/var/wake_scan_faction_id = -1
+/mob/var/list/wake_los_pending
+
 #undef AI_SQUADS

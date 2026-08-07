@@ -9,7 +9,7 @@
 	ADD_TRAIT(src, TRAIT_TOXIMMUNE, TRAIT_GENERIC)
 	LAZYADD(favored_structures, /obj/structure/vine)
 	LAZYADD(favored_structures, /obj/structure/glowshroom/dendorite)
-	faction += "plants"
+	add_faction("plants")
 	set_patron(/datum/patron/divine/dendor)
 
 /mob/living/simple_animal/hostile/retaliate/rogue/fae/Life()

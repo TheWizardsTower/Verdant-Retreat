@@ -1082,6 +1082,31 @@ GLOBAL_VAR_INIT(mobids, 1)
  *
  * If exact match is set, then all our factions must match exactly
  */
+/**
+ * Faction mutation must go through these so a sleeping AI can never keep a stale cached faction.
+ * A sleeping mob is woken first, which drops it from the quadtree sleeper index entirely.
+ */
+/mob/proc/add_faction(f)
+	faction |= f
+	faction_changed()
+
+/mob/proc/remove_faction(f)
+	faction -= f
+	faction_changed()
+
+/mob/proc/set_faction(list/new_faction)
+	faction = islist(new_faction) ? new_faction : list(new_faction)
+	faction_changed()
+
+/mob/proc/faction_changed()
+	if(!SSquadtree)
+		return
+	SSquadtree.sleeper_epoch++
+	if(SSai?.sleeping_mobs?[src])
+		SSai.WakeUp(src)
+		return
+	SSquadtree.RefreshFactionIds(src)
+
 /mob/proc/faction_check_mob(mob/target, exact_match)
 	if(exact_match) //if we need an exact match, we need to do some bullfuckery.
 		var/list/faction_src = faction.Copy()

@@ -497,7 +497,7 @@ GLOBAL_LIST_INIT(precision_vulnerable_zones, list(BODY_ZONE_L_ARM = 5,
 
 	if(inherent_factions)
 		for(var/i in inherent_factions)
-			C.faction += i //Using +=/-= for this in case you also gain the faction from a different source.
+			C.add_faction(i) //Using +=/-= for this in case you also gain the faction from a different source.
 
 	soundpack_m = new soundpack_m()
 	soundpack_f = new soundpack_f()
@@ -536,7 +536,7 @@ GLOBAL_LIST_INIT(precision_vulnerable_zones, list(BODY_ZONE_L_ARM = 5,
 
 	if(inherent_factions)
 		for(var/i in inherent_factions)
-			C.faction -= i
+			C.remove_faction(i)
 
 	C.remove_movespeed_modifier(MOVESPEED_ID_SPECIES)
 

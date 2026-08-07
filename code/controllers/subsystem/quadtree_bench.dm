@@ -968,6 +968,13 @@ GLOBAL_LIST_EMPTY(vnq_faction_ids)
 	var/list/same_faction = vnq_summarise_steps(faction_us)
 
 	SSquadtree.wake_legacy = FALSE
+	SSquadtree.wake_delta_off = TRUE
+	var/list/nodelta_us = list()
+	var/list/nodelta_wakes = list()
+	vnq_walk_and_time(ai_walker, start, steps, nodelta_us, nodelta_wakes)
+	var/list/same_faction_nodelta = vnq_summarise_steps(nodelta_us)
+	SSquadtree.wake_delta_off = FALSE
+
 	var/list/fast_us = list()
 	var/list/fast_wakes = list()
 	vnq_walk_and_time(ai_walker, start, steps, fast_us, fast_wakes)
@@ -1041,6 +1048,7 @@ GLOBAL_LIST_EMPTY(vnq_faction_ids)
 		"second_walk_after_waking" = settled,
 		"ai_among_same_faction_sleepers" = same_faction,
 		"ai_among_same_faction_sleepers_fast" = same_faction_fast,
+		"ai_among_same_faction_sleepers_nodelta" = same_faction_nodelta,
 		"ai_among_same_faction_sleepers_legacy2" = same_faction_legacy2,
 		"wake_split" = wake_split,
 		"wake_micro" = wake_micro,

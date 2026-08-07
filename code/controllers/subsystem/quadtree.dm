@@ -14,6 +14,7 @@ SUBSYSTEM_DEF(quadtree)
 	var/list/trees
 	var/list/entries
 
+	var/sleeper_epoch = 0
 	var/list/faction_ids
 	var/faction_id_next = 0
 	var/refreshing_faction_ids = FALSE
@@ -28,6 +29,7 @@ SUBSYSTEM_DEF(quadtree)
 
 #ifdef VN_BENCH
 	var/wake_legacy = FALSE
+	var/wake_delta_off = FALSE
 	var/wake_instrument = FALSE
 	var/wake_i_calls = 0
 	var/wake_i_query_us = 0
@@ -141,6 +143,8 @@ SUBSYSTEM_DEF(quadtree)
 	if(entry.x_pos == new_x && entry.y_pos == new_y && entry.z_pos == new_z)
 		return
 	moves_applied++
+	if(entry.kinds & QT_KIND_AI_SLEEPING)
+		sleeper_epoch++
 
 	if(ismob(AM))
 		var/mob/M = AM
@@ -193,6 +197,17 @@ SUBSYSTEM_DEF(quadtree)
 		return 0
 	return FactionId(word, create)
 
+/datum/controller/subsystem/quadtree/proc/RefreshFactionIds(mob/M)
+	if(!entries)
+		return
+	M.faction_id = PrimaryFactionId(M, TRUE)
+	M.faction_name_id = FactionId(M.name, FALSE)
+	var/datum/qt_entry/entry = entries[M]
+	if(!entry)
+		return
+	entry.faction_id = M.ai_root ? M.faction_id : 0
+	entry.faction_name_id = M.faction_name_id
+
 /datum/controller/subsystem/quadtree/proc/RefreshSleeperFactionIds()
 	if(refreshing_faction_ids || !SSai?.sleeping_mobs)
 		return
@@ -200,6 +215,10 @@ SUBSYSTEM_DEF(quadtree)
 	for(var/mob/living/M as anything in SSai.sleeping_mobs)
 		M.faction_id = PrimaryFactionId(M, TRUE)
 		M.faction_name_id = FactionId(M.name, FALSE)
+		var/datum/qt_entry/entry = entries?[M]
+		if(entry)
+			entry.faction_id = M.ai_root ? M.faction_id : 0
+			entry.faction_name_id = M.faction_name_id
 	refreshing_faction_ids = FALSE
 
 /datum/controller/subsystem/quadtree/proc/SetSleeping(mob/living/M, sleeping)
@@ -216,8 +235,11 @@ SUBSYSTEM_DEF(quadtree)
 		node.RemoveLocal(entry)
 	if(sleeping)
 		entry.kinds |= QT_KIND_AI_SLEEPING
+		sleeper_epoch++
 		M.faction_id = PrimaryFactionId(M, TRUE)
 		M.faction_name_id = FactionId(M.name, FALSE)
+		entry.faction_id = M.ai_root ? M.faction_id : 0
+		entry.faction_name_id = M.faction_name_id
 	else
 		entry.kinds &= ~QT_KIND_AI_SLEEPING
 	if(node)
@@ -240,11 +262,68 @@ SUBSYSTEM_DEF(quadtree)
 		return
 #endif
 	var/list/mover_faction = mover.ai_root ? mover.faction : null
-	var/list/to_wake = root.WakeScan(range.min_x, range.max_x, range.min_y, range.max_y, range.is_circle ? range : null, FALSE, mover, mover_faction, mover_faction ? PrimaryFactionId(mover, TRUE) : 0, null)
+	var/mover_id = mover_faction ? PrimaryFactionId(mover, TRUE) : 0
+	var/rmin_x = range.min_x
+	var/rmax_x = range.max_x
+	var/rmin_y = range.min_y
+	var/rmax_y = range.max_y
+	var/datum/shape/circle_range = range.is_circle ? range : null
+
+	var/dx = rmin_x - mover.wake_scan_x
+	var/dy = rmin_y - mover.wake_scan_y
+	var/list/los_pending = mover.wake_los_pending
+	var/list/to_wake
+
+	var/delta_ok = mover.wake_scan_z == z && mover.wake_scan_epoch == sleeper_epoch && mover.wake_scan_w == (rmax_x - rmin_x) && mover.wake_scan_faction_id == mover_id && dx >= -1 && dx <= 1 && dy >= -1 && dy <= 1
+#ifdef VN_BENCH
+	if(wake_delta_off)
+		delta_ok = FALSE
+#endif
+	if(delta_ok && !circle_range)
+		if(dx)
+			var/cx = dx > 0 ? rmax_x : rmin_x
+			to_wake = root.WakeScan(cx, cx, rmin_y, rmax_y, null, FALSE, mover, mover_faction, mover_id, to_wake, los_pending)
+		if(dy)
+			var/cy = dy > 0 ? rmax_y : rmin_y
+			var/row_min_x = dx > 0 ? rmin_x : (dx < 0 ? rmin_x + 1 : rmin_x)
+			var/row_max_x = dx > 0 ? rmax_x - 1 : rmax_x
+			to_wake = root.WakeScan(row_min_x, row_max_x, cy, cy, null, FALSE, mover, mover_faction, mover_id, to_wake, los_pending)
+		to_wake = RecheckLosPending(mover, rmin_x, rmax_x, rmin_y, rmax_y, to_wake)
+	else
+		los_pending = list()
+		mover.wake_los_pending = los_pending
+		to_wake = root.WakeScan(rmin_x, rmax_x, rmin_y, rmax_y, circle_range, FALSE, mover, mover_faction, mover_id, null, los_pending)
+
+	mover.wake_scan_x = rmin_x
+	mover.wake_scan_y = rmin_y
+	mover.wake_scan_z = z
+	mover.wake_scan_w = rmax_x - rmin_x
+	mover.wake_scan_epoch = sleeper_epoch
+	mover.wake_scan_faction_id = mover_id
+
 	if(!to_wake)
 		return
 	for(var/mob/living/sleeper as anything in to_wake)
+		los_pending -= sleeper
 		SSai.WakeUp(sleeper)
+
+/datum/controller/subsystem/quadtree/proc/RecheckLosPending(mob/living/mover, rmin_x, rmax_x, rmin_y, rmax_y, list/to_wake)
+	var/list/pending = mover.wake_los_pending
+	if(!length(pending))
+		return to_wake
+	for(var/mob/living/sleeper as anything in pending)
+		var/datum/qt_entry/entry = entries[sleeper]
+		if(!entry || !(entry.kinds & QT_KIND_AI_SLEEPING))
+			pending -= sleeper
+			continue
+		var/ex = entry.x_pos
+		var/ey = entry.y_pos
+		if(ex < rmin_x || ex > rmax_x || ey < rmin_y || ey > rmax_y)
+			pending -= sleeper
+			continue
+		if(!los_blocked(mover, sleeper))
+			LAZYADD(to_wake, sleeper)
+	return to_wake
 
 #ifdef VN_BENCH
 /datum/controller/subsystem/quadtree/proc/ResetWakeInstrument()

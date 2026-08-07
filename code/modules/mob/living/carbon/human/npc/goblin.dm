@@ -250,11 +250,11 @@
 	update_body()
 	faction = list("orcs")
 	if(is_species(src, /datum/species/goblin/sea))
-		faction += "goblins_sea"
+		add_faction("goblins_sea")
 	else if(is_species(src, /datum/species/goblin/cave))
-		faction += "goblins_cave"
+		add_faction("goblins_cave")
 	else
-		faction += "goblins_base"
+		add_faction("goblins_base")
 	name = "goblin"
 	real_name = "goblin"
 	ADD_TRAIT(src, TRAIT_NOMOOD, TRAIT_GENERIC)
