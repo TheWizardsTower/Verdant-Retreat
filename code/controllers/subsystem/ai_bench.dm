@@ -188,6 +188,22 @@ GLOBAL_LIST_EMPTY(vna_pop)
 			sink += get_turf(M) ? 1 : 0
 	.["get_turf_ns"] = rustg_time_microseconds("vnam") * 1000 / (iters * n)
 
+	var/with_effects = 0
+	var/total_effects = 0
+	for(var/mob/living/M as anything in mobs)
+		var/ne = length(M.status_effects)
+		if(ne)
+			with_effects++
+		total_effects += ne
+	.["mobs_with_status_effects"] = with_effects
+	.["avg_status_effects"] = n ? (total_effects / n) : 0
+
+	rustg_time_reset("vnam")
+	for(var/i in 1 to iters)
+		for(var/mob/living/M as anything in mobs)
+			sink += length(M.status_effects) ? 1 : 0
+	.["status_len_read_ns"] = rustg_time_microseconds("vnam") * 1000 / (iters * n)
+
 	rustg_time_reset("vnam")
 	for(var/i in 1 to iters)
 		for(var/mob/living/M as anything in mobs)
@@ -454,7 +470,7 @@ GLOBAL_LIST_EMPTY(vna_pop)
 					break
 				vna_log("AIBENCH [row["label"]] ACTION [e["action"]] total=[e["us"]]us calls=[e["n"]] avg=[e["n"] ? round(e["us"] * 1000 / e["n"]) : 0]ns")
 		vna_log("AIBENCH [row["label"]] VIEW ABLATION mobs=[row["mobs"]] with_view=[von?["mean_us"]] without_view=[voff?["mean_us"]] calls/mob/tick=[row["view_calls_per_mob_tick"]]")
-		vna_log("AIBENCH [row["label"]] GUARDCOST incapacitated=[mi?["incapacitated_ns"]]ns stat_read=[mi?["stat_read_ns"]]ns per mob")
+		vna_log("AIBENCH [row["label"]] GUARDCOST incapacitated=[mi?["incapacitated_ns"]]ns stat_read=[mi?["stat_read_ns"]]ns status_len=[mi?["status_len_read_ns"]]ns | mobs_with_effects=[mi?["mobs_with_status_effects"]] avg_effects=[mi?["avg_status_effects"]]")
 		vna_log("AIBENCH [row["label"]] VIEWCOST view7_mobs=[mi?["view7_mobs_ns"]] oview9_mobs=[mi?["oview9_mobs_ns"]] view7_all=[mi?["view7_all_ns"]] qt_r7=[mi?["qt_npcs_r7_ns"]] qt_r7_los=[mi?["qt_npcs_r7_los_ns"]] ns/mob")
 		vna_log("AIBENCH [row["label"]] MICRO direct=[mi?["direct_call_ns"]]ns invoke_async=[mi?["invoke_async_ns"]]ns players_in_range=[mi?["players_in_range_ns"]]ns get_turf=[mi?["get_turf_ns"]]ns per mob")
 		vna_log("AIBENCH [row["label"]] ABLATION full=[fd?["mean_us"]] no_dispatch=[fnd?["mean_us"]] no_disp_no_query=[fndq?["mean_us"]] loop_only=[flo?["mean_us"]] us/tick over [row["mobs"]] mobs")

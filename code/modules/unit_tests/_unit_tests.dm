@@ -86,6 +86,7 @@
 
 // BEGIN_INCLUDE
 #include "anchored_mobs.dm"
+#include "incapacity_count.dm"
 #include "quadtree.dm"
 #include "component_tests.dm"
 //#include "create_and_destroy.dm"	//TEMP-DISABLED for status effect baseline: known DPfall/DPtarget compile break under UNIT_TESTS, restore with fix
