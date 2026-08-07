@@ -608,6 +608,253 @@ GLOBAL_LIST_EMPTY(vnq_spawn_turfs)
 		if(vnq_force_sleep(M))
 			.++
 
+/mob/proc/vnq_noop(d)
+	return d
+
+GLOBAL_LIST_EMPTY(vnq_faction_ids)
+
+/mob/var/vnq_faction_mask = 0
+
+/proc/vnq_faction_bit(f)
+	var/id = GLOB.vnq_faction_ids[f]
+	if(!id)
+		id = length(GLOB.vnq_faction_ids) + 1
+		if(id > 24)
+			return 0
+		GLOB.vnq_faction_ids[f] = id
+	return 1 << (id - 1)
+
+/proc/vnq_build_faction_masks(list/mobs)
+	for(var/mob/living/M as anything in mobs)
+		var/mask = 0
+		for(var/f in M.faction)
+			mask |= vnq_faction_bit(f)
+		M.vnq_faction_mask = mask
+
+/proc/vnq_faction_decompose(mob/living/mover, list/candidates, iters)
+	. = list()
+	var/n = length(candidates)
+	.["candidates"] = n
+	if(!n)
+		return
+	.["faction_ids_interned"] = SSquadtree.faction_id_next
+	var/mid = SSquadtree.PrimaryFactionId(mover, TRUE)
+	.["mover_faction_id"] = mid
+	var/zero_n = 0
+	var/match_n = 0
+	for(var/mob/living/S as anything in candidates)
+		var/sid = S.faction_id
+		if(!sid)
+			zero_n++
+		else if(mid == sid || mid == S.faction_name_id)
+			match_n++
+	.["sleepers_zero_id"] = zero_n
+	.["sleepers_id_match"] = match_n
+	var/list/mover_faction = mover.faction
+	var/mf1 = length(mover_faction) ? mover_faction[1] : null
+	var/mover_mask = mover.vnq_faction_mask
+	var/list/memo = list()
+	for(var/mob/living/S as anything in candidates)
+		memo[S] = TRUE
+	var/sink = 0
+
+	rustg_time_reset("vnqf")
+	for(var/i in 1 to iters)
+		for(var/mob/living/S as anything in candidates)
+			sink++
+	.["iter_only"] = rustg_time_microseconds("vnqf") * 1000 / (iters * n)
+
+	rustg_time_reset("vnqf")
+	for(var/i in 1 to iters)
+		for(var/mob/living/S as anything in candidates)
+			if(S.name)
+				sink++
+	.["read_name"] = rustg_time_microseconds("vnqf") * 1000 / (iters * n)
+
+	rustg_time_reset("vnqf")
+	for(var/i in 1 to iters)
+		for(var/mob/living/S as anything in candidates)
+			if(S.faction)
+				sink++
+	.["read_faction"] = rustg_time_microseconds("vnqf") * 1000 / (iters * n)
+
+	rustg_time_reset("vnqf")
+	for(var/i in 1 to iters)
+		for(var/mob/living/S as anything in candidates)
+			for(var/f in mover_faction)
+				sink++
+	.["inner_loop_only"] = rustg_time_microseconds("vnqf") * 1000 / (iters * n)
+
+	rustg_time_reset("vnqf")
+	for(var/i in 1 to iters)
+		for(var/mob/living/S as anything in candidates)
+			var/list/sf = S.faction
+			if(mf1 in sf)
+				sink++
+	.["in_operator"] = rustg_time_microseconds("vnqf") * 1000 / (iters * n)
+
+	rustg_time_reset("vnqf")
+	for(var/i in 1 to iters)
+		for(var/mob/living/S as anything in candidates)
+			var/sn = S.name
+			var/list/sf = S.faction
+			var/allied = FALSE
+			for(var/f in mover_faction)
+				if(f == sn || (f in sf))
+					allied = TRUE
+					break
+			if(allied)
+				sink++
+	.["inline_current"] = rustg_time_microseconds("vnqf") * 1000 / (iters * n)
+
+	rustg_time_reset("vnqf")
+	for(var/i in 1 to iters)
+		for(var/mob/living/S as anything in candidates)
+			if(mf1 == S.name || (mf1 in S.faction))
+				sink++
+	.["hoisted_single"] = rustg_time_microseconds("vnqf") * 1000 / (iters * n)
+
+	rustg_time_reset("vnqf")
+	for(var/i in 1 to iters)
+		for(var/mob/living/S as anything in candidates)
+			if(mover_mask & S.vnq_faction_mask)
+				sink++
+	.["bitmask"] = rustg_time_microseconds("vnqf") * 1000 / (iters * n)
+
+	rustg_time_reset("vnqf")
+	for(var/i in 1 to iters)
+		for(var/mob/living/S as anything in candidates)
+			if(memo[S])
+				sink++
+	.["assoc_memo"] = rustg_time_microseconds("vnqf") * 1000 / (iters * n)
+
+	rustg_time_reset("vnqf")
+	for(var/i in 1 to iters)
+		for(var/mob/living/S as anything in candidates)
+			if(mover.faction_check_mob(S))
+				sink++
+	.["proc_original"] = rustg_time_microseconds("vnqf") * 1000 / (iters * n)
+
+	if(sink < 0)
+		.["sink"] = sink
+
+/datum/quadtree/proc/vnq_scan_nofaction(datum/shape/range, contained, mob/living/mover)
+	if(!subtree_sleeping)
+		return 0
+	if(!contained)
+		if(!QT_SHAPE_OVERLAPS_BOX(range, min_x, max_x, min_y, max_y))
+			return 0
+		if(QT_SHAPE_CONTAINS_BOX(range, min_x, max_x, min_y, max_y))
+			contained = TRUE
+	if(is_divided)
+		return sw_branch.vnq_scan_nofaction(range, contained, mover) + se_branch.vnq_scan_nofaction(range, contained, mover) + nw_branch.vnq_scan_nofaction(range, contained, mover) + ne_branch.vnq_scan_nofaction(range, contained, mover)
+	if(!ai_sleeping)
+		return 0
+	. = 0
+	for(var/datum/qt_entry/entry as anything in ai_sleeping)
+		var/mob/living/sleeper = entry.target
+		if(!sleeper || sleeper == mover)
+			continue
+		if(!contained)
+			var/ex = entry.x_pos
+			var/ey = entry.y_pos
+			if(!QT_SHAPE_CONTAINS_POINT(range, ex, ey))
+				continue
+		if(!sleeper.ai_root)
+			continue
+		.++
+
+/datum/quadtree/proc/vnq_scan_rangeonly(datum/shape/range, contained)
+	if(!subtree_sleeping)
+		return 0
+	if(!contained)
+		if(!QT_SHAPE_OVERLAPS_BOX(range, min_x, max_x, min_y, max_y))
+			return 0
+		if(QT_SHAPE_CONTAINS_BOX(range, min_x, max_x, min_y, max_y))
+			contained = TRUE
+	if(is_divided)
+		return sw_branch.vnq_scan_rangeonly(range, contained) + se_branch.vnq_scan_rangeonly(range, contained) + nw_branch.vnq_scan_rangeonly(range, contained) + ne_branch.vnq_scan_rangeonly(range, contained)
+	if(!ai_sleeping)
+		return 0
+	. = 0
+	for(var/datum/qt_entry/entry as anything in ai_sleeping)
+		if(!contained)
+			var/ex = entry.x_pos
+			var/ey = entry.y_pos
+			if(!QT_SHAPE_CONTAINS_POINT(range, ex, ey))
+				continue
+		.++
+
+/proc/vnq_wake_decompose(mob/living/mover, z, iters)
+	. = list()
+	var/datum/quadtree/root = SSquadtree.trees[z]
+	var/datum/shape/range = mover.qt_range
+	var/sink = 0
+	var/list/sleepers = SSai.sleeping_mobs
+	.["sleeping_mobs_total"] = length(sleepers)
+	.["in_range_candidates"] = root.vnq_scan_rangeonly(range, FALSE)
+
+	rustg_time_reset("vnqd")
+	for(var/i in 1 to iters)
+		sink += root.vnq_scan_rangeonly(range, FALSE)
+	.["descent_rangeonly_us"] = rustg_time_microseconds("vnqd") / iters
+
+	rustg_time_reset("vnqd")
+	for(var/i in 1 to iters)
+		sink += root.vnq_scan_nofaction(range, FALSE, mover)
+	.["descent_nofaction_us"] = rustg_time_microseconds("vnqd") / iters
+
+	rustg_time_reset("vnqd")
+	for(var/i in 1 to iters)
+		for(var/mob/living/M as anything in sleepers)
+			sink++
+	.["linear_iter_only_us"] = rustg_time_microseconds("vnqd") / iters
+
+	var/mx = mover.x
+	var/my = mover.y
+	rustg_time_reset("vnqd")
+	for(var/i in 1 to iters)
+		for(var/mob/living/M as anything in sleepers)
+			if(get_dist(mover, M) <= AI_HIBERNATION_RANGE)
+				sink++
+	.["linear_getdist_us"] = rustg_time_microseconds("vnqd") / iters
+
+	var/list/qt_entries = SSquadtree.entries
+	rustg_time_reset("vnqd")
+	for(var/i in 1 to iters)
+		for(var/mob/living/M as anything in sleepers)
+			var/datum/qt_entry/e = qt_entries[M]
+			if(!e)
+				continue
+			var/dx = e.x_pos - mx
+			var/dy = e.y_pos - my
+			if(dx >= -15 && dx <= 15 && dy >= -15 && dy <= 15)
+				sink++
+	.["linear_cached_coords_us"] = rustg_time_microseconds("vnqd") / iters
+
+	rustg_time_reset("vnqd")
+	for(var/i in 1 to iters)
+		for(var/mob/living/M as anything in sleepers)
+			sink += M.vnq_noop(1)
+	.["linear_proccall_us"] = rustg_time_microseconds("vnqd") / iters
+
+	rustg_time_reset("vnqd")
+	for(var/i in 1 to iters)
+		for(var/mob/living/M as anything in sleepers)
+			sink += SEND_SIGNAL(M, COMSIG_MOVABLE_MOVED)
+	.["linear_sendsignal_us"] = rustg_time_microseconds("vnqd") / iters
+
+	if(sink < 0)
+		.["sink"] = sink
+
+/proc/vnq_wake_micro(mob/living/mover, z, iters, legacy)
+	SSquadtree.wake_legacy = legacy
+	rustg_time_reset("vnqwm")
+	for(var/i in 1 to iters)
+		SSquadtree.WakeNearbySleepers(mover, z)
+	. = rustg_time_microseconds("vnqwm")
+	SSquadtree.wake_legacy = FALSE
+
 /proc/vnq_walk_and_time(mob/living/walker, turf/from, steps, list/per_step_us, list/per_step_wakes)
 	walker.forceMove(from)
 	var/z = from.z
@@ -671,6 +918,17 @@ GLOBAL_LIST_EMPTY(vnq_spawn_turfs)
 
 	var/asleep = vnq_sleep_all(village)
 	var/sleepers_indexed = root ? root.subtree_sleeping : 0
+	SSquadtree.wake_legacy = TRUE
+	var/list/legacy_walk_us = list()
+	var/list/legacy_walk_wakes = list()
+	vnq_walk_and_time(walker, start, steps, legacy_walk_us, legacy_walk_wakes)
+	var/legacy_woken = 0
+	for(var/w in legacy_walk_wakes)
+		legacy_woken += w
+	var/list/intrusion_legacy = vnq_summarise_steps(legacy_walk_us)
+	SSquadtree.wake_legacy = FALSE
+
+	vnq_sleep_all(village)
 	var/list/walk_us = list()
 	var/list/walk_wakes = list()
 	vnq_walk_and_time(walker, start, steps, walk_us, walk_wakes)
@@ -689,15 +947,81 @@ GLOBAL_LIST_EMPTY(vnq_spawn_turfs)
 	var/mob/living/simple_animal/vnq_ai_dummy/ai_walker = new(start)
 	GLOB.vnq_pop += ai_walker
 	for(var/mob/living/M as anything in village)
-		ai_walker.faction = M.faction.Copy()
+		var/list/copied = list()
+		for(var/f in M.faction)
+			if(copytext(f, 1, 2) == "\[")
+				continue
+			copied += f
+		copied += "[REF(ai_walker)]"
+		ai_walker.faction = copied
 		break
+	SSquadtree.ResetWakeInstrument()
+	SSquadtree.wake_legacy = TRUE
+	SSquadtree.wake_instrument = TRUE
 	var/list/faction_us = list()
 	var/list/faction_wakes = list()
 	vnq_walk_and_time(ai_walker, start, steps, faction_us, faction_wakes)
+	SSquadtree.wake_instrument = FALSE
 	var/faction_woken = 0
 	for(var/w in faction_wakes)
 		faction_woken += w
 	var/list/same_faction = vnq_summarise_steps(faction_us)
+
+	SSquadtree.wake_legacy = FALSE
+	var/list/fast_us = list()
+	var/list/fast_wakes = list()
+	vnq_walk_and_time(ai_walker, start, steps, fast_us, fast_wakes)
+	var/fast_woken = 0
+	for(var/w in fast_wakes)
+		fast_woken += w
+	var/list/same_faction_fast = vnq_summarise_steps(fast_us)
+
+	SSquadtree.wake_legacy = TRUE
+	var/list/legacy2_us = list()
+	var/list/legacy2_wakes = list()
+	vnq_walk_and_time(ai_walker, start, steps, legacy2_us, legacy2_wakes)
+	var/list/same_faction_legacy2 = vnq_summarise_steps(legacy2_us)
+	SSquadtree.wake_legacy = FALSE
+
+	var/micro_iters = 400
+	var/sleepers_at_probe = root ? root.subtree_sleeping : 0
+	vnq_wake_micro(ai_walker, z, 40, TRUE)
+	vnq_wake_micro(ai_walker, z, 40, FALSE)
+	var/micro_legacy1 = vnq_wake_micro(ai_walker, z, micro_iters, TRUE)
+	var/micro_fast = vnq_wake_micro(ai_walker, z, micro_iters, FALSE)
+	var/micro_legacy2 = vnq_wake_micro(ai_walker, z, micro_iters, TRUE)
+	var/micro_fast2 = vnq_wake_micro(ai_walker, z, micro_iters, FALSE)
+	var/list/wake_micro = list(
+		"iters" = micro_iters,
+		"sleepers_indexed_at_probe" = sleepers_at_probe,
+		"sleepers_after_probe" = root ? root.subtree_sleeping : 0,
+		"legacy1_us_per_call" = micro_legacy1 / micro_iters,
+		"fast1_us_per_call" = micro_fast / micro_iters,
+		"legacy2_us_per_call" = micro_legacy2 / micro_iters,
+		"fast2_us_per_call" = micro_fast2 / micro_iters,
+	)
+	var/list/wake_decomp = vnq_wake_decompose(ai_walker, z, 200)
+
+	var/list/fd_candidates = list()
+	root.Query(ai_walker.qt_range, fd_candidates, QT_KIND_AI_SLEEPING, 0)
+	vnq_build_faction_masks(fd_candidates)
+	vnq_build_faction_masks(list(ai_walker))
+	var/list/faction_decomp = vnq_faction_decompose(ai_walker, fd_candidates, 200)
+
+	var/wi_calls = SSquadtree.wake_i_calls
+	var/list/wake_split = list(
+		"calls" = wi_calls,
+		"total_query_us" = SSquadtree.wake_i_query_us,
+		"total_filter_us" = SSquadtree.wake_i_filter_us,
+		"avg_query_us" = wi_calls ? (SSquadtree.wake_i_query_us / wi_calls) : 0,
+		"avg_filter_us" = wi_calls ? (SSquadtree.wake_i_filter_us / wi_calls) : 0,
+		"total_candidates" = SSquadtree.wake_i_candidates,
+		"avg_candidates" = wi_calls ? (SSquadtree.wake_i_candidates / wi_calls) : 0,
+		"rejected_self" = SSquadtree.wake_i_rejected_self,
+		"rejected_faction" = SSquadtree.wake_i_rejected_faction,
+		"rejected_los" = SSquadtree.wake_i_rejected_los,
+		"woken" = SSquadtree.wake_i_woken,
+	)
 
 	vnq_teardown_population()
 	return list(
@@ -707,12 +1031,21 @@ GLOBAL_LIST_EMPTY(vnq_spawn_turfs)
 		"put_to_sleep" = asleep,
 		"sleepers_indexed" = sleepers_indexed,
 		"woken_during_walk" = woken,
+		"woken_during_walk_legacy" = legacy_woken,
 		"left_asleep_after_walk" = left_asleep,
 		"same_faction_woken" = faction_woken,
+		"same_faction_woken_fast" = fast_woken,
 		"baseline_no_sleepers" = baseline,
 		"walk_into_sleeping_village" = intrusion,
+		"walk_into_sleeping_village_legacy" = intrusion_legacy,
 		"second_walk_after_waking" = settled,
 		"ai_among_same_faction_sleepers" = same_faction,
+		"ai_among_same_faction_sleepers_fast" = same_faction_fast,
+		"ai_among_same_faction_sleepers_legacy2" = same_faction_legacy2,
+		"wake_split" = wake_split,
+		"wake_micro" = wake_micro,
+		"wake_decomp" = wake_decomp,
+		"faction_decomp" = faction_decomp,
 		"per_step_us_intrusion" = walk_us,
 		"per_step_wakes_intrusion" = walk_wakes,
 		"per_step_us_same_faction" = faction_us,
@@ -896,10 +1229,20 @@ GLOBAL_LIST_EMPTY(vnq_spawn_turfs)
 		vnq_teardown_population()
 
 		vnq_log("QTBENCH wake-on-proximity benchmark")
-		for(var/list/spec in list(list(60, 8), list(200, 12), list(400, 16)))
+		for(var/list/spec in list(list(36, 6), list(60, 8), list(200, 12), list(400, 16)))
 			var/list/wake_row = vnq_bench_wake(spec[1], spec[2], 40)
 			wake_rows += list(wake_row)
-			vnq_log("QTBENCH wake village=[wake_row["village_size"]] indexed=[wake_row["sleepers_indexed"]] woken=[wake_row["woken_during_walk"]]")
+			var/list/sf_legacy = wake_row["ai_among_same_faction_sleepers"]
+			var/list/sf_fast = wake_row["ai_among_same_faction_sleepers_fast"]
+			var/list/sf_legacy2 = wake_row["ai_among_same_faction_sleepers_legacy2"]
+			var/list/wm = wake_row["wake_micro"]
+			vnq_log("QTBENCH wake village=[wake_row["village_size"]] indexed=[wake_row["sleepers_indexed"]] woken=[wake_row["woken_during_walk"]]/[wake_row["woken_during_walk_legacy"]] samefaction legacy=[sf_legacy["mean_us"]] fast=[sf_fast["mean_us"]] legacy2=[sf_legacy2["mean_us"]]")
+			vnq_log("QTBENCH wake micro cand=[wake_row["wake_split"]["avg_candidates"]] legacy=[wm["legacy1_us_per_call"]]/[wm["legacy2_us_per_call"]] fast=[wm["fast1_us_per_call"]]/[wm["fast2_us_per_call"]] us/call")
+			var/list/wd = wake_row["wake_decomp"]
+			vnq_log("QTBENCH wake decomp sleepers=[wd["sleeping_mobs_total"]] inrange=[wd["in_range_candidates"]] rangeonly=[wd["descent_rangeonly_us"]] nofaction=[wd["descent_nofaction_us"]] iter=[wd["linear_iter_only_us"]] getdist=[wd["linear_getdist_us"]] cached=[wd["linear_cached_coords_us"]] proccall=[wd["linear_proccall_us"]] signal=[wd["linear_sendsignal_us"]]")
+			var/list/fd = wake_row["faction_decomp"]
+			vnq_log("QTBENCH faction ids interned=[fd["faction_ids_interned"]] mover_id=[fd["mover_faction_id"]] zero=[fd["sleepers_zero_id"]] match=[fd["sleepers_id_match"]] of [fd["candidates"]]")
+			vnq_log("QTBENCH faction decomp n=[fd["candidates"]] iter=[fd["iter_only"]] name=[fd["read_name"]] faction=[fd["read_faction"]] innerloop=[fd["inner_loop_only"]] in_op=[fd["in_operator"]] inline=[fd["inline_current"]] hoisted=[fd["hoisted_single"]] bitmask=[fd["bitmask"]] memo=[fd["assoc_memo"]] proc=[fd["proc_original"]] ns/cand")
 
 		vnq_log("QTBENCH per-proc profile at peak tier=[peak_tier]")
 		vnq_build_population(peak_tier, 0.15, "scattered", VNQ_PLAYERS)

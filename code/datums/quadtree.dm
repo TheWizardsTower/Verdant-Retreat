@@ -3,6 +3,8 @@
 // ==============================================================================
 
 /datum/shape
+	var/is_circle = FALSE
+
 	var/center_x = 0
 	var/center_y = 0
 	var/width = 0
@@ -76,6 +78,7 @@
 	return (min_x <= box_min_x && max_x >= box_max_x && min_y <= box_min_y && max_y >= box_max_y)
 
 /datum/shape/circle
+	is_circle = TRUE
 	var/radius = 0
 	var/radius_sq = 0
 
@@ -331,6 +334,8 @@
 		collapse_at.Collapse()
 
 /datum/quadtree/proc/Harvest(list/found, kind_mask, flags)
+	if(kind_mask == QT_KIND_AI_SLEEPING && !subtree_sleeping)
+		return
 	if(is_divided)
 		sw_branch.Harvest(found, kind_mask, flags)
 		se_branch.Harvest(found, kind_mask, flags)
@@ -368,37 +373,131 @@
 	else if(player.client)
 		found += player.client
 
+/datum/quadtree/proc/WakeScan(rmin_x, rmax_x, rmin_y, rmax_y, datum/shape/circle_range, contained, mob/living/mover, list/mover_faction, mover_id, list/to_wake)
+	if(!subtree_sleeping)
+		return to_wake
+	if(!contained)
+		if(rmax_x < min_x || rmin_x > max_x || rmax_y < min_y || rmin_y > max_y)
+			return to_wake
+		if(!circle_range && rmin_x <= min_x && rmax_x >= max_x && rmin_y <= min_y && rmax_y >= max_y)
+			contained = TRUE
+	if(is_divided)
+		to_wake = sw_branch.WakeScan(rmin_x, rmax_x, rmin_y, rmax_y, circle_range, contained, mover, mover_faction, mover_id, to_wake)
+		to_wake = se_branch.WakeScan(rmin_x, rmax_x, rmin_y, rmax_y, circle_range, contained, mover, mover_faction, mover_id, to_wake)
+		to_wake = nw_branch.WakeScan(rmin_x, rmax_x, rmin_y, rmax_y, circle_range, contained, mover, mover_faction, mover_id, to_wake)
+		to_wake = ne_branch.WakeScan(rmin_x, rmax_x, rmin_y, rmax_y, circle_range, contained, mover, mover_faction, mover_id, to_wake)
+		return to_wake
+	if(!ai_sleeping)
+		return to_wake
+	for(var/datum/qt_entry/entry as anything in ai_sleeping)
+		if(!contained)
+			var/ex = entry.x_pos
+			if(ex < rmin_x || ex > rmax_x)
+				continue
+			var/ey = entry.y_pos
+			if(ey < rmin_y || ey > rmax_y)
+				continue
+			if(circle_range && !circle_range.contains_point(ex, ey))
+				continue
+		var/mob/living/sleeper = entry.target
+		if(!sleeper || sleeper == mover || !sleeper.ai_root)
+			continue
+		if(mover_id)
+			var/sleeper_id = sleeper.faction_id
+			if(sleeper_id)
+				if(mover_id == sleeper_id || mover_id == sleeper.faction_name_id)
+					continue
+				if(!los_blocked(mover, sleeper))
+					LAZYADD(to_wake, sleeper)
+				continue
+		if(mover_faction)
+			var/sleeper_name = sleeper.name
+			var/list/sleeper_faction = sleeper.faction
+			var/allied = FALSE
+			for(var/f in mover_faction)
+				if(f == sleeper_name || (f in sleeper_faction))
+					allied = TRUE
+					break
+			if(allied)
+				continue
+		if(los_blocked(mover, sleeper))
+			continue
+		LAZYADD(to_wake, sleeper)
+	return to_wake
+
 /datum/quadtree/proc/Query(datum/shape/range, list/found, kind_mask, flags)
+	QueryBounds(range.min_x, range.max_x, range.min_y, range.max_y, range.is_circle ? range : null, found, kind_mask, flags)
+
+/datum/quadtree/proc/QueryBounds(rmin_x, rmax_x, rmin_y, rmax_y, datum/shape/circle_range, list/found, kind_mask, flags)
 	if(kind_mask == QT_KIND_AI_SLEEPING && !subtree_sleeping)
 		return
-	if(!range.overlaps_box(min_x, max_x, min_y, max_y))
+	if(rmax_x < min_x || rmin_x > max_x || rmax_y < min_y || rmin_y > max_y)
 		return
-	if(range.contains_box(min_x, max_x, min_y, max_y))
+	if(circle_range ? circle_range.contains_box(min_x, max_x, min_y, max_y) : (rmin_x <= min_x && rmax_x >= max_x && rmin_y <= min_y && rmax_y >= max_y))
 		Harvest(found, kind_mask, flags)
 		return
 	if(is_divided)
-		sw_branch.Query(range, found, kind_mask, flags)
-		se_branch.Query(range, found, kind_mask, flags)
-		nw_branch.Query(range, found, kind_mask, flags)
-		ne_branch.Query(range, found, kind_mask, flags)
+		sw_branch.QueryBounds(rmin_x, rmax_x, rmin_y, rmax_y, circle_range, found, kind_mask, flags)
+		se_branch.QueryBounds(rmin_x, rmax_x, rmin_y, rmax_y, circle_range, found, kind_mask, flags)
+		nw_branch.QueryBounds(rmin_x, rmax_x, rmin_y, rmax_y, circle_range, found, kind_mask, flags)
+		ne_branch.QueryBounds(rmin_x, rmax_x, rmin_y, rmax_y, circle_range, found, kind_mask, flags)
 		return
 	if((kind_mask & QT_KIND_PLAYER) && players)
 		for(var/datum/qt_entry/entry as anything in players)
-			if(range.contains_point(entry.x_pos, entry.y_pos))
-				AddPlayerResult(entry, found, flags)
+			var/ex = entry.x_pos
+			if(ex < rmin_x || ex > rmax_x)
+				continue
+			var/ey = entry.y_pos
+			if(ey < rmin_y || ey > rmax_y)
+				continue
+			if(circle_range && !circle_range.contains_point(ex, ey))
+				continue
+			AddPlayerResult(entry, found, flags)
 	if((kind_mask & QT_KIND_NPC_CARBON) && npc_carbons)
 		for(var/datum/qt_entry/entry as anything in npc_carbons)
-			if(entry.target && range.contains_point(entry.x_pos, entry.y_pos))
+			var/ex = entry.x_pos
+			if(ex < rmin_x || ex > rmax_x)
+				continue
+			var/ey = entry.y_pos
+			if(ey < rmin_y || ey > rmax_y)
+				continue
+			if(circle_range && !circle_range.contains_point(ex, ey))
+				continue
+			if(entry.target)
 				found += entry.target
 	if((kind_mask & QT_KIND_NPC_SIMPLE) && npc_simples)
 		for(var/datum/qt_entry/entry as anything in npc_simples)
-			if(entry.target && range.contains_point(entry.x_pos, entry.y_pos))
+			var/ex = entry.x_pos
+			if(ex < rmin_x || ex > rmax_x)
+				continue
+			var/ey = entry.y_pos
+			if(ey < rmin_y || ey > rmax_y)
+				continue
+			if(circle_range && !circle_range.contains_point(ex, ey))
+				continue
+			if(entry.target)
 				found += entry.target
 	if((kind_mask & QT_KIND_HEARABLE) && hearables)
 		for(var/datum/qt_entry/entry as anything in hearables)
-			if(entry.target && range.contains_point(entry.x_pos, entry.y_pos))
+			var/ex = entry.x_pos
+			if(ex < rmin_x || ex > rmax_x)
+				continue
+			var/ey = entry.y_pos
+			if(ey < rmin_y || ey > rmax_y)
+				continue
+			if(circle_range && !circle_range.contains_point(ex, ey))
+				continue
+			if(entry.target)
 				found += entry.target
 	if((kind_mask & QT_KIND_AI_SLEEPING) && ai_sleeping)
 		for(var/datum/qt_entry/entry as anything in ai_sleeping)
-			if(entry.target && range.contains_point(entry.x_pos, entry.y_pos))
+			var/ex = entry.x_pos
+			if(ex < rmin_x || ex > rmax_x)
+				continue
+			var/ey = entry.y_pos
+			if(ey < rmin_y || ey > rmax_y)
+				continue
+			if(circle_range && !circle_range.contains_point(ex, ey))
+				continue
+			if(entry.target)
 				found += entry.target

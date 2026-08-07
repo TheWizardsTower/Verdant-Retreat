@@ -14,6 +14,10 @@ SUBSYSTEM_DEF(quadtree)
 	var/list/trees
 	var/list/entries
 
+	var/list/faction_ids
+	var/faction_id_next = 0
+	var/refreshing_faction_ids = FALSE
+
 	var/tracked_players = 0
 	var/tracked_npcs = 0
 	var/tracked_hearables = 0
@@ -22,9 +26,23 @@ SUBSYSTEM_DEF(quadtree)
 	var/moves_applied = 0
 	var/relocations = 0
 
+#ifdef VN_BENCH
+	var/wake_legacy = FALSE
+	var/wake_instrument = FALSE
+	var/wake_i_calls = 0
+	var/wake_i_query_us = 0
+	var/wake_i_filter_us = 0
+	var/wake_i_candidates = 0
+	var/wake_i_rejected_self = 0
+	var/wake_i_rejected_faction = 0
+	var/wake_i_rejected_los = 0
+	var/wake_i_woken = 0
+#endif
+
 /datum/controller/subsystem/quadtree/Initialize()
 	trees = new/list(world.maxz)
 	entries = list()
+	faction_ids = list()
 	for(var/i in 1 to world.maxz)
 		trees[i] = new /datum/quadtree(0.5, world.maxx + 0.5, 0.5, world.maxy + 0.5, i, null)
 
@@ -149,6 +167,41 @@ SUBSYSTEM_DEF(quadtree)
 	root.Insert(entry)
 	WakeNearbySleepers(AM, new_z)
 
+/datum/controller/subsystem/quadtree/proc/FactionId(f, create)
+	if(!f)
+		return 0
+	var/id = faction_ids[f]
+	if(id || !create)
+		return id
+	id = ++faction_id_next
+	faction_ids[f] = id
+	RefreshSleeperFactionIds()
+	return id
+
+/datum/controller/subsystem/quadtree/proc/PrimaryFactionId(mob/M, create)
+	var/own_ref = "[REF(M)]"
+	var/word
+	for(var/f in M.faction)
+		if(f == own_ref)
+			continue
+		if(copytext(f, 1, 2) == "\[")
+			return 0
+		if(word)
+			return 0
+		word = f
+	if(!word)
+		return 0
+	return FactionId(word, create)
+
+/datum/controller/subsystem/quadtree/proc/RefreshSleeperFactionIds()
+	if(refreshing_faction_ids || !SSai?.sleeping_mobs)
+		return
+	refreshing_faction_ids = TRUE
+	for(var/mob/living/M as anything in SSai.sleeping_mobs)
+		M.faction_id = PrimaryFactionId(M, TRUE)
+		M.faction_name_id = FactionId(M.name, FALSE)
+	refreshing_faction_ids = FALSE
+
 /datum/controller/subsystem/quadtree/proc/SetSleeping(mob/living/M, sleeping)
 	if(!entries)
 		return
@@ -163,6 +216,8 @@ SUBSYSTEM_DEF(quadtree)
 		node.RemoveLocal(entry)
 	if(sleeping)
 		entry.kinds |= QT_KIND_AI_SLEEPING
+		M.faction_id = PrimaryFactionId(M, TRUE)
+		M.faction_name_id = FactionId(M.name, FALSE)
 	else
 		entry.kinds &= ~QT_KIND_AI_SLEEPING
 	if(node)
@@ -179,19 +234,64 @@ SUBSYSTEM_DEF(quadtree)
 	var/datum/quadtree/root = trees[z]
 	if(!root || !root.subtree_sleeping)
 		return
+#ifdef VN_BENCH
+	if(wake_legacy)
+		WakeNearbySleepersLegacy(mover, root, range)
+		return
+#endif
+	var/list/mover_faction = mover.ai_root ? mover.faction : null
+	var/list/to_wake = root.WakeScan(range.min_x, range.max_x, range.min_y, range.max_y, range.is_circle ? range : null, FALSE, mover, mover_faction, mover_faction ? PrimaryFactionId(mover, TRUE) : 0, null)
+	if(!to_wake)
+		return
+	for(var/mob/living/sleeper as anything in to_wake)
+		SSai.WakeUp(sleeper)
+
+#ifdef VN_BENCH
+/datum/controller/subsystem/quadtree/proc/ResetWakeInstrument()
+	wake_i_calls = 0
+	wake_i_query_us = 0
+	wake_i_filter_us = 0
+	wake_i_candidates = 0
+	wake_i_rejected_self = 0
+	wake_i_rejected_faction = 0
+	wake_i_rejected_los = 0
+	wake_i_woken = 0
+
+/datum/controller/subsystem/quadtree/proc/WakeNearbySleepersLegacy(mob/living/mover, datum/quadtree/root, datum/shape/range)
+	var/instrument = wake_instrument
+	if(instrument)
+		rustg_time_reset("vnqwi")
 	var/list/sleepers = list()
 	root.Query(range, sleepers, QT_KIND_AI_SLEEPING, 0)
-	if(!length(sleepers))
+	var/n_sleepers = length(sleepers)
+	if(instrument)
+		wake_i_query_us += rustg_time_microseconds("vnqwi")
+	if(!n_sleepers)
 		return
+	if(instrument)
+		wake_i_calls++
+		wake_i_candidates += n_sleepers
+		rustg_time_reset("vnqwi")
 	var/mover_is_ai = mover.ai_root ? TRUE : FALSE
 	for(var/mob/living/sleeper as anything in sleepers)
 		if(sleeper == mover || !sleeper.ai_root)
+			if(instrument)
+				wake_i_rejected_self++
 			continue
 		if(mover_is_ai && mover.faction_check_mob(sleeper))
+			if(instrument)
+				wake_i_rejected_faction++
 			continue
 		if(los_blocked(mover, sleeper))
+			if(instrument)
+				wake_i_rejected_los++
 			continue
+		if(instrument)
+			wake_i_woken++
 		SSai.WakeUp(sleeper)
+	if(instrument)
+		wake_i_filter_us += rustg_time_microseconds("vnqwi")
+#endif
 
 /datum/controller/subsystem/quadtree/proc/Resync()
 	resyncs++

@@ -27,4 +27,11 @@
 
 #define RECT new /datum/shape/rectangle
 
+
+#define QT_SHAPE_CONTAINS_POINT(S, PX, PY) ((PX) >= (S).min_x && (PX) <= (S).max_x && (PY) >= (S).min_y && (PY) <= (S).max_y && (!(S).is_circle || (S).contains_point(PX, PY)))
+
+#define QT_SHAPE_OVERLAPS_BOX(S, BMINX, BMAXX, BMINY, BMAXY) (!((S).max_x < (BMINX) || (S).min_x > (BMAXX) || (S).max_y < (BMINY) || (S).min_y > (BMAXY)) && (!(S).is_circle || (S).overlaps_box(BMINX, BMAXX, BMINY, BMAXY)))
+
+#define QT_SHAPE_CONTAINS_BOX(S, BMINX, BMAXX, BMINY, BMAXY) ((S).min_x <= (BMINX) && (S).max_x >= (BMAXX) && (S).min_y <= (BMINY) && (S).max_y >= (BMAXY) && (!(S).is_circle || (S).contains_box(BMINX, BMAXX, BMINY, BMAXY)))
+
 #define ENTITIES_IN_RANGE(npc) (SSquadtree.players_in_range((npc).qt_range, (npc).z, QTREE_SCAN_MOBS|QTREE_EXCLUDE_OBSERVER) + SSquadtree.npcs_in_range((npc).qt_range, (npc).z))
