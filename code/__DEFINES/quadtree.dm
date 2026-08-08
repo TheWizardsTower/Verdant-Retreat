@@ -1,3 +1,6 @@
+/// Sentinel: a submitted native path request has not finished yet.
+#define PATH_PENDING "pending"
+
 // ==============================================================================
 // QUADTREE DEFINES
 // ==============================================================================

@@ -110,6 +110,10 @@
 				p0 = VN_SIG_HUNGRY
 			else if(istype(N, /datum/behavior_tree/node/decorator/observer/target_death))
 				p0 = VN_SIG_TARGET_DEATH
+			else if(istype(N, /datum/behavior_tree/node/decorator/observer/aggressor_reaction))
+				p0 = VN_SIG_ATTACKED
+			else if(istype(N, /datum/behavior_tree/node/decorator/observer/path_blocked))
+				p0 = VN_SIG_PATH_BLOCKED
 			else
 				return FALSE // custom signal observer
 		else if(istype(N, /datum/behavior_tree/node/decorator/service))
@@ -201,6 +205,8 @@
 	RegisterSignal(M, COMSIG_AI_SQUAD_CHANGED, PROC_REF(vn_on_squad_changed))
 	RegisterSignal(M, COMSIG_AI_PAIN_CRIT, PROC_REF(vn_on_pain_crit))
 	RegisterSignal(M, COMSIG_AI_HUNGRY, PROC_REF(vn_on_hungry))
+	RegisterSignal(M, COMSIG_AI_ATTACKED, PROC_REF(vn_on_attacked))
+	RegisterSignal(M, COMSIG_AI_PATH_BLOCKED, PROC_REF(vn_on_path_blocked))
 
 /datum/behavior_tree/node/parallel/root/proc/vn_on_target_changed(datum/source, atom/new_target)
 	SIGNAL_HANDLER
@@ -240,6 +246,14 @@
 	SIGNAL_HANDLER
 	SSai.vn_queue_signal(vn_id, VN_SIG_HUNGRY)
 
+/datum/behavior_tree/node/parallel/root/proc/vn_on_attacked(datum/source, mob/living/aggressor)
+	SIGNAL_HANDLER
+	SSai.vn_queue_signal(vn_id, VN_SIG_ATTACKED)
+
+/datum/behavior_tree/node/parallel/root/proc/vn_on_path_blocked(datum/source, turf/blocked)
+	SIGNAL_HANDLER
+	SSai.vn_queue_signal(vn_id, VN_SIG_PATH_BLOCKED)
+
 /// Executes one VM intent on this mob and reports leaf outcomes back.
 /mob/living/proc/vn_execute_intent(node_id, kind)
 	if(!ai_root)
@@ -255,7 +269,7 @@
 			if(!istype(A) || !A.my_action)
 				SSai.vn_queue_report(ai_root.vn_id, node_id, NODE_FAILURE)
 				return
-			var/status = A.my_action.evaluate(src, ai_root.target, ai_root.blackboard)
+			var/status = BT_ACTION_EVAL(A.my_action, src, ai_root.target, ai_root.blackboard)
 			if(isnull(status))
 				status = NODE_FAILURE
 			SSai.vn_queue_report(ai_root.vn_id, node_id, status)

@@ -52,6 +52,13 @@
 	///A direct reference to the generated mob effect post-creation. Used for manipulation (or deletion) of the effect. Normally expires.
 	var/mutable_appearance/mob_effect
 
+
+/// Maintained count of the three effects incapacitated() cares about, so that
+/// check is one field read instead of six proc calls. A COUNT, not an OR-mask:
+/// removal has to be exactly reversible.
+/datum/status_effect/proc/vn_incapacity_weight()
+	return (istype(src, STATUS_EFFECT_UNCONSCIOUS) || istype(src, STATUS_EFFECT_STUN) || istype(src, STATUS_EFFECT_PARALYZED)) ? 1 : 0
+
 /datum/status_effect/New(list/arguments)
 	on_creation(arglist(arguments))
 
@@ -60,6 +67,7 @@
 		owner = new_owner
 	if(owner)
 		LAZYADD(owner.status_effects, src)
+		owner.incapacity_count += vn_incapacity_weight()
 
 	if(!owner || !on_apply())
 		qdel(src)
@@ -139,6 +147,7 @@
 		linked_alert = null
 		owner.clear_alert(id)
 		LAZYREMOVE(owner.status_effects, src)
+		owner.incapacity_count -= vn_incapacity_weight()
 		on_remove()
 		owner = null
 	effectedstats = null
@@ -188,6 +197,7 @@
 	owner.clear_alert(id)
 	if(owner)
 		LAZYREMOVE(owner.status_effects, src)
+		owner.incapacity_count -= vn_incapacity_weight()
 		owner = null
 	qdel(src)
 

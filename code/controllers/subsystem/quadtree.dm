@@ -94,6 +94,8 @@ SUBSYSTEM_DEF(quadtree)
 	if(!entry)
 		return
 	UnregisterSignal(AM, COMSIG_MOVABLE_MOVED)
+	if(PlayerEntryCounts(entry))
+		ShiftNearbyPlayers(entry.x_pos, entry.y_pos, entry.z_pos, -1)
 	var/datum/quadtree/node = entry.node
 	if(node)
 		var/datum/quadtree/root = trees[entry.z_pos]
@@ -121,11 +123,19 @@ SUBSYSTEM_DEF(quadtree)
 		entry.kinds = kinds
 		CountKinds(kinds, 1)
 		return
+	var/was_player = PlayerEntryCounts(entry)
 	node.RemoveLocal(entry)
+	node.AdjustKinds(entry.kinds, -1)
 	CountKinds(entry.kinds, -1)
 	entry.kinds = kinds
 	CountKinds(kinds, 1)
+	node.AdjustKinds(kinds, 1)
 	node.AddLocal(entry)
+	var/is_player = PlayerEntryCounts(entry)
+	if(was_player != is_player)
+		ShiftNearbyPlayers(entry.x_pos, entry.y_pos, entry.z_pos, is_player ? 1 : -1)
+	if(kinds & QT_KIND_NPC_ANY)
+		RecountNearbyPlayers(AM, entry.x_pos, entry.y_pos, entry.z_pos)
 
 /datum/controller/subsystem/quadtree/proc/OnMoved(atom/movable/AM, atom/old_loc, dir, forced)
 	SIGNAL_HANDLER
@@ -151,10 +161,20 @@ SUBSYSTEM_DEF(quadtree)
 		if(M.qt_range)
 			M.qt_range.Recenter(new_x, new_y)
 
+	var/old_x = entry.x_pos
+	var/old_y = entry.y_pos
+	var/old_z = entry.z_pos
+	var/is_player = PlayerEntryCounts(entry)
+
 	var/datum/quadtree/node = entry.node
 	if(node && entry.z_pos == new_z && new_x >= node.min_x && new_x <= node.max_x && new_y >= node.min_y && new_y <= node.max_y)
 		entry.x_pos = new_x
 		entry.y_pos = new_y
+		if(is_player)
+			ShiftNearbyPlayers(old_x, old_y, old_z, -1)
+			ShiftNearbyPlayers(new_x, new_y, new_z, 1)
+		if(entry.kinds & QT_KIND_NPC_ANY)
+			RecountNearbyPlayers(AM, new_x, new_y, new_z)
 		WakeNearbySleepers(AM, new_z)
 		return
 
@@ -169,7 +189,36 @@ SUBSYSTEM_DEF(quadtree)
 		return
 	var/datum/quadtree/root = trees[new_z]
 	root.Insert(entry)
+	if(is_player)
+		ShiftNearbyPlayers(old_x, old_y, old_z, -1)
+		ShiftNearbyPlayers(new_x, new_y, new_z, 1)
+	if(entry.kinds & QT_KIND_NPC_ANY)
+		RecountNearbyPlayers(AM, new_x, new_y, new_z)
 	WakeNearbySleepers(AM, new_z)
+
+/// Recomputes one mob's maintained player-proximity count from the tree.
+/datum/controller/subsystem/quadtree/proc/RecountNearbyPlayers(mob/M, x, y, z)
+	if(z < 1 || z > length(trees))
+		M.nearby_players = 0
+		return
+	var/datum/quadtree/root = trees[z]
+	M.nearby_players = root ? root.CountPlayersBounds(x - AI_HIBERNATION_RANGE, x + AI_HIBERNATION_RANGE, y - AI_HIBERNATION_RANGE, y + AI_HIBERNATION_RANGE) : 0
+
+/// A player appearing at / leaving a position shifts every AI mob whose window covers it.
+/// The interest radius is uniform, so "player in mob's window" == "mob within range of player".
+/datum/controller/subsystem/quadtree/proc/ShiftNearbyPlayers(x, y, z, sign)
+	if(z < 1 || z > length(trees))
+		return
+	var/datum/quadtree/root = trees[z]
+	if(!root)
+		return
+	root.AdjustNearbyPlayersBounds(x - AI_HIBERNATION_RANGE, x + AI_HIBERNATION_RANGE, y - AI_HIBERNATION_RANGE, y + AI_HIBERNATION_RANGE, sign)
+
+/datum/controller/subsystem/quadtree/proc/PlayerEntryCounts(datum/qt_entry/entry)
+	if(!(entry.kinds & QT_KIND_PLAYER))
+		return FALSE
+	var/mob/P = entry.target
+	return P && !isobserver(P)
 
 /datum/controller/subsystem/quadtree/proc/FactionId(f, create)
 	if(!f)
@@ -404,6 +453,14 @@ SUBSYSTEM_DEF(quadtree)
 
 	for(var/atom/movable/AM as anything in kinds_by_atom)
 		TrackWithKinds(AM, kinds_by_atom[AM])
+	RebuildNearbyPlayers()
+
+/// Full recompute; the tripwire safety net for the maintained counters.
+/datum/controller/subsystem/quadtree/proc/RebuildNearbyPlayers()
+	for(var/atom/movable/AM as anything in entries)
+		var/datum/qt_entry/entry = entries[AM]
+		if(entry.kinds & QT_KIND_NPC_ANY)
+			RecountNearbyPlayers(AM, entry.x_pos, entry.y_pos, entry.z_pos)
 
 /datum/controller/subsystem/quadtree/proc/TrackWithKinds(atom/movable/AM, kinds)
 	if(!kinds || entries[AM])
@@ -421,6 +478,10 @@ SUBSYSTEM_DEF(quadtree)
 	var/datum/quadtree/root = trees[T.z]
 	root.Insert(entry)
 	CountKinds(kinds, 1)
+	if(PlayerEntryCounts(entry))
+		ShiftNearbyPlayers(entry.x_pos, entry.y_pos, entry.z_pos, 1)
+	if(kinds & QT_KIND_NPC_ANY)
+		RecountNearbyPlayers(AM, entry.x_pos, entry.y_pos, entry.z_pos)
 	RegisterSignal(AM, COMSIG_MOVABLE_MOVED, PROC_REF(OnMoved), TRUE)
 
 /datum/controller/subsystem/quadtree/fire(resumed = FALSE)

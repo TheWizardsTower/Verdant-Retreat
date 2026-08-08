@@ -106,6 +106,8 @@
 	var/see_override = 0 //0 for no override, sets see_invisible = see_override in silicon & carbon life process via update_sight()
 
 	var/list/status_effects //a list of all status effects the mob has
+	/// Maintained by /datum/status_effect: how many unconscious/stun/paralyzed effects are active
+	var/incapacity_count = 0
 	var/list/combat_cooldowns //named combat cooldown expiry timestamps, see set_combat_cooldown()
 
 	var/stasis = FALSE //handles wildshape stopping bleeding from happening
