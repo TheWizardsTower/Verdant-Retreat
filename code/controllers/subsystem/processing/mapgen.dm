@@ -83,6 +83,11 @@ SUBSYSTEM_DEF(procgen)
 
 	SSmapping.check_water_bed_seals()
 
+	if(SSnative?.grid_inited)
+		var/flush_guard = 0
+		while(length(SSnative.dirty_turfs) && flush_guard++ < 1000)
+			SSnative.FlushDirty()
+
 	SSliquid.can_fire = 1
 	fluid_cells.Cut()
 	mimic_turfs.Cut()
@@ -1216,12 +1221,21 @@ Forests are generated using cellular automata with the Moore neighborhood:
 			else if(tile_type == RIVER)
 				place_river_tile(x, y, river_flow_map[key] || SOUTH)
 
+/area/procedural_generation/forest/proc/clear_flora(turf/target)
+	if(!target)
+		return
+	for(var/obj/structure/flora/growth in target)
+		qdel(growth)
+
 /area/procedural_generation/forest/proc/place_lake_tile(x, y)
 	if(!in_area(x, y))
 		return
 	var/turf/current_turf = locate(x, y, src.z)
 	if(!current_turf)
 		return
+
+	// Branches are built before the water is carved, so anything standing here has to go first
+	clear_flora(current_turf)
 
 	// Bottom turf: lakebed. This has to happen first, a hole cannot open over a closed turf
 	var/turf/below = GetBelow(current_turf)
@@ -1238,6 +1252,9 @@ Forests are generated using cellular automata with the Moore neighborhood:
 	var/turf/current_turf = locate(x, y, src.z)
 	if(!current_turf)
 		return
+
+	// Branches are built before the water is carved, so anything standing here has to go first
+	clear_flora(current_turf)
 
 	// Bottom turf: riverbot. This has to happen first, a hole cannot open over a closed turf
 	var/turf/below = GetBelow(current_turf)
