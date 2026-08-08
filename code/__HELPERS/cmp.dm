@@ -123,3 +123,6 @@ GLOBAL_VAR_INIT(cmp_field, "name")
 
 /proc/cmp_dist_list_asc(list/A, list/B)
 	return A["dist"] - B["dist"]
+
+/proc/cmp_area_z_dsc(area/A, area/B)
+	return B.z - A.z
