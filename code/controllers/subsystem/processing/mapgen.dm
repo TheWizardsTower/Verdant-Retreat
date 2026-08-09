@@ -94,6 +94,7 @@ SUBSYSTEM_DEF(procgen)
 
 	for(var/obj/effect/liquid/liquid_overlay in world)
 		liquid_overlay.update_icon()
+	SSnoisemap.make_noisemap("aquafer", NOISE_SIMPLEX)
 
 	return ..()
 
