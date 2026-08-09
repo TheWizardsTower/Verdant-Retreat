@@ -86,6 +86,8 @@
 
 // BEGIN_INCLUDE
 #include "anchored_mobs.dm"
+#include "incapacity_count.dm"
+#include "quadtree.dm"
 #include "component_tests.dm"
 //#include "create_and_destroy.dm"	//TEMP-DISABLED for status effect baseline: known DPfall/DPtarget compile break under UNIT_TESTS, restore with fix
 #include "drowning.dm"
@@ -94,6 +96,8 @@
 #include "life_counters.dm"
 #include "liquid_absorption.dm"
 #include "liquid_evaporation.dm"
+#include "mapgen_area_sort.dm"
+#include "procgen_forest.dm"
 #include "rain_douse.dm"
 #include "reagent_id_typos.dm"
 #include "reagent_recipe_collisions.dm"

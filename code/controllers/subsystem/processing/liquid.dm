@@ -39,21 +39,23 @@ PROCESSING_SUBSYSTEM_DEF(liquid)
 	var/datum/liquid_registry/registry
 	var/datum/liquid_manager/manager
 	var/datum/pool_manager/pool_manager
-	var/list/overlay_appearance_cache = list() // visual tuple -> render_target string of its master
-	var/list/liquid_render_masters = list()
-	var/list/icon_half_heights = list()
+	var/list/overlay_appearance_cache // visual tuple -> render_target string of its master
+	var/list/liquid_render_masters
+	var/list/icon_half_heights
 
 	// The simulation runs in verdant_native; DM keeps the per-type /cell
 	// caches in sync from the engine's per-tick deltas and forwards every 
 	// DM-side write through the edit queue. This is the best way to
 	// communicate with the API.
 	var/vn_native_fluids_ready = FALSE
-	var/list/vn_edit_queue = list() // Has to be initialized in the var definition >:/
+	var/list/vn_edit_queue
+
 	var/vn_deltas_applied = 0
 	var/vn_events_applied = 0
 	var/vn_falls_applied = 0
 	var/vn_init_warned = FALSE
-	var/list/vn_res_queue = list() // collected payloads awaiting drain, FIFO
+
+	var/list/vn_res_queue // collected payloads awaiting drain, FIFO
 	var/vn_pending_cursor = 0 // cursor into the head payload
 	var/vn_pending_deltas_left = -1 // deltas left in the head payload; -1 = head not yet opened
 	var/vn_pending_backlog = 0 // fluidsum records across the whole queue
@@ -75,6 +77,12 @@ PROCESSING_SUBSYSTEM_DEF(liquid)
 	. = ..()
 	NEW_SS_GLOBAL(SSliquid)
 
+	
+	overlay_appearance_cache = new
+	liquid_render_masters = new
+	icon_half_heights = new
+	vn_edit_queue = new
+	vn_res_queue = new
 	liquid_sources = new
 	liquid_sinks = new
 	cell_index = new
@@ -105,7 +113,7 @@ PROCESSING_SUBSYSTEM_DEF(liquid)
 /datum/controller/subsystem/processing/liquid/proc/get_pool_avg(list/pool)
 	return SSliquid.pool_manager.get_pool_avg_fluid(pool)
 
-/datum/controller/subsystem/processing/liquid/proc/spread_shock(mob/living/carbon/C, turf/T, shock_damage, def_zone, siemens_coeff)
+/datum/controller/subsystem/processing/liquid/proc/spread_shock(mob/living/C, turf/T, shock_damage, def_zone, siemens_coeff)
 	return SSliquid.registry.execute_flag_behavior(FLUID_CONDUCTIVE, "conduct_shock", C, T, shock_damage, def_zone, siemens_coeff)
 
 

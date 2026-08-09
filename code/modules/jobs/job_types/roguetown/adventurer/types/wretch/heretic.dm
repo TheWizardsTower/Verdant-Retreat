@@ -41,7 +41,7 @@
 		to_chat(H, span_warning("My former deity frowned upon my practices. I have since turned to ZIZO..."))
 		H.set_patron(/datum/patron/inhumen/zizo)
 	to_chat(H, span_warning("You father your unholy cause through the most time-tested of ways: hard, heavy steel in both arms and armor."))
-	H.mind.current.faction += "[H.name]_faction"
+	H.mind.current.add_faction("[H.name]_faction")
 	H.set_blindness(0)
 	var/weapons = list("Longsword", "Mace", "Flail", "Axe", "Spear")
 	var/weapon_choice = input(H, "Choose your weapon.", "TAKE UP ARMS") as anything in weapons
@@ -66,7 +66,7 @@
 		if(H.mind)
 			H.mind.AddSpell(new /obj/effect/proc_holder/spell/invoked/minion_order)
 			H.mind.AddSpell(new /obj/effect/proc_holder/spell/invoked/gravemark)
-			H.mind.current.faction += "[H.name]_faction"
+			H.mind.current.add_faction("[H.name]_faction")
 		ADD_TRAIT(H, TRAIT_GRAVEROBBER, TRAIT_GENERIC)
 
 	neck = /obj/item/clothing/neck/roguetown/gorget
@@ -254,7 +254,7 @@
 		to_chat(H, span_warning("My former deity frowned upon my practices. I have since turned to ZIZO..."))
 		H.set_patron(/datum/patron/inhumen/zizo)
 	to_chat(H, span_warning("Nimble of dagger and foot both, you are the shadowy herald of the cabal. They will not see you coming."))
-	H.mind.current.faction += "[H.name]_faction"
+	H.mind.current.add_faction("[H.name]_faction")
 	pants = /obj/item/clothing/under/roguetown/heavy_leather_pants
 	armor = /obj/item/clothing/suit/roguetown/armor/leather/heavy/coat
 	shirt = /obj/item/clothing/suit/roguetown/armor/gambeson
@@ -302,7 +302,7 @@
 		if(H.mind)
 			H.mind.AddSpell(new /obj/effect/proc_holder/spell/invoked/minion_order)
 			H.mind.AddSpell(new /obj/effect/proc_holder/spell/invoked/gravemark)
-			H.mind.current.faction += "[H.name]_faction"
+			H.mind.current.add_faction("[H.name]_faction")
 		ADD_TRAIT(H, TRAIT_GRAVEROBBER, TRAIT_GENERIC)
 	var/datum/devotion/C = new /datum/devotion(H, H.patron)
 	C.grant_miracles(H, cleric_tier = CLERIC_T4, passive_gain = CLERIC_REGEN_MINOR, start_maxed = TRUE)	//Minor regen, starts maxed out.

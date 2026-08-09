@@ -132,13 +132,13 @@ GLOBAL_VAR_INIT(ambush_mobconsider_cooldown, 2 MINUTES) // Cooldown for each ind
 					var/mob/living/simple_animal/hostile/M = spawnedmob
 					M.attack_same = FALSE
 					M.del_on_deaggro = 44 SECONDS
-					M.faction += "ambush"
+					M.add_faction("ambush")
 					M.GiveTarget(src)
 				if(istype(spawnedmob, /mob/living/carbon/human))
 					var/mob/living/carbon/human/H = spawnedmob
 					H.del_on_deaggro = 44 SECONDS
 					H.last_aggro_loss = world.time
-					H.faction += "ambush"
+					H.add_faction("ambush")
 					H.retaliate(src)
 					mustype = 2
 		if(!silent)

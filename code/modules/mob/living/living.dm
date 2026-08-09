@@ -633,7 +633,9 @@
 		death()
 
 /mob/living/incapacitated(ignore_restraints = FALSE, ignore_grab = TRUE, check_immobilized = FALSE, ignore_stasis = FALSE)
-	if(stat || IsUnconscious() || IsStun() || IsParalyzed() || (!ignore_restraints && restrained(ignore_grab)))
+	if(stat || incapacity_count)
+		return TRUE
+	if(!ignore_restraints && restrained(ignore_grab))
 		return TRUE
 
 /mob/living/canUseStorage()

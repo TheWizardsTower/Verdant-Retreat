@@ -177,16 +177,15 @@ Main responsibilities include:
 	return
 
 /datum/liquid_registry/proc/register_flag_behavior(flag, behavior_name, behavior_proc)
-	if(!(flag in flag_behaviors))
+	if(!("[flag]" in flag_behaviors))
 		flag_behaviors["[flag]"] = list()
 
 	flag_behaviors["[flag]"][behavior_name] = behavior_proc
 	return TRUE
 
 /datum/liquid_registry/proc/get_flag_behavior(flag, behavior_name)
-	if(flag in flag_behaviors)
-		return flag_behaviors["[flag]"][behavior_name]
-	return
+	var/list/behaviors = flag_behaviors["[flag]"]
+	return behaviors ? behaviors[behavior_name] : null
 
 /datum/liquid_registry/proc/execute_flag_behavior(flag, behavior_name, ...)
 	// Use cached behavior lookup for performance
@@ -453,63 +452,57 @@ Main responsibilities include:
 	return apply_liquid_chemical_effects(M, T, liquid_instance, "skin_contact")
 
 // Conductive liquids shock behavior
-/datum/liquid_registry/proc/conduct_shock(mob/living/carbon/C, turf/T, shock_damage, def_zone, siemens_coeff)
-	if(!C || !T || !T.cell)
+/datum/liquid_registry/proc/turf_conducts(turf/P)
+	if(!P || P.fluid_depth() < SHOCK_CONDUCT_MIN_DEPTH)
+		return FALSE
+	var/turf/holder = P
+	if((!P.cell || P.cell.fluidsum < SHOCK_CONDUCT_MIN_DEPTH) && isopenspace(P))
+		holder = GetBelow(P)
+	if(!holder?.cell || holder.cell.fluidsum < SHOCK_CONDUCT_MIN_DEPTH)
+		return istype(P, /turf/open/water)
+	SSliquid.refresh_cell_types(holder)
+	for(var/datum/liquid/fluid as anything in holder.cell.fluid_volume)
+		if((fluid.fluid_flags & FLUID_CONDUCTIVE) && holder.cell.fluid_volume[fluid] > 0)
+			return TRUE
+	return FALSE
+
+/datum/liquid_registry/proc/conduct_shock(mob/living/C, turf/T, shock_damage, def_zone, siemens_coeff)
+	if(!T || shock_damage < SHOCK_CONDUCT_MIN_POWER)
+		return FALSE
+	if(!turf_conducts(T))
 		return FALSE
 
-	SSliquid.refresh_cell_types(T)
-	// Find any conductive liquid on this turf
-	var/datum/liquid/conductive_fluid = null
-	for(var/datum/liquid/fluid as anything in T.cell.fluid_volume)
-		if(fluid.fluid_flags & FLUID_CONDUCTIVE)
-			conductive_fluid = fluid
-			break
+	var/list/queue = list(T)
+	var/list/power = list()
+	power[T] = shock_damage
+	var/shocked = FALSE
+	var/i = 1
+	while(i <= length(queue))
+		var/turf/cur = queue[i++]
+		var/p = power[cur]
 
-	if(!conductive_fluid || T[conductive_fluid] <= 0)
-		return FALSE
+		for(var/mob/living/target in cur)
+			if(target == C || target.throwing)
+				continue
+			var/adjusted = Floor(min(p * ((target.resting || target.lying) ? 1.25 : 1), shock_damage))
+			if(adjusted < SHOCK_CONDUCT_MIN_POWER)
+				continue
+			target.electrocute_act(adjusted, C, ishuman(target) ? 1 : siemens_coeff, SHOCK_CONDUCTED)
+			shocked = TRUE
 
-	var/list/pool = SSliquid.pool_manager.get_pool(T)
-	var/avg_fluid = SSliquid.pool_manager.get_pool_avg_fluid(pool)
-
-	var/list/targets = list()
-	for(var/turf/P as anything in pool)
-		// Check if this pool turf has conductive liquids
-		var/has_conductive = FALSE
-		for(var/datum/liquid/fluid as anything in P.cell.fluid_volume)
-			if(fluid.fluid_flags & FLUID_CONDUCTIVE)
-				has_conductive = TRUE
-				break
-
-		if(!has_conductive)
+		var/next_p = p * SHOCK_TILE_CONDUCTIVITY
+		if(next_p < SHOCK_CONDUCT_MIN_POWER)
 			continue
+		for(var/d in GLOB.cardinals)
+			var/turf/N = get_step(cur, d)
+			if(!N || !isnull(power[N]))
+				continue
+			if(!turf_conducts(N))
+				continue
+			power[N] = next_p
+			queue += N
 
-		for(var/mob/living/carbon/target in P)
-			if(target && !target.throwing && target != C)
-				targets += target
-
-	for(var/mob/living/carbon/target as anything in targets)
-		var/turf/L = target.loc
-		if(!L)
-			continue
-
-		var/adjusted = shock_damage / max(1, sqrt(length(targets)))
-		var/mult = L.cell.fluidsum / max(1, avg_fluid)
-
-		if(target.resting || target.lying)
-			def_zone = ran_zone()
-			target.adjustFireLoss(Floor(max(adjusted, shock_damage)))
-			adjusted = Floor(min(0.25 + adjusted * mult, shock_damage))
-		else
-			def_zone = pick(BODY_ZONE_PRECISE_L_FOOT, BODY_ZONE_PRECISE_R_FOOT, BODY_ZONE_L_LEG, BODY_ZONE_R_LEG)
-			adjusted = Floor(min(adjusted * mult, shock_damage))
-
-		if(ishuman(target))
-			siemens_coeff = 1
-
-		if(!target.throwing)
-			target.electrocute_act(T, adjusted, def_zone, siemens_coeff)
-
-	return TRUE
+	return shocked
 
 /datum/liquid_registry/proc/flammable_fire_hazard(turf/T, ignition_source)
 	if(!T?.cell)

@@ -613,26 +613,22 @@ GLOBAL_LIST_EMPTY(species_list)
 /// Uses the quadtree and the existing source.qt_range shape initialized on the mob to get a list of all players and NPCs in range
 /proc/get_nearby_entities(mob/living/source, range)
 	if(source.qt_range)
-		source.qt_range.width = range * 2
-		source.qt_range.height = range * 2
+		source.qt_range.Resize(range * 2, range * 2)
 
 		var/list/entities = ENTITIES_IN_RANGE(source) - source
 
-		source.qt_range.width = source.qt_range.initial_width
-		source.qt_range.height = source.qt_range.initial_height
+		source.qt_range.ResetSize()
 
 		return entities
 
 /// As above, uses the quadtree and the existing source.qt_range shape initialized on the mob to get a list, but of only NPCs in range
 /proc/get_nearby_npcs(mob/living/source, range)
 	if(source.qt_range)
-		source.qt_range.width = range * 2
-		source.qt_range.height = range * 2
+		source.qt_range.Resize(range * 2, range * 2)
 
 		var/list/entities = SSquadtree.npcs_in_range(source.qt_range, source.z) - source
 
-		source.qt_range.width = source.qt_range.initial_width
-		source.qt_range.height = source.qt_range.initial_height
+		source.qt_range.ResetSize()
 
 		return entities
 
@@ -642,8 +638,7 @@ GLOBAL_LIST_EMPTY(species_list)
 		if(source.client)
 			dist = source.client.view
 
-		source.qt_range.width = dist * 2
-		source.qt_range.height = dist * 2
+		source.qt_range.Resize(dist * 2, dist * 2)
 
 		var/list/entities = ENTITIES_IN_RANGE(source) - source
 		var/list/visible = list()
@@ -652,7 +647,6 @@ GLOBAL_LIST_EMPTY(species_list)
 			if(get_dist(source, M) <= dist && !los_blocked(source, M, TRUE))
 				visible += M
 
-		source.qt_range.width = source.qt_range.initial_width
-		source.qt_range.height = source.qt_range.initial_height
+		source.qt_range.ResetSize()
 
 		return visible

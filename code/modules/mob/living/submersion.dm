@@ -81,10 +81,27 @@
 	return clamp(SUBMERSION_MASK_OFFSET_WADE + (depth - SUBMERSION_PRONE_FLUID_THRESHOLD) * (SUBMERSION_MASK_OFFSET_FULL - SUBMERSION_MASK_OFFSET_WADE) / (100 - SUBMERSION_PRONE_FLUID_THRESHOLD), SUBMERSION_MASK_OFFSET_WADE, SUBMERSION_MASK_OFFSET_FULL)
 
 /mob/living/proc/update_submersion_filter()
+	var/static/icon/mob_cutter = icon('icons/effects/icon_cutter.dmi', "icon_cutter")
 	if(submersion_depth <= SUBMERSION_PRONE_FLUID_THRESHOLD)
+		clear_waterline()
 		remove_filter(SUBMERSION_FILTER_ID)
 		return
-	add_filter(SUBMERSION_FILTER_ID, 1, alpha_mask_filter(0, submersion_mask_offset(submersion_depth), icon('icons/effects/icon_cutter.dmi', "icon_cutter"), null, MASK_INVERSE))
+	var/waterline = submersion_mask_offset(submersion_depth)
+	var/matrix/M = transform
+	if(!M || (!M.b && !M.d && M.e > 0))
+		clear_waterline()
+		add_filter(SUBMERSION_FILTER_ID, 1, alpha_mask_filter(0, waterline, mob_cutter, null, MASK_INVERSE))
+		update_vision_cone()
+		return
+	remove_filter(SUBMERSION_FILTER_ID)
+	if(!waterline_overlay)
+		render_target = "*[ref(src)]"
+		waterline_overlay = new
+		waterline_overlay.render_source = render_target
+		vis_contents += waterline_overlay
+		if(em_block)
+			em_block.render_source = render_target
+	waterline_overlay.filters = alpha_mask_filter(0, waterline - pixel_y, mob_cutter, null, MASK_INVERSE)
 	update_vision_cone()
 
 /turf/proc/fluid_depth()
@@ -98,16 +115,37 @@
 		return 0
 	return water_level >= 3 ? 100 : 85
 
+/obj/effect/waterline
+	name = ""
+	layer = FLOAT_LAYER
+	plane = FLOAT_PLANE
+	mouse_opacity = MOUSE_OPACITY_TRANSPARENT
+	appearance_flags = RESET_COLOR|RESET_ALPHA|RESET_TRANSFORM
+
+/atom/movable/proc/clear_waterline()
+	if(!waterline_overlay)
+		return
+	vis_contents -= waterline_overlay
+	QDEL_NULL(waterline_overlay)
+	if(em_block)
+		render_target = ref(src)
+		em_block.render_source = render_target
+		return
+	render_target = null
+
 /obj/proc/update_submersion_cut()
+	var/static/icon/cutter = icon('icons/effects/icon_cutter.dmi', "icon_cutter")
 	var/turf/T = loc
 	var/depth = isturf(T) ? T.fluid_depth() : 0
 	if(depth <= SUBMERSION_PRONE_FLUID_THRESHOLD)
+		clear_waterline()
 		remove_filter(SUBMERSION_FILTER_ID)
 		return
 	if(smoothing_flags || submersion_tiled)
 		var/turf/S = get_step(src, SOUTH)
 		for(var/obj/O in S)
 			if((O.smoothing_flags || O.submersion_tiled) && (istype(O, type) || istype(src, O.type)))
+				clear_waterline()
 				remove_filter(SUBMERSION_FILTER_ID)
 				return
 	var/half = 16
@@ -118,7 +156,22 @@
 			var/icon/I = icon(icon)
 			half = I.Height() / 2
 			SSliquid.icon_half_heights[key] = half
-	add_filter(SUBMERSION_FILTER_ID, 1, alpha_mask_filter(0, submersion_mask_offset(depth) + 16 - half - pixel_y, icon('icons/effects/icon_cutter.dmi', "icon_cutter"), null, MASK_INVERSE))
+	var/waterline = submersion_mask_offset(depth) + 16 - half - pixel_y
+	var/matrix/M = transform
+	if(!M || (!M.b && !M.d && M.e > 0))
+		clear_waterline()
+		add_filter(SUBMERSION_FILTER_ID, 1, alpha_mask_filter(0, waterline, cutter, null, MASK_INVERSE))
+		return
+	if(!waterline_overlay)
+		if(render_target)
+			add_filter(SUBMERSION_FILTER_ID, 1, alpha_mask_filter(0, waterline, cutter, null, MASK_INVERSE))
+			return
+		remove_filter(SUBMERSION_FILTER_ID)
+		render_target = "*[ref(src)]"
+		waterline_overlay = new
+		waterline_overlay.render_source = render_target
+		vis_contents += waterline_overlay
+	waterline_overlay.filters = alpha_mask_filter(0, waterline, cutter, null, MASK_INVERSE)
 
 /obj/effect/update_submersion_cut()
 	return

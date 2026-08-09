@@ -61,6 +61,7 @@
 	var/blocks_emissive = FALSE
 	///Internal holder for emissive blocker object, do not use directly use blocks_emissive
 	var/atom/movable/emissive_blocker/em_block
+	var/obj/effect/waterline/waterline_overlay
 
 
 /atom/movable/Initialize(mapload)
@@ -504,6 +505,7 @@
 	QDEL_NULL(proximity_monitor)
 	QDEL_NULL(language_holder)
 	QDEL_NULL(em_block)
+	clear_waterline()
 	unbuckle_all_mobs(force=1)
 
 	. = ..()
@@ -521,6 +523,7 @@
 	//If we clear this before the nullspace move, a ref to this object will be hung in any of its movable containers
 	LAZYNULL(important_recursive_contents)
 	GLOB.hearables -= src
+	SSquadtree.Untrack(src)
 	invisibility = INVISIBILITY_ABSTRACT
 	if(pulledby)
 		pulledby.stop_pulling()
@@ -1315,6 +1318,7 @@ GLOBAL_VAR_INIT(pixel_diff_time, 1)
 		recursive_contents[RECURSIVE_CONTENTS_HEARING_SENSITIVE] += list(src)
 
 	GLOB.hearables += src
+	SSquadtree.Track(src)
 
 /**
  * removes the hearing sensitivity channel from the important_recursive_contents list of this and all nested locs containing us if there are no more sources of the trait left
@@ -1330,6 +1334,7 @@ GLOBAL_VAR_INIT(pixel_diff_time, 1)
 		return
 
 	GLOB.hearables -= src
+	SSquadtree.RefreshKinds(src)
 
 	for(var/atom/movable/location as anything in get_nested_locs(src) + src)
 		var/list/recursive_contents = location.important_recursive_contents // blue hedgehog velocity

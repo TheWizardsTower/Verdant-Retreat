@@ -31,7 +31,7 @@
 		if(gender == MALE)
 			real_name = "Lord [real_name]"
 	if(mind.special_role == "Lich")
-		mind.current.faction += "[real_name]_faction"
+		mind.current.add_faction("[real_name]_faction")
 
 	mind.name = real_name
 	var/fakekey = ckey

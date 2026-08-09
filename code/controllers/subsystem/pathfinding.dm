@@ -53,6 +53,52 @@ SUBSYSTEM_DEF(pathfinding)
 	paths_served++
 	return path
 
+/// Non-blocking request. Returns a request id, or 0 if the caller should fall
+/// back to FindPath. Never sleeps, so callers that must not sleep (the AI
+/// movement subtree) can path without being INVOKE_ASYNC'd.
+/datum/controller/subsystem/pathfinding/proc/RequestPath(mob/living/mover, turf/start, turf/end)
+	if(!(VN_OK && SSnative?.mirror_loaded))
+		return 0
+	start = get_turf(start)
+	end = get_turf(end)
+	if(!start || !end)
+		return 0
+	var/prof = mover ? mover.vn_path_profile() : 0
+	var/id = vn_path_submit(start.x, start.y, start.z, end.x, end.y, end.z, 0, prof)
+	if(!isnum(id) || id <= 0)
+		vn_check_result(id, "path_submit")
+		return 0
+	return id
+
+/// PATH_PENDING while the worker is still searching, null on failure/no route,
+/// otherwise the turf list. The request id is consumed once a result is returned.
+/datum/controller/subsystem/pathfinding/proc/PollPath(id)
+	if(!id || !(VN_OK && SSnative?.mirror_loaded))
+		return null
+	var/raw = vn_path_poll(id)
+	if(isnum(raw))
+		return PATH_PENDING
+	if(!islist(raw))
+		vn_check_result(raw, "path_poll")
+		paths_failed++
+		return null
+	if(!length(raw))
+		return null
+	var/list/path = list()
+	for(var/i = 1, i + 2 <= length(raw), i += 3)
+		var/turf/T = locate(raw[i], raw[i + 1], raw[i + 2])
+		if(!T)
+			paths_failed++
+			return null
+		path += T
+	paths_served++
+	return path
+
+/datum/controller/subsystem/pathfinding/proc/CancelPath(id)
+	if(!id || !(VN_OK && SSnative?.mirror_loaded))
+		return
+	vn_path_cancel(id)
+
 /datum/controller/subsystem/pathfinding/stat_entry(msg)
 	msg += "served:[paths_served]|failed:[paths_failed]"
 	return ..()

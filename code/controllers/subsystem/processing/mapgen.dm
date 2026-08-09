@@ -83,6 +83,11 @@ SUBSYSTEM_DEF(procgen)
 
 	SSmapping.check_water_bed_seals()
 
+	if(SSnative?.grid_inited)
+		var/flush_guard = 0
+		while(length(SSnative.dirty_turfs) && flush_guard++ < 1000)
+			SSnative.FlushDirty()
+
 	SSliquid.can_fire = 1
 	fluid_cells.Cut()
 	mimic_turfs.Cut()
@@ -91,11 +96,14 @@ SUBSYSTEM_DEF(procgen)
 		liquid_overlay.update_icon()
 	SSnoisemap.make_noisemap("aquafer", NOISE_SIMPLEX)
 
+	return ..()
+
 // Parent area type, this should not be placed on the map ever and will probably cause bugs if it is
 /area/procedural_generation
 	name = "Procedurally Generated Area"
 	icon = 'icons/turf/areas.dmi'
 	var/list/generation_map = list()
+	var/list/turf_map = list()
 	var/list/entrances = list()
 	var/list/entrance_turfs = list()
 
@@ -119,7 +127,7 @@ SUBSYSTEM_DEF(procgen)
 
 /area/procedural_generation/Initialize()
 	. = ..()
-	ADD_SORTED(GLOB.mapgen_areas, src, (null)) // We start generating areas from the top down to avoid placing features on top of each other
+	ADD_SORTED(GLOB.mapgen_areas, src, /proc/cmp_area_z_dsc) // We start generating areas from the top down to avoid placing features on top of each other
 
 /area/procedural_generation/proc/setup_procgen()
 	// Build our boundary first, this lets us do three 1D operations instead of 1 3D operation, which will break early independently upon hitting the area's bounds
@@ -130,22 +138,32 @@ SUBSYSTEM_DEF(procgen)
 	high_y = 1
 	high_z = 1 // For future use, in case multiz generation is ever added... for some horrible reason
 
+	var/target_z = src.z
+	var/offlevel_turfs = 0
 	for(var/turf/T in src)
+		if(T.z != target_z)
+			offlevel_turfs++
+			continue
 		if(T.x < low_x)
 			low_x = T.x
 		if(T.y < low_y)
 			low_y = T.y
-		if(T.z < low_z)
-			low_z = T.z
 		if(T.x > high_x)
 			high_x = T.x
 		if(T.y > high_y)
 			high_y = T.y
-		if(T.z > high_z)
-			high_z = T.z
+		turf_map["[T.x]-[T.y]"] = TRUE
+
+	low_z = target_z
+	high_z = target_z
+
+	if(offlevel_turfs)
+		log_mapping("[type] occupies [offlevel_turfs] turfs outside z [target_z]; only z [target_z] will be generated.")
 
 	for(var/x = low_x, x <= high_x, x++)
 		for(var/y = low_y, y <= high_y, y++)
+			if(!turf_map["[x]-[y]"])
+				continue
 			var/turf/current_turf = locate(x, y, src.z)
 			if(iswall(current_turf))
 				// We use a string key for uniqueness, we don't need to worry about memory use
@@ -154,6 +172,11 @@ SUBSYSTEM_DEF(procgen)
 
 /area/procedural_generation/proc/in_bounds(check_x, check_y)
 	return check_x >= low_x && check_x <= high_x && check_y >= low_y && check_y <= high_y
+
+/area/procedural_generation/proc/in_area(check_x, check_y)
+	if(check_x < low_x || check_x > high_x || check_y < low_y || check_y > high_y)
+		return FALSE
+	return !isnull(turf_map["[check_x]-[check_y]"])
 
 /area/procedural_generation/proc/final_pass() // Override this
 	return
@@ -271,6 +294,7 @@ These notes should help get the map to generate in a shape you want:
 
 	// Empty everything from memory now that we don't need it anymore
 	generation_map.Cut()
+	turf_map.Cut()
 	cavern_centers.Cut()
 
 /area/procedural_generation/cave/final_pass()
@@ -517,6 +541,7 @@ This is an evil "get fucked" type of maze and should be placed in relatively sma
 	generate_maze()
 	apply_generation_map()
 	generation_map.Cut()
+	turf_map.Cut()
 
 /area/procedural_generation/maze/proc/generate_maze()
 	var/list/entrance = entrances[1]
@@ -844,6 +869,7 @@ Notes about water generation:
 	apply_generation_map()
 	generate_probes()
 	generation_map.Cut()
+	turf_map.Cut()
 	aquifer_centers.Cut()
 
 /*
@@ -890,6 +916,7 @@ Notes about water generation:
 	generate_river()
 	apply_generation_map()
 	generation_map.Cut()
+	turf_map.Cut()
 
 /area/procedural_generation/river/proc/generate_river()
     var/current_x = source_x
@@ -935,28 +962,33 @@ Notes about water generation:
  |  _|| |_| |  _ <| |___ ___) || |
  |_|   \___/|_| \_\_____|____/ |_|
 
-Forests are generated using cellular automata with the Moore neighborhood (4-5 rule):
-- Initial random seed of trees/clearings
+Forests are generated using cellular automata with the Moore neighborhood:
+- Initial random seed of woodland/clearing cells
 - Iterative smoothing passes using Moore neighborhood (8 surrounding cells)
-- A cell becomes/stays a tree if it has 4-5 tree neighbors (birth/survival rule)
-- This creates organic-looking clearings and tree clusters
+- This creates organic-looking clearings and woodland regions
+- Trees are then planted into those regions by density, not one per cell
 - Additional passes populate undergrowth and convert turfs to grass
-
-The 4-5 rule creates natural forest patterns with connected clearings and realistic tree distribution.
 */
 
-#define FOREST_TREE 1
-#define FOREST_CLEAR 0
-#define LAKE 2
-#define RIVER 3
+#define FOREST_CLEAR 10
+#define FOREST_TREE 11
+#define LAKE 12
+#define RIVER 13
 
 /area/procedural_generation/forest
+	// Sky-visible turfs are moved to /area/rogue/outdoors by update_see_sky if their area is not outdoors
+	outdoors = TRUE
+
 	// Cellular automata parameters
 	var/initial_tree_chance = 45 // Initial random fill percentage
 	var/ca_iterations = 4 // Number of cellular automata smoothing passes
 	var/birth_threshold = 5 // Neighbors needed to become a tree
 	var/survival_min = 4 // Minimum neighbors to stay a tree
 	var/survival_max = 8 // Maximum neighbors to stay a tree
+
+	var/tree_density_forest = 45
+	var/tree_density_clearing = 3
+	var/min_tree_spacing = 1
 
 	// Flora variety settings
 	var/grass_conversion_chance = 60 // Chance to convert dirt to grass
@@ -978,6 +1010,7 @@ The 4-5 rule creates natural forest patterns with connected clearings and realis
 
 /area/procedural_generation/forest/setup_procgen()
 	..()
+	clear_walls()
 	initialize_random_forest()
 	apply_cellular_automata()
 	if(generate_lakes)
@@ -986,15 +1019,29 @@ The 4-5 rule creates natural forest patterns with connected clearings and realis
 		generate_rivers()
 	convert_to_grass()
 	populate_trees()
+	SStreesetup.InitializeTrees()
 	populate_undergrowth()
 	final_pass()
 
 	generation_map.Cut()
+	turf_map.Cut()
+	river_flow_map.Cut()
+
+/area/procedural_generation/forest/proc/clear_walls()
+	for(var/x = low_x, x <= high_x, x++)
+		for(var/y = low_y, y <= high_y, y++)
+			if(!in_area(x, y))
+				continue
+			var/turf/current_turf = locate(x, y, src.z)
+			if(iswall(current_turf))
+				current_turf.ChangeTurf(/turf/open/floor/rogue/dirt)
 
 // Initial random seeding of the forest
 /area/procedural_generation/forest/proc/initialize_random_forest()
 	for(var/x = low_x, x <= high_x, x++)
 		for(var/y = low_y, y <= high_y, y++)
+			if(!in_area(x, y))
+				continue
 			var/key = "[x]-[y]"
 			if(prob(initial_tree_chance))
 				generation_map[key] = FOREST_TREE
@@ -1008,20 +1055,19 @@ The 4-5 rule creates natural forest patterns with connected clearings and realis
 
 		for(var/x = low_x, x <= high_x, x++)
 			for(var/y = low_y, y <= high_y, y++)
+				if(!in_area(x, y))
+					continue
 				var/key = "[x]-[y]"
 				var/tree_neighbors = count_tree_neighbors(x, y)
 				var/current_state = generation_map[key]
 
-				// Moore neighborhood 4-5 rule
-				// If currently a tree: survive if 4-8 neighbors are trees
-				// If currently clear: become tree if exactly 5 neighbors are trees
 				if(current_state == FOREST_TREE)
 					if(tree_neighbors >= survival_min && tree_neighbors <= survival_max)
 						new_map[key] = FOREST_TREE
 					else
 						new_map[key] = FOREST_CLEAR
 				else
-					if(tree_neighbors == birth_threshold)
+					if(tree_neighbors >= birth_threshold)
 						new_map[key] = FOREST_TREE
 					else
 						new_map[key] = FOREST_CLEAR
@@ -1053,14 +1099,20 @@ The 4-5 rule creates natural forest patterns with connected clearings and realis
 /area/procedural_generation/forest/proc/convert_to_grass()
 	for(var/x = low_x, x <= high_x, x++)
 		for(var/y = low_y, y <= high_y, y++)
+			if(!in_area(x, y))
+				continue
 			var/turf/current_turf = locate(x, y, src.z)
 			if(istype(current_turf, /turf/open/floor/rogue/dirt))
 				if(prob(grass_conversion_chance))
 					current_turf.ChangeTurf(/turf/open/floor/rogue/grass)
 
 /area/procedural_generation/forest/proc/populate_trees()
+	var/list/planted = list()
+	var/canopy_cells = 0
 	for(var/x = low_x, x <= high_x, x++)
 		for(var/y = low_y, y <= high_y, y++)
+			if(!in_area(x, y))
+				continue
 			var/key = "[x]-[y]"
 
 			// Skip water tiles
@@ -1068,7 +1120,10 @@ The 4-5 rule creates natural forest patterns with connected clearings and realis
 			if(tile_type == LAKE || tile_type == RIVER)
 				continue
 
-			if(tile_type != FOREST_TREE)
+			if(!prob(tile_type == FOREST_TREE ? tree_density_forest : tree_density_clearing))
+				continue
+
+			if(too_close_to_tree(planted, x, y))
 				continue
 
 			var/turf/current_turf = locate(x, y, src.z)
@@ -1081,15 +1136,33 @@ The 4-5 rule creates natural forest patterns with connected clearings and realis
 			if(locate(/obj/structure) in current_turf)
 				continue
 
+			planted[key] = TRUE
+			if(istype(get_step_multiz(current_turf, UP), /turf/open/transparent/openspace))
+				canopy_cells++
+
 			// Mix of old and new tree types
 			if(prob(70))
 				new /obj/structure/flora/newtree(current_turf)
 			else
 				new /obj/structure/flora/roguetree(current_turf)
 
+	if(length(planted) && !canopy_cells)
+		log_mapping("[type] planted [length(planted)] trees with no openspace above any of them; trees will have no branches or leaves.")
+
+/area/procedural_generation/forest/proc/too_close_to_tree(list/planted, center_x, center_y)
+	if(min_tree_spacing <= 0)
+		return FALSE
+	for(var/dx = -min_tree_spacing, dx <= min_tree_spacing, dx++)
+		for(var/dy = -min_tree_spacing, dy <= min_tree_spacing, dy++)
+			if(planted["[center_x + dx]-[center_y + dy]"])
+				return TRUE
+	return FALSE
+
 /area/procedural_generation/forest/proc/populate_undergrowth()
 	for(var/x = low_x, x <= high_x, x++)
 		for(var/y = low_y, y <= high_y, y++)
+			if(!in_area(x, y))
+				continue
 			var/key = "[x]-[y]"
 			var/tile_type = generation_map[key]
 
@@ -1121,12 +1194,12 @@ The 4-5 rule creates natural forest patterns with connected clearings and realis
 						flora_type = /obj/structure/flora/roguegrass/bush/westleach
 					if(71 to 73)
 						flora_type = /obj/structure/flora/roguegrass/bush/jackberry
-					if(73 to 76)
+					if(74 to 76)
 						flora_type = /obj/structure/flora/roguetree/stump
 					if(77 to 87)
 						flora_type = /obj/item/grown/log/tree/stick
 					if(88 to 91)
-						/obj/structure/flora/roguetree/stump/log
+						flora_type = /obj/structure/flora/roguetree/stump/log
 					if(92 to 96)
 						flora_type = /obj/item/natural/stone
 					if(97 to 99)
@@ -1149,49 +1222,75 @@ The 4-5 rule creates natural forest patterns with connected clearings and realis
 			else if(tile_type == RIVER)
 				place_river_tile(x, y, river_flow_map[key] || SOUTH)
 
+/area/procedural_generation/forest/proc/clear_flora(turf/target)
+	if(!target)
+		return
+	for(var/obj/structure/flora/growth in target)
+		qdel(growth)
+
 /area/procedural_generation/forest/proc/place_lake_tile(x, y)
+	if(!in_area(x, y))
+		return
 	var/turf/current_turf = locate(x, y, src.z)
 	if(!current_turf)
 		return
 
-	// Top turf: open space, surface overlay and sink are managed by update_cell_image
-	var/turf/lake_surface = current_turf.ChangeTurf(/turf/open/transparent/openspace, null, CHANGETURF_IGNORE_AIR)
+	// Branches are built before the water is carved, so anything standing here has to go first
+	clear_flora(current_turf)
 
-	// Bottom turf: lakebed
-	var/turf/below = GetBelow(lake_surface)
+	// Bottom turf: lakebed. This has to happen first, a hole cannot open over a closed turf
+	var/turf/below = GetBelow(current_turf)
 	if(below)
 		var/turf/lake_bottom = below.ChangeTurf(/turf/open/floor/rogue/lakebed, null, CHANGETURF_IGNORE_AIR)
 		SSmapping.register_water_bed(lake_bottom)
 
+	// Top turf: open space, surface overlay and sink are managed by update_cell_image
+	current_turf.ChangeTurf(/turf/open/transparent/openspace, null, CHANGETURF_IGNORE_AIR)
+
 /area/procedural_generation/forest/proc/place_river_tile(x, y, flow_dir = SOUTH)
+	if(!in_area(x, y))
+		return
 	var/turf/current_turf = locate(x, y, src.z)
 	if(!current_turf)
 		return
 
+	// Branches are built before the water is carved, so anything standing here has to go first
+	clear_flora(current_turf)
+
+	// Bottom turf: riverbot. This has to happen first, a hole cannot open over a closed turf
+	var/turf/below = GetBelow(current_turf)
+	if(!below)
+		return
+
+	var/turf/riverbot = below.ChangeTurf(/turf/open/floor/rogue/riverbot, null, CHANGETURF_IGNORE_AIR)
+	if(riverbot.cell)
+		riverbot.cell.flow_dir = flow_dir
+	riverbot.setDir(flow_dir)
+	SSmapping.register_water_bed(riverbot)
+
 	// Top turf: open space, surface overlay and sink are managed by update_cell_image
 	var/turf/river_surface = current_turf.ChangeTurf(/turf/open/transparent/openspace, null, CHANGETURF_IGNORE_AIR)
-
-	// Bottom turf: riverbot
-	var/turf/below = GetBelow(river_surface)
-	if(below)
-		var/turf/riverbot = below.ChangeTurf(/turf/open/floor/rogue/riverbot, null, CHANGETURF_IGNORE_AIR)
-		riverbot.cell.flow_dir = flow_dir
-		riverbot.setDir(flow_dir)
-		SSliquid.update_cell_image(river_surface)
-		SSmapping.register_water_bed(riverbot)
+	SSliquid.update_cell_image(river_surface)
 
 // Lake Generation - "Droplet Method" (Iterative Expansion)
 /area/procedural_generation/forest/proc/generate_lakes()
+	if(!length(turf_map))
+		return
+
 	var/num_lakes = rand(min_lakes, max_lakes)
 
 	for(var/i in 1 to num_lakes)
-		var/center_x = rand(low_x + 10, high_x - 10)
-		var/center_y = rand(low_y + 10, high_y - 10)
+		var/list/coords = splittext(pick(turf_map), "-")
 		var/lake_size = rand(min_lake_size, max_lake_size)
 
-		create_lake_at(center_x, center_y, lake_size)
+		create_forest_lake_at(text2num(coords[1]), text2num(coords[2]), lake_size)
 
-/area/procedural_generation/forest/create_lake_at(center_x, center_y, target_size)
+	smooth_lake_edges()
+
+/area/procedural_generation/forest/proc/create_forest_lake_at(center_x, center_y, target_size)
+	if(!in_area(center_x, center_y))
+		return
+
 	var/list/lake_tiles = list()
 	var/start_key = "[center_x]-[center_y]"
 	lake_tiles += start_key
@@ -1224,16 +1323,13 @@ The 4-5 rule creates natural forest patterns with connected clearings and realis
 				nx--
 
 		// Check bounds
-		if(!in_bounds(nx, ny))
+		if(!in_area(nx, ny))
 			continue
 
 		var/new_key = "[nx]-[ny]"
 		if(generation_map[new_key] != LAKE) // Don't add twice
 			generation_map[new_key] = LAKE
 			lake_tiles += new_key
-
-	// Optional: Single CA smoothing pass to round edges
-	smooth_lake_edges()
 
 /area/procedural_generation/forest/proc/smooth_lake_edges()
 	var/list/new_map = generation_map.Copy()
@@ -1254,7 +1350,7 @@ The 4-5 rule creates natural forest patterns with connected clearings and realis
 					continue
 				var/nx = x + dx
 				var/ny = y + dy
-				if(!in_bounds(nx, ny))
+				if(!in_area(nx, ny))
 					continue
 				var/neighbor_key = "[nx]-[ny]"
 				if(generation_map[neighbor_key] == LAKE)
@@ -1350,10 +1446,29 @@ The 4-5 rule creates natural forest patterns with connected clearings and realis
 			if(abs(dx) + abs(dy) <= river_width)
 				var/nx = center_x + dx
 				var/ny = center_y + dy
-				if(in_bounds(nx, ny))
+				if(in_area(nx, ny))
 					var/key = "[nx]-[ny]"
 					generation_map[key] = RIVER
 					river_flow_map[key] = flow_dir
+
+/area/procedural_generation/forest/test
+	name = "test forest"
+	icon_state = "woods"
+	generate_lakes = FALSE
+	generate_rivers = FALSE
+
+/area/procedural_generation/forest/test/spill
+	name = "test forest spill"
+	generate_lakes = TRUE
+	generate_rivers = TRUE
+	min_lakes = 2
+	max_lakes = 3
+	min_rivers = 2
+	max_rivers = 2
+	tree_density_forest = 100
+	tree_density_clearing = 100
+	min_tree_spacing = 0
+	undergrowth_density = 100
 
 #undef FOREST_TREE
 #undef FOREST_CLEAR

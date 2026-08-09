@@ -1,7 +1,6 @@
 /mob/living/Moved()
 	. = ..()
 	life_work |= (LIFEWORK_TEMP|LIFEWORK_FIRE_WATER)
-	SEND_SIGNAL(SSquadtree, COMSIG_MOB_MOVED, src)
 	update_turf_movespeed(loc)
 	update_pixel_shifting(TRUE)
 	update_submersion()

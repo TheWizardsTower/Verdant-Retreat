@@ -47,6 +47,7 @@
 //		client.ghostize()
 
 	GLOB.player_list |= src
+	SSquadtree.RefreshKinds(src)
 
 	//Vents
 //	if(ventcrawler)

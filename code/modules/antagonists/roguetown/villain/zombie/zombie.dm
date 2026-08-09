@@ -194,9 +194,9 @@
 		else
 			if(!was_i_undead)
 				zombie.mob_biotypes &= ~MOB_UNDEAD
-			zombie.faction -= "undead"
-			zombie.faction -= "zombie"
-			zombie.faction += "neutral"
+			zombie.remove_faction("undead")
+			zombie.remove_faction("zombie")
+			zombie.add_faction("neutral")
 			zombie.regenerate_organs()
 			if(has_turned)
 				to_chat(zombie, span_green("I no longer crave for flesh..."))
@@ -246,9 +246,9 @@
 	if(zombie.charflaw)
 		zombie.charflaw.ephemeral = TRUE
 	zombie.mob_biotypes |= MOB_UNDEAD
-	zombie.faction += "undead"
-	zombie.faction += "zombie"
-	zombie.faction -= "neutral"
+	zombie.add_faction("undead")
+	zombie.add_faction("zombie")
+	zombie.remove_faction("neutral")
 	zombie.verbs |= /mob/living/carbon/human/proc/zombie_seek
 	for(var/obj/item/bodypart/zombie_part as anything in zombie.bodyparts)
 		if(!zombie_part.rotted && !zombie_part.skeletonized)

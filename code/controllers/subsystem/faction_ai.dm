@@ -272,7 +272,7 @@ PROCESSING_SUBSYSTEM_DEF(faction_ai)
 		return null
 
 	if(length(faction_tags))
-		M.faction = faction_tags.Copy()
+		M.set_faction(faction_tags.Copy())
 
 	if(M.ai_root?.blackboard)
 		M.ai_root.blackboard[AIBLK_FACTION_DIRECTOR] = src
