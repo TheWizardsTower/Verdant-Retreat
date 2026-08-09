@@ -448,7 +448,7 @@
 
 	var/turf/below = GetBelow(new_top)
 	if(below)
-		var/turf/river_bottom = below.ChangeTurf(/turf/open/floor/rogue/riverbot, null, CHANGETURF_IGNORE_AIR)
+		var/turf/river_bottom = below.ChangeTurf(/turf/open/floor/rogue/sand, null, CHANGETURF_IGNORE_AIR)
 		if(!river_bottom.cell)
 			river_bottom.cell = new /cell(river_bottom)
 			river_bottom.cell.InitLiquids()

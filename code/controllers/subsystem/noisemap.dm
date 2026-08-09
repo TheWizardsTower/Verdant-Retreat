@@ -31,10 +31,11 @@ SUBSYSTEM_DEF(noisemap)
 
 /datum/controller/subsystem/noisemap/proc/make_noisemap(key, noisetype)
 	LAZYINITLIST(noisemaps)
-	if(!noisetype)
-		log_debug("IDIOT, you forgot to define a type!")
-		return 
+
 	if(!noisemaps[key])
+		if(!noisetype)
+			log_debug("IDIOT, you forgot to define a type!")
+			return 
 		noisemaps[key] = new noisetype 
 
 /datum/controller/subsystem/noisemap/proc/get_value(key,x,y,offset,fac = 0.01)
