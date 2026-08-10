@@ -12,3 +12,12 @@
 
 /area/rogue/outdoors/town/lowtown
 	soundenv = 19
+
+//Procgen areas.
+/area/procedural_generation/cave/underdark
+	soundenv = 8 //CAVE, fails compile for some reason when i use the define.
+/area/procedural_generation/cave/towncaves
+	soundenv = 8 
+/area/procedural_generation/cave/eastcave
+	soundenv = 8 
+/area/procedural_generation/forest/test

@@ -48,6 +48,8 @@
 	var/turf/open/transparent/openspace/target = get_step_multiz(src, UP)
 	if(istype(target))
 		target.ChangeTurf(/turf/open/floor/rogue/naturalstone)
+	if(SSnoisemap.get_value("aquafer", x,y,z*32, 0.01) > 90)
+		baseturfs = list(/turf/open/floor/rogue/naturalstone/aquifer) 
 
 /turf/closed/mineral/get_smooth_underlay_icon(mutable_appearance/underlay_appearance, turf/asking_turf, adjacency_dir)
 	if(turf_type)

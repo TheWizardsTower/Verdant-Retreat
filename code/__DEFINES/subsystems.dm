@@ -111,7 +111,7 @@
 #define INIT_ORDER_SOUNDS 			79
 #define INIT_ORDER_ACHIEVEMENTS		77
 #define INIT_ORDER_MATERIALS		76
-#define INIT_ORDER_RESEARCH			75
+#define INIT_ORDER_NOISEMAP  		75 //Somewhat early because mapping will need this.
 #define INIT_ORDER_EVENTS			70
 #define INIT_ORDER_JOBS				65
 #define INIT_ORDER_ROLE_CLASS_HANDLER 66
