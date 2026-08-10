@@ -1006,6 +1006,8 @@ Forests are generated using cellular automata with the Moore neighborhood:
 	var/river_inertia = 80 // % chance to keep going straight
 	var/river_width = 2 // River thickness
 	var/list/river_flow_map = list() // Stores flow_dir per river tile, keyed by "x-y"
+	var/river_primary = SOUTH
+	var/river_cross = EAST
 
 /area/procedural_generation/forest/setup_procgen()
 	..()
@@ -1016,6 +1018,7 @@ Forests are generated using cellular automata with the Moore neighborhood:
 		generate_lakes()
 	if(generate_rivers)
 		generate_rivers()
+		resolve_river_flow()
 	convert_to_grass()
 	populate_trees()
 	SStreesetup.InitializeTrees()
@@ -1219,7 +1222,15 @@ Forests are generated using cellular automata with the Moore neighborhood:
 			if(tile_type == LAKE)
 				place_lake_tile(x, y)
 			else if(tile_type == RIVER)
-				place_river_tile(x, y, river_flow_map[key] || SOUTH)
+				place_river_tile(x, y, river_flow_map[key] || river_primary)
+
+/area/procedural_generation/forest/proc/contain_water(turf/target)
+	if(!target)
+		return
+	if(!target.cell)
+		target.cell = new /cell(target)
+		target.cell.InitLiquids()
+	target.cell.set_contain_max(MAX_FLUID_VOLUME)
 
 /area/procedural_generation/forest/proc/clear_flora(turf/target)
 	if(!target)
@@ -1242,9 +1253,11 @@ Forests are generated using cellular automata with the Moore neighborhood:
 	if(below)
 		var/turf/lake_bottom = below.ChangeTurf(/turf/open/floor/rogue/lakebed, null, CHANGETURF_IGNORE_AIR)
 		SSmapping.register_water_bed(lake_bottom)
+		contain_water(lake_bottom)
 
 	// Top turf: open space, surface overlay and sink are managed by update_cell_image
-	current_turf.ChangeTurf(/turf/open/transparent/openspace, null, CHANGETURF_IGNORE_AIR)
+	var/turf/lake_surface = current_turf.ChangeTurf(/turf/open/transparent/openspace, null, CHANGETURF_IGNORE_AIR)
+	contain_water(lake_surface)
 
 /area/procedural_generation/forest/proc/place_river_tile(x, y, flow_dir = SOUTH)
 	if(!in_area(x, y))
@@ -1267,8 +1280,11 @@ Forests are generated using cellular automata with the Moore neighborhood:
 	riverbot.setDir(flow_dir)
 	SSmapping.register_water_bed(riverbot)
 
+	contain_water(riverbot)
+
 	// Top turf: open space, surface overlay and sink are managed by update_cell_image
 	var/turf/river_surface = current_turf.ChangeTurf(/turf/open/transparent/openspace, null, CHANGETURF_IGNORE_AIR)
+	contain_water(river_surface)
 	SSliquid.update_cell_image(river_surface)
 
 // Lake Generation - "Droplet Method" (Iterative Expansion)
@@ -1365,16 +1381,20 @@ Forests are generated using cellular automata with the Moore neighborhood:
 /area/procedural_generation/forest/proc/generate_rivers()
 	var/num_rivers = rand(min_rivers, max_rivers)
 
+	var/prefer_vertical = prob(50)
+	river_primary = prefer_vertical ? SOUTH : EAST
+	river_cross = prefer_vertical ? EAST : SOUTH
+
 	for(var/i in 1 to num_rivers)
 		// Start from a random edge
 		var/start_x, start_y, end_x, end_y
 
-		if(prob(50)) // North-South river
+		if(prefer_vertical)
 			start_x = rand(low_x, high_x)
 			start_y = high_y
 			end_x = rand(low_x, high_x)
 			end_y = low_y
-		else // East-West river
+		else
 			start_x = low_x
 			start_y = rand(low_y, high_y)
 			end_x = high_x
@@ -1387,10 +1407,9 @@ Forests are generated using cellular automata with the Moore neighborhood:
 	var/current_y = start_y
 	var/last_direction = get_dir(locate(start_x, start_y, low_z), locate(end_x, end_y, low_z))
 	var/max_steps = (high_x - low_x) + (high_y - low_y) // Safety limit
-
 	for(var/step in 1 to max_steps)
 		// Mark current position as river with flow direction
-		carve_river_tile(current_x, current_y, last_direction)
+		carve_river_tile(current_x, current_y)
 
 		// Check if we reached the end
 		if(current_x == end_x && current_y == end_y)
@@ -1438,17 +1457,86 @@ Forests are generated using cellular automata with the Moore neighborhood:
 
 		last_direction = new_direction
 
-/area/procedural_generation/forest/proc/carve_river_tile(center_x, center_y, flow_dir = SOUTH)
-	// Carve the river with width, storing flow direction for each tile
+/area/procedural_generation/forest/proc/resolve_river_flow()
+	var/static/list/flow_steps = list("[NORTH]" = list(0, 1), "[SOUTH]" = list(0, -1), "[EAST]" = list(1, 0), "[WEST]" = list(-1, 0))
+	var/list/river_keys = list()
+	for(var/key in generation_map)
+		if(generation_map[key] == RIVER)
+			river_keys[key] = TRUE
+	if(!length(river_keys))
+		return
+
+	var/list/downstream = flow_steps["[river_primary]"]
+	var/list/distance = list()
+	var/list/frontier = list()
+
+	var/list/river_coords = list()
+	for(var/key in river_keys)
+		var/list/coords = splittext(key, "-")
+		river_coords[key] = list(text2num(coords[1]), text2num(coords[2]))
+
+	for(var/key in river_keys)
+		var/list/at = river_coords[key]
+		if(in_area(at[1] + downstream[1], at[2] + downstream[2]))
+			continue
+		distance[key] = 0
+		frontier += key
+
+	if(!length(frontier))
+		var/best_key
+		var/best_rank
+		for(var/key in river_keys)
+			var/list/at = river_coords[key]
+			var/rank = (river_primary == SOUTH) ? -at[2] : at[1]
+			if(isnull(best_rank) || rank > best_rank)
+				best_rank = rank
+				best_key = key
+		distance[best_key] = 0
+		frontier += best_key
+
+	var/cursor = 1
+	while(cursor <= length(frontier))
+		var/key = frontier[cursor++]
+		var/list/at = river_coords[key]
+		var/x = at[1]
+		var/y = at[2]
+		for(var/probe in flow_steps)
+			var/list/offset = flow_steps[probe]
+			var/neighbor_key = "[x + offset[1]]-[y + offset[2]]"
+			if(!river_keys[neighbor_key] || !isnull(distance[neighbor_key]))
+				continue
+			distance[neighbor_key] = distance[key] + 1
+			frontier += neighbor_key
+
+	for(var/key in river_keys)
+		var/list/at = river_coords[key]
+		var/x = at[1]
+		var/y = at[2]
+		var/best_distance = distance[key]
+		if(isnull(best_distance))
+			river_flow_map[key] = river_primary
+			continue
+		var/best_dir = river_primary
+		for(var/probe in flow_steps)
+			var/list/offset = flow_steps[probe]
+			var/neighbor_distance = distance["[x + offset[1]]-[y + offset[2]]"]
+			if(isnull(neighbor_distance) || neighbor_distance >= best_distance)
+				continue
+			best_distance = neighbor_distance
+			best_dir = text2num(probe)
+
+		if(best_dir != river_primary && best_dir != river_cross)
+			best_dir = river_primary
+		river_flow_map[key] = best_dir
+
+/area/procedural_generation/forest/proc/carve_river_tile(center_x, center_y)
 	for(var/dx in -river_width to river_width)
 		for(var/dy in -river_width to river_width)
 			if(abs(dx) + abs(dy) <= river_width)
 				var/nx = center_x + dx
 				var/ny = center_y + dy
 				if(in_area(nx, ny))
-					var/key = "[nx]-[ny]"
-					generation_map[key] = RIVER
-					river_flow_map[key] = flow_dir
+					generation_map["[nx]-[ny]"] = RIVER
 
 /area/procedural_generation/forest/test
 	name = "test forest"
