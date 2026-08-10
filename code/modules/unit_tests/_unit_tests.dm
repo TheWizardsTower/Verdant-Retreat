@@ -97,6 +97,7 @@
 #include "liquid_absorption.dm"
 #include "liquid_evaporation.dm"
 #include "mapgen_area_sort.dm"
+#include "procgen_cave.dm"
 #include "procgen_forest.dm"
 #include "rain_douse.dm"
 #include "reagent_id_typos.dm"

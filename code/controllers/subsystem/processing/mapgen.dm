@@ -32,8 +32,10 @@ USAGE INSTRUCTIONS
 ==================
 
 1) Define an area for your map as a child of the type of procedural generator you want to use (like area/procedural_generation/cave/spooky_caverns)
-2) Place that area on the map and fill it with wall turfs
-3) Optionally tweak the generation parameters by overriding the defaults, seen below
+2) Place that area on the map and fill it with wall turfs (for cave areas) or floor turfs (for forest areas)
+3) Optionally tweak the generation parameters by overriding the defaults, seen below.
+
+IMPORTANT: An area only generates on the z-level it reports as its own, so don't paint one across several z-levels.
 
 That's it. The area will now be procedurally generated.
 
@@ -107,6 +109,9 @@ SUBSYSTEM_DEF(procgen)
 	var/list/entrances = list()
 	var/list/entrance_turfs = list()
 
+	var/list/components = list()
+	var/list/cell_component = list()
+
 	// The bounds of the area to generate, this gets set by iterating inward over turfs on each axis using 3 1D list operations instead of 1 3D list operation
 	var/low_x
 	var/low_y
@@ -178,6 +183,155 @@ SUBSYSTEM_DEF(procgen)
 		return FALSE
 	return !isnull(turf_map["[check_x]-[check_y]"])
 
+/area/procedural_generation/proc/carve_cell(check_x, check_y, value = FALSE)
+	if(!in_area(check_x, check_y))
+		return FALSE
+	generation_map["[check_x]-[check_y]"] = value
+	return TRUE
+
+/area/procedural_generation/proc/random_area_cell()
+	if(!length(turf_map))
+		return null
+	var/list/coords = splittext(pick(turf_map), "-")
+	return list(text2num(coords[1]), text2num(coords[2]))
+
+/area/procedural_generation/proc/step_in_direction(current_x, current_y, direction)
+	var/next_x = current_x
+	var/next_y = current_y
+	switch(direction)
+		if(NORTH)
+			next_y++
+		if(SOUTH)
+			next_y--
+		if(EAST)
+			next_x++
+		if(WEST)
+			next_x--
+	if(!in_area(next_x, next_y))
+		return null
+	return list(next_x, next_y)
+
+/area/procedural_generation/proc/wander_step(current_x, current_y, spread = 1, attempts = 8)
+	for(var/i in 1 to attempts)
+		var/next_x = current_x + rand(-spread, spread)
+		var/next_y = current_y + rand(-spread, spread)
+		if(in_area(next_x, next_y))
+			return list(next_x, next_y)
+	return list(current_x, current_y)
+
+/area/procedural_generation/proc/label_components()
+	var/static/list/offsets = list(list(1, 0), list(-1, 0), list(0, 1), list(0, -1))
+	cell_component.Cut()
+	components.Cut()
+	for(var/key in turf_map)
+		if(!isnull(cell_component[key]))
+			continue
+		var/index = length(components) + 1
+		var/list/cells = list(key)
+		cell_component[key] = index
+		var/cursor = 1
+		while(cursor <= length(cells))
+			var/list/coords = splittext(cells[cursor++], "-")
+			var/current_x = text2num(coords[1])
+			var/current_y = text2num(coords[2])
+			for(var/list/offset as anything in offsets)
+				var/neighbor_key = "[current_x + offset[1]]-[current_y + offset[2]]"
+				if(isnull(turf_map[neighbor_key]) || !isnull(cell_component[neighbor_key]))
+					continue
+				cell_component[neighbor_key] = index
+				cells += neighbor_key
+		components += list(cells)
+
+/area/procedural_generation/proc/route_within_area(start_x, start_y, end_x, end_y)
+	var/static/list/offsets = list(list(1, 0), list(-1, 0), list(0, 1), list(0, -1))
+	if(!in_area(start_x, start_y) || !in_area(end_x, end_y))
+		return null
+	var/start_key = "[start_x]-[start_y]"
+	var/end_key = "[end_x]-[end_y]"
+	if(start_key == end_key)
+		return list(list(start_x, start_y))
+	if(length(cell_component) && cell_component[start_key] != cell_component[end_key])
+		return null
+
+	var/list/came_from = list()
+	came_from[start_key] = start_key
+	var/list/frontier = list(start_key)
+	var/cursor = 1
+	var/found = FALSE
+	while(cursor <= length(frontier))
+		var/frontier_key = frontier[cursor++]
+		if(frontier_key == end_key)
+			found = TRUE
+			break
+		var/list/coords = splittext(frontier_key, "-")
+		var/current_x = text2num(coords[1])
+		var/current_y = text2num(coords[2])
+		var/rotation = rand(0, 3)
+		for(var/i in 1 to 4)
+			var/list/offset = offsets[((rotation + i) % 4) + 1]
+			var/neighbor_key = "[current_x + offset[1]]-[current_y + offset[2]]"
+			if(isnull(turf_map[neighbor_key]) || !isnull(came_from[neighbor_key]))
+				continue
+			came_from[neighbor_key] = frontier_key
+			frontier += neighbor_key
+
+	if(!found)
+		return null
+
+	var/list/reversed = list()
+	var/trace_key = end_key
+	while(trace_key != start_key)
+		var/list/coords = splittext(trace_key, "-")
+		reversed += list(list(text2num(coords[1]), text2num(coords[2])))
+		trace_key = came_from[trace_key]
+	reversed += list(list(start_x, start_y))
+
+	var/list/route = list()
+	for(var/i = length(reversed), i >= 1, i--)
+		route += list(reversed[i])
+	return route
+
+/area/procedural_generation/proc/distribute_seeds(count)
+	var/list/seeds = list()
+	if(count < 1 || !length(components))
+		return seeds
+
+	var/list/remaining = list()
+	for(var/i in 1 to length(components))
+		remaining += i
+
+	while(length(seeds) < count && length(remaining))
+		var/best_index
+		var/best_size = -1
+		for(var/i in remaining)
+			var/list/cells = components[i]
+			if(length(cells) <= best_size)
+				continue
+			best_size = length(cells)
+			best_index = i
+		seeds += best_index
+		remaining -= best_index
+
+	var/total = 0
+	for(var/i in 1 to length(components))
+		var/list/cells = components[i]
+		total += length(cells)
+	if(total <= 0)
+		return seeds
+
+	while(length(seeds) < count)
+		var/roll = rand(1, total)
+		var/accumulated = 0
+		for(var/i in 1 to length(components))
+			var/list/cells = components[i]
+			accumulated += length(cells)
+			if(roll > accumulated)
+				continue
+			seeds += i
+			break
+
+	return seeds
+
 /area/procedural_generation/proc/final_pass() // Override this
 	return
 
@@ -186,26 +340,28 @@ SUBSYSTEM_DEF(procgen)
 		var/list/coords = splittext(key, "-")
 		var/x_coord = text2num(coords[1])
 		var/y_coord = text2num(coords[2])
-		if(in_bounds(x_coord, y_coord))
+		if(in_area(x_coord, y_coord))
 			var/turf/destination_turf = locate(x_coord, y_coord, src.z)
+			if(!destination_turf)
+				continue
 			switch(generation_map[key]) // If the coordinate is set to something other than TRUE (1), it means we've carved out a space there, so we change the turf
 				if(DIRT) // FALSE
-					if(destination_turf && iswall(destination_turf))
+					if(iswall(destination_turf))
 						destination_turf.ChangeTurf(/turf/open/floor/rogue/dirt)
 
 				if(HOLE)
 					var/turf/destination_turf_below = GetBelow(destination_turf)
 					if(generate_water == TRUE)
-						if(destination_turf && destination_turf_below && iswall(destination_turf_below))
+						if(destination_turf_below && iswall(destination_turf_below))
 							destination_turf_below.ChangeTurf(/turf/open/floor/rogue/dirt)
 							SSprocgen.fluid_cells += destination_turf_below
-					else
+					else if(destination_turf_below)
 						destination_turf_below.ChangeTurf(/turf/open/floor/rogue/dirt)
 					destination_turf.ChangeTurf(/turf/open/transparent/openspace)
 					SSprocgen.mimic_turfs += destination_turf
 
 				if(MUD)
-					if(destination_turf && iswall(destination_turf))
+					if(iswall(destination_turf))
 						destination_turf.ChangeTurf(/turf/open/floor/rogue/dirt)
 
 				if(AQUA)
@@ -278,6 +434,7 @@ These notes should help get the map to generate in a shape you want:
 
 /area/procedural_generation/cave/setup_procgen()
 	..()
+	label_components()
 	// Generate separate caverns and winding passages
 	generate_caverns()
 	generate_tunnels()
@@ -292,11 +449,15 @@ These notes should help get the map to generate in a shape you want:
 	generation_map.Cut()
 	turf_map.Cut()
 	cavern_centers.Cut()
+	components.Cut()
+	cell_component.Cut()
 
 /area/procedural_generation/cave/final_pass()
 	if(smooth_edges == TRUE)
-		for(var/i = 1, i >= smooth_amount, i++)
+		for(var/i = 1, i <= smooth_amount, i++)
 			for(var/turf/T in src)
+				if(T.z != low_z)
+					continue
 				if(iswall(T))
 					var/ortho_walls = 0
 					var/diag_walls = 0
@@ -317,36 +478,38 @@ These notes should help get the map to generate in a shape you want:
 		muddy_shorelines()
 // Customized drunk-walk algorithm for cavern generation
 /area/procedural_generation/cave/proc/generate_caverns()
-	var/current_x, current_y
-	for(var/i in min_caverns to max_caverns)
-		current_x = rand(low_x, high_x)
-		current_y = rand(low_y, high_y)
+	for(var/component_index in distribute_seeds(max(1, max_caverns - min_caverns + 1)))
+		var/list/cells = components[component_index]
+		if(!length(cells))
+			continue
+		var/list/coords = splittext(pick(cells), "-")
+		var/current_x = text2num(coords[1])
+		var/current_y = text2num(coords[2])
 
 		var/cavern_size = rand(min_cavern_size, max_cavern_size)
 		for(var/j in 1 to cavern_size)
 			for(var/rx in -1 to 1)
 				for(var/ry in -1 to 1)
-					var/nx = clamp(current_x + rx, low_x, high_x)
-					var/ny = clamp(current_y + ry, low_y, high_y)
-					var/adjacent_key = "[nx]-[ny]"
-					generation_map[adjacent_key] = FALSE
+					carve_cell(current_x + rx, current_y + ry)
 
 			// Randomly move to a new position to continue generating the cavern
-			current_x = clamp(current_x + rand(-2, 2), low_x, high_x)
-			current_y = clamp(current_y + rand(-2, 2), low_y, high_y)
+			var/list/step = wander_step(current_x, current_y, 2)
+			current_x = step[1]
+			current_y = step[2]
 
 		// Add the center to the cavern_centers list
-		cavern_centers += list(list(current_x, current_y))
+		cavern_centers += list(list(current_x, current_y, component_index))
 
 // Customized tunneling algorithm for... tunnel generation
 /area/procedural_generation/cave/proc/generate_tunnels()
-	var/current_x, current_y
 	var/tunnels = rand(min_tunnels, max_tunnels)
 	for(var/i in 1 to tunnels)
 		// Start at a random position, preferably on an existing cavern to ensure connectivity
-		var/start_position = length(cavern_centers) ? pick(cavern_centers) : list(rand(low_x, high_x), rand(low_y, high_y))
-		current_x = start_position[1]
-		current_y = start_position[2]
+		var/list/start_position = length(cavern_centers) ? pick(cavern_centers) : random_area_cell()
+		if(!start_position)
+			return
+		var/current_x = start_position[1]
+		var/current_y = start_position[2]
 
 		var/tunnel_length = rand(min_tunnel_length, max_tunnel_length)
 		var/tunnel_width = rand(min_tunnel_width, max_tunnel_width)
@@ -361,32 +524,19 @@ These notes should help get the map to generate in a shape you want:
 
 				// Apply width offset based on the direction
 				switch(chosen_direction)
-					if(NORTH)
+					if(NORTH, SOUTH)
 						width_x += w
-					if(SOUTH)
-						width_x += w
-					if(EAST)
-						width_y += w
-					if(WEST)
+					if(EAST, WEST)
 						width_y += w
 
-				var/key = "[width_x]-[width_y]"
-				generation_map[key] = FALSE
+				carve_cell(width_x, width_y)
 
 			// Move in the chosen direction
-			switch(chosen_direction)
-				if(NORTH)
-					if((current_y + 1) <= high_y)
-						current_y++
-				if(SOUTH)
-					if((current_y - 1) >= low_y)
-						current_y--
-				if(EAST)
-					if((current_x + 1) <= high_x)
-						current_x++
-				if(WEST)
-					if((current_x - 1) >= low_x)
-						current_x--
+			var/list/step = step_in_direction(current_x, current_y, chosen_direction)
+			if(!step)
+				continue
+			current_x = step[1]
+			current_y = step[2]
 
 // This checks to make sure the entrance turf is accessible
 /area/procedural_generation/cave/proc/setup_connections()
@@ -413,11 +563,28 @@ These notes should help get the map to generate in a shape you want:
 				min_distance = distance
 				nearest_cavern_center = cavern_center
 
+		if(!nearest_cavern_center)
+			continue
+
 		generate_path(start_x, start_y, nearest_cavern_center[1], nearest_cavern_center[2])
 
 // This connects the entrance to the nearest cavern, then connects that cavern to the cavern closest to it, and so on, until every cavern is connected
 /area/procedural_generation/cave/proc/connect_caverns()
-	var/list/local_cavern_centers = src.cavern_centers.Copy()
+	var/list/grouped = list()
+	for(var/list/center as anything in cavern_centers)
+		var/group_key = "[center[3]]"
+		var/list/group = grouped[group_key] || list()
+		group += list(center)
+		grouped[group_key] = group
+
+	for(var/group_key in grouped)
+		chain_caverns(grouped[group_key])
+
+/area/procedural_generation/cave/proc/chain_caverns(list/centers)
+	if(!length(centers))
+		return
+
+	var/list/local_cavern_centers = centers.Copy()
 	var/list/start = local_cavern_centers[1]
 	var/start_x = start[1]
 	var/start_y = start[2]
@@ -457,59 +624,52 @@ These notes should help get the map to generate in a shape you want:
 
 /area/procedural_generation/cave/proc/create_branch(start_x, start_y, direction, length)
 	for(var/i in 1 to length)
-		var/key = "[start_x]-[start_y]"
-		generation_map[key] = FALSE  // Carve out the path
+		carve_cell(start_x, start_y)
 
 		// Move in the chosen direction
-		switch(direction)
-			if(NORTH)
-				start_y++
-			if(SOUTH)
-				start_y--
-			if(EAST)
-				start_x++
-			if(WEST)
-				start_x--
+		var/list/step = step_in_direction(start_x, start_y, direction)
+		if(!step)
+			direction = pick(GLOB.cardinals)
+			step = step_in_direction(start_x, start_y, direction)
+			if(!step)
+				return
+		start_x = step[1]
+		start_y = step[2]
 
 		// Randomly change the direction slightly to create a more natural branch
 		if(prob(30))
 			direction = pick(GLOB.cardinals)
 
-// The actual path generation for connections is a modified drunk-walk algorithm
 /area/procedural_generation/proc/generate_path(start_x, start_y, end_x, end_y, randomness = 40)
-	while(start_x != end_x || start_y != end_y)
-		var/key = "[start_x]-[start_y]"
-		generation_map[key] = FALSE  // Carve the path
+	var/list/route = route_within_area(start_x, start_y, end_x, end_y)
+	if(!route)
+		carve_cell(start_x, start_y)
+		return
 
-		// Calculate the direction vector towards the goal
-		var/delta_x = end_x - start_x
-		var/delta_y = end_y - start_y
-		var/step_x = delta_x ? delta_x / abs(delta_x) : 0  // Normalize the step to be 1, -1, or 0
-		var/step_y = delta_y ? delta_y / abs(delta_y) : 0
+	for(var/list/step as anything in route)
+		carve_cell(step[1], step[2])
+		if(!prob(randomness))
+			continue
+		var/list/jitter = step_in_direction(step[1], step[2], pick(GLOB.cardinals))
+		if(jitter)
+			carve_cell(jitter[1], jitter[2])
+/area/procedural_generation/cave/test
+	name = "test cave"
+	max_caverns = 4
+	min_cavern_size = 6
+	max_cavern_size = 10
+	min_tunnels = 3
+	max_tunnels = 6
+	max_tunnel_length = 8
 
-		if(prob(randomness))
-			// Random direction
-			var/chosen_direction = pick(GLOB.cardinals)
-			switch(chosen_direction)
-				if(NORTH)
-					if((start_y + 1) <= high_y)
-						start_y++
-				if(SOUTH)
-					if((start_y - 1) >= low_y)
-						start_y--
-				if(EAST)
-					if((start_x + 1) <= high_x)
-						start_x++
-				if(WEST)
-					if((start_x - 1) >= low_x)
-						start_x--
-		else
-			// Biased movement towards the goal
-			var/move_x = rand() < abs(delta_x) / (abs(delta_x) + abs(delta_y))
-			if(move_x)
-				start_x += step_x
-			else
-				start_y += step_y
+/area/procedural_generation/cave/test/flooded
+	name = "test flooded cave"
+	generate_water = TRUE
+	min_lakes = 2
+	max_lakes = 4
+	min_lake_size = 16
+	max_lake_size = 32
+
 /*
   __  __    _     __________ ____
  |  \/  |  / \   |__  / ____/ ___|
@@ -663,11 +823,15 @@ Notes about water generation:
 	var/lake_radius = sqrt(lake_size / M_PI)
 	var/edge_threshold = 0.8 // How close to the radius the tile must be to be considered an edge tile (0 to 1, with 1 being at the exact radius)
 
-	for(var/dx = -lake_radius, dx <= lake_radius, dx++)
-		for(var/dy = -lake_radius, dy <= lake_radius, dy++)
+	var/span = round(lake_radius)
+	for(var/dx = -span, dx <= span, dx++)
+		for(var/dy = -span, dy <= span, dy++)
 			var/distance_squared = dx * dx + dy * dy
 			if(distance_squared > lake_radius * lake_radius) // Check if the tile is outside the circle
 				continue // Skip this iteration as this tile is outside of the lake's circular area
+
+			if(!in_area(cx + dx, cy + dy))
+				return FALSE
 
 			var/turf/below_turf = GetBelow(locate(cx + dx, cy + dy, low_z))
 			if(!below_turf || !iswall(below_turf)) // Check if below turf is a wall and exists
@@ -718,6 +882,8 @@ Notes about water generation:
 							continue // Skip the center point
 						var/new_x = current_x + adj_x
 						var/new_y = current_y + adj_y
+						if(!in_area(new_x, new_y))
+							continue
 						var/list/new_point = list(new_x, new_y)
 
 						// Add point to lake_points and new_edge_points if it's not already there
@@ -733,8 +899,7 @@ Notes about water generation:
 			// Update the map with lake and mud tiles
 			for(var/point in lake_points)
 				var/list/coord = point
-				var/key = "[coord[1]]-[coord[2]]"
-				generation_map[key] = HOLE
+				carve_cell(coord[1], coord[2], HOLE)
 		else
 			log_debug("Failed to create a cohesive lake or not enough points: [length(lake_points)] after [attempts] attempts.")
 
@@ -798,6 +963,9 @@ Notes about water generation:
 	var/list/try_keys = list()
 
 	while(current_x != end_x || current_y != end_y)
+		var/previous_x = current_x
+		var/previous_y = current_y
+
 		// Calculate the direction vector towards the goal
 		var/delta_x = end_x - current_x
 		var/delta_y = end_y - current_y
@@ -817,9 +985,9 @@ Notes about water generation:
 			else
 				current_y += step_y
 
-		// Ensure we're still within bounds
-		current_x = clamp(current_x, low_x, high_x)
-		current_y = clamp(current_y, low_y, high_y)
+		if(!in_area(current_x, current_y))
+			current_x = previous_x
+			current_y = previous_y
 
 		// Carve out a path with variable thickness
 		var/path_width = rand(min_width, max_width)
@@ -830,7 +998,7 @@ Notes about water generation:
 				var/offset_y = current_y + wy
 
 				// Ensure the offsets are within bounds and create a rounded path
-				if(abs(wx) + abs(wy) <= path_width && in_bounds(offset_x, offset_y))
+				if(abs(wx) + abs(wy) <= path_width && in_area(offset_x, offset_y))
 					var/key = "[offset_x]-[offset_y]"
 					try_keys[key] = HOLE // Carve the path with water
 
@@ -860,23 +1028,23 @@ Notes about water generation:
 	aquifer_centers.Cut()
 
 /area/procedural_generation/aquifer/proc/generate_aquifers()
-	var/current_x, current_y
 	for(var/i in min_aquifers to max_aquifers)
-		current_x = rand(low_x, high_x)
-		current_y = rand(low_y, high_y)
+		var/list/start_position = random_area_cell()
+		if(!start_position)
+			return
+		var/current_x = start_position[1]
+		var/current_y = start_position[2]
 
 		var/aquifer_size = rand(min_aquifer_size, max_aquifer_size)
 		for(var/j in 1 to aquifer_size)
 			for(var/rx in -1 to 1)
 				for(var/ry in -1 to 1)
-					var/nx = clamp(current_x + rx, low_x, high_x)
-					var/ny = clamp(current_y + ry, low_y, high_y)
-					var/adjacent_key = "[nx]-[ny]"
-					generation_map[adjacent_key] = AQUA
+					carve_cell(current_x + rx, current_y + ry, AQUA)
 
 			// Randomly move to a new position to continue generating the cavern
-			current_x = clamp(current_x + rand(-2, 2), low_x, high_x)
-			current_y = clamp(current_y + rand(-2, 2), low_y, high_y)
+			var/list/step = wander_step(current_x, current_y, 2)
+			current_x = step[1]
+			current_y = step[2]
 
 		// Add the center to the cavern_centers list
 		aquifer_centers += list(list(current_x, current_y))
@@ -901,9 +1069,13 @@ Notes about water generation:
 /area/procedural_generation/river/proc/generate_river()
     var/current_x = source_x
     var/current_y = source_y
+    var/max_steps = ((high_x - low_x) + (high_y - low_y)) * 4
 
     // Carve out a path for the river
     while(current_x != mouth_x || current_y != mouth_y)
+        if(max_steps-- <= 0)
+            break
+
         carve_river_path(current_x, current_y, min_river_width, max_river_width)
 
         // Determine the next step toward the river mouth, with possible meandering
@@ -917,9 +1089,11 @@ Notes about water generation:
             step_x = rand(-1, 1)
             step_y = rand(-1, 1)
 
-        // Attempt to move toward the mouth, while staying in bounds
-        current_x = clamp(current_x + step_x, low_x, high_x)
-        current_y = clamp(current_y + step_y, low_y, high_y)
+        var/next_x = current_x + step_x
+        var/next_y = current_y + step_y
+        if(in_area(next_x, next_y))
+            current_x = next_x
+            current_y = next_y
 
     // Carve the final approach to the mouth
     carve_river_path(mouth_x, mouth_y, min_river_width, max_river_width)
@@ -931,9 +1105,8 @@ Notes about water generation:
 		for(var/wy = -path_width; wy <= path_width; wy++)
 			var/offset_x = current_x + wx
 			var/offset_y = current_y + wy
-			if(in_bounds(offset_x, offset_y) && abs(wx) + abs(wy) <= path_width)
-				var/river_key = "[offset_x]-[offset_y]"
-				generation_map[river_key] = HOLE // Carve the river path
+			if(abs(wx) + abs(wy) <= path_width)
+				carve_cell(offset_x, offset_y, HOLE) // Carve the river path
 
 /*
   _____ ___  ____  _____ ____ _____
