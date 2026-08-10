@@ -219,8 +219,6 @@ SUBSYSTEM_DEF(procgen)
 	for(var/turf/T as anything in mimics)
 		T.update_mimic()
 
-/area/procedural_generation/proc/generate_probes() // This is for creating sound probes to tell clients what sound environments to apply when they recieve playsound calls. It should be overridden based on the mapgen type.
-	return
 /*
    ____
   / ___|__ ___   _____  ___
@@ -289,8 +287,6 @@ These notes should help get the map to generate in a shape you want:
 	final_pass()
 	// Actually apply our generation map
 	apply_generation_map()
-	// Generate sound probes
-	generate_probes()
 
 	// Empty everything from memory now that we don't need it anymore
 	generation_map.Cut()
@@ -319,14 +315,6 @@ These notes should help get the map to generate in a shape you want:
 		generate_water()
 		smooth_lakes()
 		muddy_shorelines()
-/*
-/area/procedural_generation/cave/generate_probes()
-	for(var/coord in cavern_centers)
-		var/turf/soundturf = locate(coord[1], coord[2], src.z)
-		var/obj/effect/landmark/sound_probe/probe = new(soundturf, 8)
-		probe.//sound_env = 8
-*/
-
 // Customized drunk-walk algorithm for cavern generation
 /area/procedural_generation/cave/proc/generate_caverns()
 	var/current_x, current_y
@@ -867,18 +855,10 @@ Notes about water generation:
 	..()
 	generate_aquifers()
 	apply_generation_map()
-	generate_probes()
 	generation_map.Cut()
 	turf_map.Cut()
 	aquifer_centers.Cut()
 
-/*
-/area/procedural_generation/aquifer/generate_probes()
-	for(var/coord in aquifer_centers)
-		var/turf/soundturf = locate(coord[1], coord[2], src.z)
-		var/obj/effect/landmark/sound_probe/probe = new(soundturf, 8)
-		probe.//sound_env = 8
-*/
 /area/procedural_generation/aquifer/proc/generate_aquifers()
 	var/current_x, current_y
 	for(var/i in min_aquifers to max_aquifers)
