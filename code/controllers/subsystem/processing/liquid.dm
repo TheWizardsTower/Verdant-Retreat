@@ -39,8 +39,7 @@ PROCESSING_SUBSYSTEM_DEF(liquid)
 	var/datum/liquid_registry/registry
 	var/datum/liquid_manager/manager
 	var/datum/pool_manager/pool_manager
-	var/list/overlay_appearance_cache // visual tuple -> render_target string of its master
-	var/list/liquid_render_masters
+	var/list/overlay_appearance_cache // visual tuple -> cached appearance
 	var/list/icon_half_heights
 
 	// The simulation runs in verdant_native; DM keeps the per-type /cell
@@ -69,15 +68,12 @@ PROCESSING_SUBSYSTEM_DEF(liquid)
 		pool_manager = new
 	if(!overlay_appearance_cache)
 		overlay_appearance_cache = new
-	if(!liquid_render_masters)
-		liquid_render_masters = new
 
 /datum/controller/subsystem/processing/liquid/Recover()
 	registry = SSliquid.registry
 	manager = SSliquid.manager
 	pool_manager = SSliquid.pool_manager
 	overlay_appearance_cache = SSliquid.overlay_appearance_cache
-	liquid_render_masters = SSliquid.liquid_render_masters
 
 /datum/controller/subsystem/processing/liquid/Initialize()
 	. = ..()
@@ -339,50 +335,36 @@ PROCESSING_SUBSYSTEM_DEF(liquid)
 		return live
 	return C.vis_fluid_level
 
-/atom/movable/screen/liquid_render_source
-	icon = 'icons/turf/newwater.dmi'
-	screen_loc = "CENTER"
-	mouse_opacity = MOUSE_OPACITY_TRANSPARENT
-
-/// One shared master renders each visual combination once; every overlay
-/// showing it just points render_source at the master and positions itself
-/// with its own layer/plane.
-/datum/controller/subsystem/processing/liquid/proc/overlay_render_target(state, ndir, ncolor, darken_band, nalpha)
+/// One cached appearance per visual combination; every overlay showing it
+/// assigns that appearance and then positions itself with its own layer/plane.
+/datum/controller/subsystem/processing/liquid/proc/overlay_appearance(state, ndir, ncolor, darken_band, nalpha)
 	var/key = "[state]|[ndir]|[ncolor]|[darken_band]|[nalpha]"
-	var/target = overlay_appearance_cache[key]
-	if(target)
-		return target
+	var/cached = overlay_appearance_cache[key]
+	if(cached)
+		return cached
 	if(length(overlay_appearance_cache) > 512)
-		for(var/atom/movable/screen/liquid_render_source/old as anything in liquid_render_masters)
-			for(var/client/C as anything in GLOB.clients)
-				C?.screen -= old
-			qdel(old)
-		liquid_render_masters = list()
 		overlay_appearance_cache = list()
-	target = "*LIQ:[key]"
-	var/atom/movable/screen/liquid_render_source/M = new
-	M.icon_state = state
-	M.dir = ndir
+	var/static/image/liquidbro
+	if(!liquidbro)
+		liquidbro = new()
+		liquidbro.icon = 'icons/turf/newwater.dmi'
+		liquidbro.mouse_opacity = MOUSE_OPACITY_TRANSPARENT
+	liquidbro.icon_state = state
+	liquidbro.dir = ndir
 	if(istext(ncolor) && darken_band > 0)
-		M.color = color_matrix_multiply(color_hex2color_matrix(ncolor), color_matrix_lightness_mult(max(1 - (0.07 * darken_band), 0)))
+		liquidbro.color = color_matrix_multiply(color_hex2color_matrix(ncolor), color_matrix_lightness_mult(max(1 - (0.07 * darken_band), 0)))
 	else
-		M.color = ncolor
-	M.alpha = nalpha
-	M.render_target = target
-	liquid_render_masters += M
-	for(var/client/C as anything in GLOB.clients)
-		C?.screen += M
-	overlay_appearance_cache[key] = target
-	return target
+		liquidbro.color = ncolor
+	liquidbro.alpha = nalpha
+	cached = liquidbro.appearance
+	overlay_appearance_cache[key] = cached
+	return cached
 
 /datum/controller/subsystem/processing/liquid/proc/apply_overlay_appearance(obj/effect/liquid/OV, state, ndir, ncolor, darken_band, nalpha, nlayer, nplane)
 	if(nalpha <= 0)
-		OV.render_source = null
 		OV.alpha = 0
 		return
-	OV.render_source = overlay_render_target(state, ndir, ncolor, darken_band, nalpha)
-	OV.color = null
-	OV.alpha = 255
+	OV.appearance = overlay_appearance(state, ndir, ncolor, darken_band, nalpha)
 	OV.layer = nlayer
 	OV.plane = nplane
 
@@ -426,7 +408,7 @@ PROCESSING_SUBSYSTEM_DEF(liquid)
 		if(below?.cell && get_vis_fluid_level(below) >= FLUID_FULL)
 			ncolor = cell_vis_color(below.cell) || ncolor
 			var/state = "together"
-			var/ndir = OV.dir
+			var/ndir = initial(OV.dir)
 			if(below.cell.flow_dir && (istype(below, /turf/open/floor/rogue/riverbot) || istype(below, /turf/open/floor/rogue/lakebed)))
 				state = "rivermove"
 				ndir = below.cell.flow_dir
@@ -440,7 +422,7 @@ PROCESSING_SUBSYSTEM_DEF(liquid)
 		return
 
 	var/state = "together-NEW"
-	var/ndir = OV.dir
+	var/ndir = initial(OV.dir)
 	if(T.cell?.flow_dir)
 		state = "rivermove"
 		ndir = T.cell.flow_dir
