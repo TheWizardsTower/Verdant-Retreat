@@ -67,19 +67,23 @@ PROCESSING_SUBSYSTEM_DEF(liquid)
 		manager = new
 	if(!pool_manager)
 		pool_manager = new
+	if(!overlay_appearance_cache)
+		overlay_appearance_cache = new
+	if(!liquid_render_masters)
+		liquid_render_masters = new
 
 /datum/controller/subsystem/processing/liquid/Recover()
 	registry = SSliquid.registry
 	manager = SSliquid.manager
 	pool_manager = SSliquid.pool_manager
+	overlay_appearance_cache = SSliquid.overlay_appearance_cache
+	liquid_render_masters = SSliquid.liquid_render_masters
 
 /datum/controller/subsystem/processing/liquid/Initialize()
 	. = ..()
 	NEW_SS_GLOBAL(SSliquid)
 
 	
-	overlay_appearance_cache = new
-	liquid_render_masters = new
 	icon_half_heights = new
 	vn_edit_queue = new
 	vn_res_queue = new

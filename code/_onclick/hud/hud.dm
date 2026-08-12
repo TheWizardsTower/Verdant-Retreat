@@ -250,7 +250,7 @@ GLOBAL_LIST_INIT(available_ui_styles, sortList(list(
 		var/atom/movable/screen/plane_master/PM = plane_masters[thing]
 		PM.backdrop(mymob)
 		mymob.client.screen += PM
-	if(SSliquid)
+	if(length(SSliquid?.liquid_render_masters))
 		mymob.client.screen |= SSliquid.liquid_render_masters
 
 /datum/hud/human/show_hud(version = 0,mob/viewmob)
